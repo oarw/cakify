@@ -8,12 +8,12 @@
 ## 1. 当前快照
 
 - 工作目录：C:\Users\admin\Desktop\code\cakify
-- Git 状态：已初始化本地 `main` 分支；尚无 commit，全部项目文件未跟踪；Git 作者姓名与邮箱尚未配置。
-- GitHub 远端：尚未配置。
+- Git 状态：本地 `main` 干净，当前 commit 为 4e605d730ca61f3461e517d34955eefba9aa8b92，已跟踪 origin/main；作者使用 GitHub noreply 地址。
+- GitHub 远端：`https://github.com/oarw/cakify.git`。
 - 原型源码：已创建共享 Cargo workspace、benchmark protocol/core、fixture、视觉 token、结果 schema、采集脚本，以及四个 UI 壳目录与实现契约；四个真实 UI 尚未实现。
-- GitHub Actions：已创建 `validate.yml` 与 `benchmark.yml`；两者仅允许 `workflow_dispatch`，从未运行。
-- 仓库可见性：没有远端，当前不适用；没有执行 public/private 修改。
-- 当前目标：先用 GitHub Actions 编译并验证共享 Rust core，取得 `Cargo.lock`，再按同一契约实现四个 UI 壳。
+- GitHub Actions：已创建 validate.yml 与 benchmark.yml；两者仅允许 workflow_dispatch，首次 push 后 run 列表为空。
+- 仓库可见性：当前为 PRIVATE；本轮没有 public/private 切换。
+- 当前目标：先实现四个可执行 UI 壳，再临时公开运行真实四候选 matrix；scaffold_only 不作为性能结果。
 - 执行方式：源码由 AI 完成；本机只做源码编辑和静态解析；构建、测试、基准、打包通过 GitHub Actions。
 - 本地验证：JSON 可解析、PowerShell 语法可解析、常见 secret/私钥文件扫描无命中、workflow 触发器与固定 SHA 已检查。
 - 未验证：本机没有 Cargo，未执行 Rust 格式化、编译、测试、GUI 启动或 benchmark；不得把当前状态写成构建通过。
@@ -77,7 +77,8 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 - [x] 确认 AI Core 与 UI 壳解耦，TypeScript/Python 只作为可选扩展运行时。
 - [x] 写入 2026 年 8 月 GitHub Actions 私库额度与可见性临时规则。
 - [x] 建立进度记录、公开检查表与跨供应商交接机制。
-- [x] 初始化本地 Git `main` 仓库；未创建远端或 commit。
+- [x] 初始化本地 Git `main` 仓库并配置 noreply 作者。
+- [x] 创建初始 commit 4e605d730ca61f3461e517d34955eefba9aa8b92，创建并推送 oarw/cakify 私有远端。
 - [x] 建立 Cargo workspace、`bench-protocol` 与 `bench-core`。
 - [x] 固化 10,000 消息 fixture manifest、视觉 token、附件和结果 JSON schema。
 - [x] Rust core 实现 localhost HTTP/SSE、确定性分页、30 秒流式事件、工具时间线和取消。
@@ -90,15 +91,15 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 
 ## 7. 尚未开始
 
-- [ ] 配置 Git 作者身份并创建初始 commit。
-- [ ] 配置 GitHub 远端。
+- [x] 配置 Git 作者身份并创建初始 commit。
+- [x] 配置并核实 oarw/cakify 私有 GitHub 远端。
 - [ ] 选择公开仓库许可证；当前没有 LICENSE，Rust 包为 `publish = false`。
-- [ ] 在 Actions 中运行 Rust 格式化与契约测试。
+- [ ] 在 Actions 中运行 Rust 格式化与契约测试（需先实现真实壳并获得临时公开授权）。
 - [ ] 从首次 validate artifact 取得并提交 `Cargo.lock`。
-- [ ] 实现 GPUI UI 原型。
-- [ ] 实现 Avalonia UI 原型。
-- [ ] 实现 Flutter UI 原型。
-- [ ] 实现 Tauri + Svelte UI 原型。
+- [ ] 实现 GPUI UI 原型（当前仅契约 README）。
+- [ ] 实现 Avalonia UI 原型（当前仅契约 README）。
+- [ ] 实现 Flutter UI 原型（当前仅契约 README）。
+- [ ] 实现 Tauri + Svelte UI 原型（当前仅契约 README）。
 - [ ] 把 scaffold matrix 升级为四套 x64 release 构建与真实采集。
 - [ ] 生成第一轮安装包、截图和 JSON 指标。
 - [ ] 至少完成三轮稳定基准。
@@ -108,14 +109,12 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 
 下一位执行者从这里继续，不要重新做框架泛泛调研：
 
-1. 完整阅读 AGENTS.md、docs/HANDOFF.md、本文件和 docs/PUBLIC_ACTIONS_CHECKLIST.md。
-2. 检查 `git status --short --branch`、`git remote -v` 和两个 workflow；实际状态优先于文档。
-3. 获得用户希望使用的 Git 作者姓名/邮箱与 GitHub 仓库信息，创建初始 commit 并连接 remote；不要自行虚构身份。
-4. 远端建立后完成历史、Secrets、LFS、Release、Issue、cache/artifact 和许可证检查。
-5. 展示公开前检查结果，等待用户对本次 `public → Actions → private` 的明确授权。
-6. 首先只运行 `Validate scaffold`；记录 URL/ID、commit、日志和 `Cargo.lock` artifact。
-7. 修复 Rust 格式/编译/契约测试，提交锁文件；在 core 验证通过前不要同时引入四套依赖树。
-8. 依次实现 GPUI、Avalonia、Flutter、Tauri 最小壳，再升级真实 benchmark workflow。
+1. 阅读 docs/FRAMEWORK-IMPLEMENTATION-PLAN.md，按 GPUI、Avalonia、Flutter、Tauri 顺序实现最小可执行壳。
+2. 每个壳都必须启动同一 cakify-bench-core.exe，完成 ready、分页、虚拟列表、主题、工具事件和取消。
+3. 更新 benchmark.yml：真实构建四个 Windows x64 release artifact，不能再只生成 scaffold_only。
+4. 完成远端公开前审计并向用户展示：当前仓库 PRIVATE、只有一个初始 commit、无 secrets/variables/environments、无 LFS/Release/Issue/PR/cache/artifact。
+5. 获得本次 public -> Actions -> private 的明确授权后，先跑 validate，再跑真实四候选 matrix。
+6. 记录每个 run 的 URL/ID、commit、artifact、失败原因和最终结论；未运行不得写成通过。
 
 ## 9. 预计节奏
 
@@ -125,13 +124,12 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 
 ## 10. 当前阻塞与授权门
 
-- BLOCKED_FOR_ACTIONS：只有本地空历史 Git 仓库，没有 commit 和 GitHub remote，不能运行 Actions。
-- AUTHOR_REQUIRED：Git 作者姓名/邮箱未配置；不得替用户虚构提交身份。
-- GH_ENVIRONMENT_NOTE：普通沙箱中的 keyring/代理隔离会让 `gh` 检查失败；在授权环境中 `gh auth status` 已验证账号 `oarw` 有效，未执行任何写操作。
-- APPROVAL_REQUIRED：任何仓库 public/private 切换必须由用户针对本次操作明确授权。
-- SECURITY_REQUIRED：远端建立后必须重新检查完整历史、Secrets、LFS、Issue、Release、Actions artifact/cache 和许可证。
+- UI_IMPLEMENTATION_PENDING：四个 app 目录目前只有 README 契约，直接运行 matrix 只能得到 scaffold_only，不能回答性能问题。
+- PRIVATE_ACTIONS_QUOTA：2026 年 8 月私库 Actions 分钟耗尽；当前仓库保持 PRIVATE，不运行 workflow。
+- PUBLIC_AUTH_REQUIRED：任何 public/private 切换必须由用户针对本次操作明确授权。
+- SECURITY_REQUIRED：公开前必须完成完整历史、Secrets、LFS、Release、Issue、PR、Actions artifact/cache 和许可证检查。
 - LICENSE_PENDING：当前没有 LICENSE；临时 public 只表示源码可见，不表示已选择开源许可。
-- BOOTSTRAP_PENDING：尚无 `Cargo.lock`；计划由首次 validate workflow 生成 artifact 后提交。
+- BOOTSTRAP_PENDING：尚无 Cargo.lock；计划由首次 validate workflow 生成 artifact 后提交。
 - MANUAL_RISK：真实中文 IME、物理 GPU、DPI 和多显示器无法仅靠普通托管 runner 得出最终结论。
 
 ## 11. 进度日志
@@ -151,7 +149,9 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 - 创建四个 UI 壳目录和仅手动触发的 validate/benchmark scaffold workflow。
 - 本地静态检查通过：3 个 JSON 可解析、3 个 PowerShell 脚本语法可解析、workflow 无自动触发、secret 模式与敏感扩展名无命中。
 - 重新在授权环境验证 `gh auth status`/`gh api user` 成功，账号为 `oarw`；仓库列表没有 `cakify`，没有创建或修改远端。
-- 本机未安装 Cargo，未运行编译、测试或 benchmark；等待远端与明确授权。
+- 本机未安装 Cargo，未运行编译、测试或 benchmark；等待四个真实壳完成和临时公开授权。
+- 远端公开前审计完成：单一初始 commit；无 Secrets、Variables、Environments、Issues/PR、Releases、Artifacts、Caches、LFS；无分支保护；Actions 权限为 enabled/all，但 workflow 内第三方 Action 已固定 SHA。
+- 暂不运行四候选 matrix：四个 app 尚未有可执行 UI，当前 workflow 只会生成 scaffold_only。
 
 ## 12. 更新规则
 

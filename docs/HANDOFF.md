@@ -2,7 +2,7 @@
 
 > 用途：任何新的 AI 模型、供应商或工程师应在开始工作前完整阅读本文件。  
 > 最后更新：2026-08-16（Asia/Shanghai）  
-> 交接状态：本地共享骨架已完成；等待提交身份、GitHub remote 与公开运行授权。
+> 交接状态：私有远端已建立并推送共享骨架；四个真实 UI 尚未实现，等待实现和公开运行授权。
 
 ## 1. 五分钟上下文
 
@@ -56,18 +56,18 @@ Cakify 目标是一个 Windows-first 的高性能 AI Chat 客户端：
 ## 4. 当前真实状态
 
 - 工作区路径：C:\Users\admin\Desktop\code\cakify
-- 已初始化本地 Git `main` 分支，但还没有 commit；Git 作者姓名和邮箱未配置。
-- 没有 GitHub remote，也没有任何远端 visibility 可修改。
+- 本地分支：`main`，当前 commit `4e605d730ca61f3461e517d34955eefba9aa8b92`，工作树干净；作者为 GitHub noreply 地址。
+- GitHub remote：`https://github.com/oarw/cakify.git`，仓库为 PRIVATE，默认分支 `main`。
 - 已有 Cargo workspace：
   - `crates/bench-protocol`
   - `crates/bench-core`
 - 已有统一 fixture、视觉 token、附件、结果 schema 和 Windows 采集脚本。
 - `apps/gpui-bench`、`apps/avalonia-bench`、`apps/flutter-bench`、`apps/tauri-bench` 已建立契约 README，真实 UI 尚未实现。
 - 已有 `.github/workflows/validate.yml` 与 `benchmark.yml`；只允许 `workflow_dispatch`，从未运行。
-- 没有 Action run ID、URL、Cargo.lock、构建产物、截图或 benchmark artifact。
+- 首次 push 后 gh run list 为空；没有 Action run ID、URL、Cargo.lock、构建产物、截图或 benchmark artifact。
 - 本机没有 Cargo；没有执行编译、测试、GUI 启动或 benchmark。
 - 已完成源码级 secret 扫描和静态解析，结果记录在 `docs/PUBLIC_ACTIONS_CHECKLIST.md`。
-- 普通沙箱曾因 keyring/代理隔离误报 token 失效；在授权环境中 `gh auth status` 与 `gh api user` 已验证账号 `oarw` 有效。账号下没有 `cakify` 仓库；不得自动创建远端。
+- 普通沙箱曾因 keyring/代理隔离误报 token 失效；在授权环境中 gh auth status 与 gh api user 已验证账号 oarw 有效。私有 cakify 远端已创建并核实。
 
 如果接手时上述状态已经变化，先检查实际工作区并更新本节，不要假设本文永远正确。
 
@@ -276,29 +276,25 @@ Tauri：
 
 当前请按以下顺序行动：
 
-1. 读取 AGENTS.md、本文件、docs/PROGRESS.md 和 docs/PUBLIC_ACTIONS_CHECKLIST.md。
-2. 执行只读检查：`git status --short --branch`、`git remote -v`、workflow 内容和实际文件。
-3. 从用户处获得 Git 作者姓名/邮箱与 GitHub 仓库信息；不要虚构身份。
-4. 创建初始 commit 并连接 remote，但不自动修改 visibility 或触发 Actions。
-5. 远端建立后重新做完整公开前安全检查。
-6. 展示检查结果，等待本次 `public → Actions → private` 的明确授权。
-7. 首先只运行 `Validate scaffold`，记录 run URL/ID、commit 和 Cargo.lock artifact。
-8. Rust core 验证通过并提交 lockfile 后，依次实现四个最小 UI 壳。
-9. 最后把 scaffold matrix 升级为真实 x64 release benchmark。
-
-不要重新问“要不要用 Tauri/WinUI/Flutter”。当前任务是用数据比较四个已确认候选。
+1. 读取 AGENTS.md、本文件、docs/PROGRESS.md、docs/PUBLIC_ACTIONS_CHECKLIST.md 和 docs/FRAMEWORK-IMPLEMENTATION-PLAN.md。
+2. 实现四个真正可执行的 UI 壳；不要运行当前 scaffold_only matrix 伪装成 benchmark。
+3. 更新 workflow，构建 GPUI、Avalonia、Flutter、Tauri 四个 Windows x64 release artifact，并采集统一指标。
+4. 完成公开前安全审计并展示结果：当前 PRIVATE、单一初始 commit、无 secrets/variables/environments、无 LFS/Release/Issue/PR/cache/artifact。
+5. 获得用户本次 public -> Actions -> private 授权后再改 visibility 和运行 workflow。
+6. 记录 run URL/ID、commit、artifact、失败原因，并在确认无 queued/in_progress run 后恢复 PRIVATE。
 
 ## 15. 交接槽位
 
-- 当前分支：`main`（空历史）
-- 当前 commit：N/A（尚未配置 Git 作者身份）
-- GitHub remote：N/A
-- 最近 Action run：N/A（从未运行）
+- 当前分支：main
+- 当前 commit：4e605d730ca61f3461e517d34955eefba9aa8b92
+- GitHub remote：https://github.com/oarw/cakify.git
+- 当前 visibility：PRIVATE
+- 最近 Action run：N/A（首次 push 后为空）
 - 最近成功 artifact：N/A
-- 当前正在做：共享 benchmark 骨架已完成，等待首次远端 validate
+- 当前正在做：准备四个真实 UI 壳；当前 matrix 仍是 scaffold_only
 - 已知失败：无 CI 失败记录；源码尚未编译，本机没有 Cargo
-- 静态检查：JSON/PowerShell 解析通过；workflow 无自动触发；常见 secret/敏感文件扫描无命中
-- 精确下一动作：用户确认仓库名/创建授权、Git 作者信息和许可证后，创建初始 commit，连接 remote，再做远端公开检查
-- 需要用户决定：Git 作者姓名/邮箱、GitHub 仓库/remote、许可证、每次可见性切换授权
+- 公开前审计：单一初始 commit；无 Secrets/Variables/Environments、Issues/PR、Releases、Artifacts、Caches、LFS；无分支保护
+- 精确下一动作：实现四个最小壳并把 matrix 从 scaffold 升级为真实 release benchmark
+- 需要用户决定：许可证、四壳实现完成后的本次 public -> Actions -> private 授权
 
 每次停止工作或更换供应商前，必须更新以上槽位。
