@@ -1,0 +1,14 @@
+---
+description: 2026 年 8 月 Cakify 的 GitHub Actions 额度与仓库可见性规则
+alwaysApply: true
+---
+
+# GitHub Actions 临时执行规则
+
+- 本规则适用于整个仓库，有效期至 2026-08-31 23:59（Asia/Shanghai）。
+- 私有仓库 Actions 分钟本月已耗尽，私有状态下不要触发 workflow。
+- 需要 Actions 时：先做公开安全检查并取得用户明确确认，再改 public、执行并确认任务与产物，最后在无待运行任务后改回 private。
+- 公开过的历史与 fork 可能无法收回，任何 secret 都不得进入公开源码、日志、缓存或 artifact。
+- 不自动修改仓库可见性；每次切换都必须再次获得用户授权。
+- 构建、测试、基准、打包和发布使用 GitHub Actions，本机原则上只编辑源码。
+- 新月份先核实额度，再决定是否继续使用公开切换流程。

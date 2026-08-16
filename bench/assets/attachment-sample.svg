@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-label="benchmark attachment">
+  <rect width="640" height="360" fill="#e8eef4"/>
+  <rect x="32" y="32" width="576" height="296" rx="12" fill="#ffffff" stroke="#b8c5d1" stroke-width="4"/>
+  <circle cx="190" cy="146" r="42" fill="#f0b429"/>
+  <path d="M72 282 226 178l86 64 76-56 180 96H72Z" fill="#2f7d8a"/>
+  <text x="320" y="88" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="24" fill="#18323b">Cakify fixture</text>
+</svg>

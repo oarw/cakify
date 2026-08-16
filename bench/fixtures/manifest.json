@@ -1,0 +1,12 @@
+{
+  "protocol_version": "cakify.bench.v1",
+  "fixture_id": "chat-10k-v1",
+  "fixture_hash": "chat-10k-v1:deterministic-20260816",
+  "message_count": 10000,
+  "page_size": 200,
+  "stream_event_count": 30,
+  "stream_interval_ms": 1000,
+  "tool_event_count": 8,
+  "image_asset": "bench/assets/attachment-sample.svg",
+  "visual_spec_version": "visual.v1"
+}

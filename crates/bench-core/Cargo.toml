@@ -1,0 +1,18 @@
+[package]
+name = "cakify-bench-core"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+rust-version.workspace = true
+description = "Deterministic localhost benchmark service for Cakify UI shells"
+
+[dependencies]
+axum = { version = "0.8", features = ["json"] }
+futures-util = "0.3"
+getrandom = "=0.2.15"
+hex = "=0.4.3"
+tower-http = { version = "0.6", features = ["cors"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+cakify-bench-protocol = { path = "../bench-protocol" }

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cakify.invalid/schemas/scaffold-result.v1.json",
+  "title": "Cakify scaffold workflow result v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "candidate",
+    "fixture_hash",
+    "commit_sha",
+    "runner_image",
+    "generated_at_utc"
+  ],
+  "properties": {
+    "schema_version": { "const": "scaffold.v1" },
+    "status": { "const": "scaffold_only" },
+    "candidate": { "enum": ["gpui", "avalonia", "flutter", "tauri"] },
+    "fixture_hash": { "type": "string", "minLength": 1 },
+    "commit_sha": { "type": "string", "minLength": 7 },
+    "runner_image": { "type": "string" },
+    "generated_at_utc": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,10 @@
+[package]
+name = "cakify-bench-protocol"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+rust-version.workspace = true
+description = "Versioned wire types shared by the Cakify benchmark core and UI shells"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }

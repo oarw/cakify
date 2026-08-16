@@ -1,0 +1,15 @@
+---
+description: 保持 Cakify 在模型或供应商切换时的进度连续性
+alwaysApply: true
+---
+
+# 项目连续性规则
+
+- 每次开始工作先完整阅读 AGENTS.md、docs/HANDOFF.md 和 docs/PROGRESS.md。
+- 先检查实际文件、Git 状态、remote 与 Actions；实际状态优先于文档。
+- 不重复已完成的泛泛调研，按 PROGRESS.md 的“精确下一步”继续。
+- 每次完成实质改动后更新 PROGRESS.md 的快照、清单、阻塞和日志。
+- 每次停止工作或切换模型前更新 HANDOFF.md 的交接槽位。
+- Action 结果必须记录 run URL/ID、commit SHA、artifact 与结论；未运行不得写成通过。
+- 发现文档过期时先修正文档，再继续开发。
+- 不得因接手而绕过仓库可见性授权、安全检查或本机零构建约束。

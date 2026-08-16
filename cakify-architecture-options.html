@@ -1,0 +1,1475 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Cakify Windows 高性能 AI Chat 客户端架构调研：Tauri、WinUI 3、Slint、Wails、轻 Agent、MCP、性能门槛与 GitHub Actions。" />
+  <title>Cakify 架构调研与实施建议</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f3f0e8;
+      --paper-deep: #e7e1d5;
+      --sheet: #fbf9f3;
+      --ink: #17213a;
+      --ink-soft: #4a5262;
+      --line: #c9c1b2;
+      --line-strong: #8e887d;
+      --accent: #c6472f;
+      --accent-dark: #8e2e1e;
+      --blue: #244d74;
+      --green: #3d654b;
+      --code: #1c2637;
+      --code-ink: #eef0e8;
+      --measure: 820px;
+      --sidebar: 276px;
+      --shadow: 0 24px 70px rgba(42, 38, 31, 0.10);
+      font-family: "Segoe UI Variable Text", "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      background: var(--paper);
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(36, 77, 116, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(rgba(36, 77, 116, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+        var(--paper);
+      line-height: 1.78;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover {
+      color: var(--accent-dark);
+    }
+
+    a:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 65%, transparent);
+      outline-offset: 4px;
+      border-radius: 2px;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 20;
+      top: 12px;
+      left: 12px;
+      padding: 9px 13px;
+      color: var(--sheet);
+      background: var(--ink);
+      transform: translateY(-160%);
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: var(--sidebar) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100vh;
+      overflow: auto;
+      padding: 34px 26px 30px;
+      color: var(--sheet);
+      background: var(--ink);
+      border-right: 7px solid var(--accent);
+    }
+
+    .brand {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 30px;
+      padding-bottom: 25px;
+      border-bottom: 1px solid rgba(251, 249, 243, 0.22);
+    }
+
+    .brand-mark {
+      width: max-content;
+      padding: 3px 8px 4px;
+      color: var(--ink);
+      background: #e9b44c;
+      font: 800 0.72rem/1.3 "Segoe UI Variable Text", "Microsoft YaHei UI", sans-serif;
+      letter-spacing: 0.14em;
+    }
+
+    .brand strong {
+      font-family: "Segoe UI Variable Display", "Microsoft YaHei UI", sans-serif;
+      font-size: 1.52rem;
+      line-height: 1.08;
+      letter-spacing: -0.025em;
+    }
+
+    .brand small {
+      color: #c9d1dc;
+      font-size: 0.76rem;
+      line-height: 1.55;
+    }
+
+    .toc-title {
+      margin: 0 0 10px;
+      color: #e9b44c;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .toc {
+      display: grid;
+      gap: 2px;
+    }
+
+    .toc a {
+      padding: 5px 0;
+      color: #dce2e7;
+      font-size: 0.79rem;
+      line-height: 1.35;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+    }
+
+    .toc a:hover {
+      color: #fff4d9;
+      border-bottom-color: rgba(233, 180, 76, 0.55);
+    }
+
+    .rail-note {
+      margin: 27px 0 0;
+      padding-top: 18px;
+      color: #aeb9c5;
+      font-size: 0.7rem;
+      line-height: 1.55;
+      border-top: 1px solid rgba(251, 249, 243, 0.16);
+    }
+
+    main {
+      min-width: 0;
+      padding: clamp(28px, 5vw, 76px) clamp(20px, 6vw, 96px) 80px;
+    }
+
+    .document-kicker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      width: min(100%, var(--measure));
+      margin: 0 auto 20px;
+      color: var(--ink-soft);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.075em;
+      text-transform: uppercase;
+    }
+
+    .document-kicker span:first-child {
+      color: var(--accent-dark);
+    }
+
+    article {
+      width: min(100%, var(--measure));
+      margin: 0 auto;
+      padding: clamp(30px, 5vw, 68px) clamp(22px, 6vw, 78px);
+      background: var(--sheet);
+      box-shadow: var(--shadow);
+      border-top: 8px solid var(--ink);
+    }
+
+    article > h1 {
+      max-width: 13ch;
+      margin: 0 0 30px;
+      font-family: "Segoe UI Variable Display", "Microsoft YaHei UI", sans-serif;
+      font-size: clamp(2.35rem, 6vw, 5.15rem);
+      font-weight: 760;
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+      text-wrap: balance;
+    }
+
+    article > h1::after {
+      content: "";
+      display: block;
+      width: 72px;
+      height: 9px;
+      margin-top: 30px;
+      background: var(--accent);
+    }
+
+    h2,
+    h3 {
+      font-family: "Segoe UI Variable Display", "Microsoft YaHei UI", sans-serif;
+      text-wrap: balance;
+    }
+
+    h2 {
+      position: relative;
+      margin: 84px 0 26px;
+      padding: 18px 0 15px;
+      color: var(--ink);
+      font-size: clamp(1.62rem, 3vw, 2.35rem);
+      line-height: 1.14;
+      letter-spacing: -0.035em;
+      border-top: 2px solid var(--ink);
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2::before {
+      content: "SECTION";
+      position: absolute;
+      top: -12px;
+      right: 0;
+      padding: 1px 6px 2px;
+      color: var(--sheet);
+      background: var(--blue);
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+    }
+
+    h3 {
+      margin: 42px 0 14px;
+      color: var(--accent-dark);
+      font-size: clamp(1.16rem, 2vw, 1.42rem);
+      line-height: 1.3;
+      letter-spacing: -0.018em;
+    }
+
+    p {
+      margin: 0 0 1.05em;
+    }
+
+    ul,
+    ol {
+      margin: 0 0 1.25em;
+      padding-left: 1.3em;
+    }
+
+    li {
+      margin: 0.32em 0;
+      padding-left: 0.25em;
+    }
+
+    li::marker {
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    strong {
+      color: #11192c;
+      font-weight: 760;
+    }
+
+    blockquote {
+      margin: 28px 0 42px;
+      padding: 20px 22px;
+      color: #29334a;
+      background: var(--paper-deep);
+      border-left: 5px solid var(--blue);
+    }
+
+    blockquote p:last-child {
+      margin-bottom: 0;
+    }
+
+    hr {
+      height: 1px;
+      margin: 52px 0;
+      background: var(--line);
+      border: 0;
+    }
+
+    pre {
+      position: relative;
+      max-width: 100%;
+      margin: 24px 0 30px;
+      padding: 22px 24px;
+      overflow: auto;
+      color: var(--code-ink);
+      background: var(--code);
+      border-left: 6px solid #e9b44c;
+      box-shadow: 9px 9px 0 var(--paper-deep);
+      tab-size: 2;
+    }
+
+    pre code {
+      font-family: "Cascadia Code", "Sarasa Mono SC", Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.65;
+      white-space: pre;
+    }
+
+    :not(pre) > code {
+      padding: 0.12em 0.32em;
+      color: var(--accent-dark);
+      background: var(--paper-deep);
+      font-family: "Cascadia Code", "Sarasa Mono SC", Consolas, monospace;
+      font-size: 0.88em;
+    }
+
+    article a {
+      overflow-wrap: anywhere;
+    }
+
+    article > p:first-of-type {
+      font-size: 1rem;
+    }
+
+    article h2 + p > strong:first-child {
+      color: var(--accent-dark);
+    }
+
+    .document-footer {
+      width: min(100%, var(--measure));
+      margin: 28px auto 0;
+      color: var(--ink-soft);
+      font-size: 0.74rem;
+      text-align: right;
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        display: block;
+      }
+
+      .rail {
+        position: relative;
+        width: 100%;
+        height: auto;
+        padding: 24px clamp(20px, 5vw, 48px);
+        border-right: 0;
+        border-bottom: 6px solid var(--accent);
+      }
+
+      .brand {
+        margin-bottom: 18px;
+      }
+
+      .toc {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 22px;
+      }
+
+      .rail-note {
+        display: none;
+      }
+
+      main {
+        padding-top: 38px;
+      }
+    }
+
+    @media (max-width: 620px) {
+      body {
+        background: var(--paper);
+      }
+
+      .toc {
+        grid-template-columns: 1fr;
+        max-height: 260px;
+        overflow: auto;
+      }
+
+      main {
+        padding-inline: 12px;
+      }
+
+      article {
+        padding: 29px 19px 45px;
+        box-shadow: none;
+      }
+
+      article > h1 {
+        font-size: clamp(2.15rem, 13vw, 3.35rem);
+      }
+
+      h2 {
+        margin-top: 64px;
+      }
+
+      pre {
+        margin-inline: -19px;
+        padding-inline: 19px;
+        border-left-width: 4px;
+        box-shadow: none;
+      }
+    }
+
+    @media print {
+      @page {
+        size: A4;
+        margin: 15mm 14mm 17mm;
+      }
+
+      :root {
+        --sheet: #fff;
+        --paper: #fff;
+        --ink: #111827;
+        --ink-soft: #374151;
+        --line: #9ca3af;
+      }
+
+      body {
+        font-size: 9.5pt;
+        line-height: 1.55;
+        background: #fff;
+      }
+
+      .rail,
+      .document-kicker,
+      .document-footer,
+      .skip-link {
+        display: none;
+      }
+
+      .layout {
+        display: block;
+      }
+
+      main {
+        padding: 0;
+      }
+
+      article {
+        width: 100%;
+        max-width: none;
+        padding: 0;
+        border: 0;
+        box-shadow: none;
+      }
+
+      article > h1 {
+        max-width: none;
+        font-size: 27pt;
+      }
+
+      h2 {
+        margin-top: 14mm;
+        font-size: 17pt;
+        break-after: avoid;
+      }
+
+      h3 {
+        margin-top: 7mm;
+        font-size: 12.5pt;
+        break-after: avoid;
+      }
+
+      pre,
+      blockquote {
+        break-inside: avoid;
+      }
+
+      pre {
+        color: #111827;
+        background: #f1f1f1;
+        border: 1px solid #777;
+        box-shadow: none;
+        white-space: pre-wrap;
+      }
+
+      pre code {
+        white-space: pre-wrap;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <div class="layout">
+    <aside class="rail" aria-label="文档目录">
+      <div class="brand">
+        <span class="brand-mark">ARCH / 01</span>
+        <strong>Cakify<br />架构调研</strong>
+        <small>Windows-first · Lightweight Agent · CI-only Build</small>
+      </div>
+      <p class="toc-title">Contents / 目录</p>
+      <nav class="toc">
+          <a href="#section">1. 一页结论</a>
+          <a href="#section-1">2. 产品边界与成功标准</a>
+          <a href="#section-5">3. 四套候选方案</a>
+          <a href="#rust">4. 推荐架构：可换壳的 Rust 核心</a>
+          <a href="#section-10">5. 聊天数据模型</a>
+          <a href="#cherry-studio-rikkahub">6. 达到 Cherry Studio / RikkaHub 基础能力的范围</a>
+          <a href="#uiux">7. UI/UX 建议</a>
+          <a href="#agent-pi">8. 轻 Agent：学习 Pi 的理念，不复制它的全部运行形态</a>
+          <a href="#mcp">9. MCP 与工具系统</a>
+          <a href="#provider">10. Provider 适配层</a>
+          <a href="#section-21">11. 安全与隐私</a>
+          <a href="#section-25">12. 性能工程</a>
+          <a href="#github-actions">13. GitHub Actions：本机零构建方案</a>
+          <a href="#actions-1">14. “先公开跑 Actions，再转私有”的安全方案</a>
+          <a href="#section-35">15. 分阶段实施</a>
+          <a href="#section-40">16. 最终建议</a>
+          <a href="#section-41">17. 官方资料</a>
+          <a href="#section-42">18. 决策记录模板</a>
+      </nav>
+      <p class="rail-note">静态离线文档<br />无 JavaScript · 无 CDN · 可打印<br />更新于 2026-08-16</p>
+    </aside>
+    <main id="main">
+      <div class="document-kicker" aria-label="文档状态">
+        <span>Architecture Decision Draft</span>
+        <span>Windows 10/11</span>
+        <span>x64 First</span>
+      </div>
+      <article>
+<h1 id="cakifywindows-ai-chat">Cakify：Windows 高性能 AI Chat 客户端架构调研与实施建议</h1>
+<blockquote>
+<p>文档版本：2026-08-16<br />
+目标平台：Windows 10/11，首发 x64<br />
+目标产品：比 Electron 套壳更快启动、更低常驻内存，同时达到 Cherry Studio 与 RikkaHub 的基础聊天能力，并吸收 Pi Agent 的轻量 Agent 理念<br />
+研发约束：本机只编辑源码；编译、测试、基准、打包和发布尽量全部交给 GitHub Actions</p>
+</blockquote>
+<hr />
+<h2 id="section">1. 一页结论</h2>
+<p>首选方案是：</p>
+<p><strong>Rust 核心 + Tauri 2 桌面壳 + Svelte 5 UI + Windows WebView2。</strong></p>
+<p>这条路线在“丰富聊天 UI、工具调用、MCP、Windows 交付、开发效率、启动速度和内存”之间最均衡。关键不是只把 Electron 换成 Tauri，而是把产品拆成可替换的桌面壳与稳定的 Rust 核心：</p>
+<ul>
+<li>UI 只负责渲染、输入与交互，不直接持有 API Key，不直接启动工具进程。</li>
+<li>对话、供应商适配、Agent 循环、MCP、权限策略、SQLite 与密钥管理全部放进 Rust。</li>
+<li>Tauri 只是第一种宿主。如果实测无法达到性能门槛，可以保留核心，替换为 WinUI 3 或 Slint 壳。</li>
+<li>第一版不捆绑本地模型、Node/Python 运行时、OCR/PDF 引擎和浏览器内核。</li>
+</ul>
+<p>需要准确理解“Tauri 更轻”：</p>
+<ul>
+<li>它不随应用重复打包 Chromium 与 Node.js，安装包通常会明显小于 Electron。</li>
+<li>Windows 上仍使用 WebView2。WebView2 本身是多进程模型，任务管理器里会看到浏览器进程组。</li>
+<li>因此目标应是“相对 Electron 显著变轻”，而不是承诺“纯原生、几十 MB 常驻”。</li>
+</ul>
+<p>建议在第一周做三个可比较的空壳基准：</p>
+<ol>
+<li>Tauri 2 + Svelte：真实聊天布局、虚拟列表和流式 Markdown。</li>
+<li>WinUI 3：同样的数据量和窗口结构。</li>
+<li>Slint：只验证最关键的消息列表、输入框、中文输入法和文本选择。</li>
+</ol>
+<p>最终按 CI 中采集的启动时间、进程树工作集、滚动帧率和实现成本决策，不凭框架宣传材料决策。</p>
+<hr />
+<h2 id="section-1">2. 产品边界与成功标准</h2>
+<h3 id="section-2">2.1 首版必须解决的问题</h3>
+<ul>
+<li>一个入口管理多个云端模型供应商和 OpenAI-compatible 服务。</li>
+<li>长对话仍然快速，流式输出不抖动，代码块与 Markdown 可读。</li>
+<li>工具调用过程透明、可取消、可审批、可追踪。</li>
+<li>MCP 服务可以按会话启用，默认不自动扫描或启动全部服务。</li>
+<li>用户数据默认本地保存；密钥不进入 WebView、日志或普通数据库字段。</li>
+<li>安装后可直接使用，不要求用户再安装 Rust、Node、Python 或模型运行环境。</li>
+</ul>
+<h3 id="section-3">2.2 首版明确不做</h3>
+<ul>
+<li>不内置模型下载器。</li>
+<li>不捆绑 Ollama、Node、Python、浏览器自动化运行时或大型解析器。</li>
+<li>不做复杂多 Agent 编排。</li>
+<li>不允许模型默认执行任意 Shell、任意文件写入或无限后台任务。</li>
+<li>不在启动时连接所有供应商、探测全部模型或拉起全部 MCP 服务。</li>
+<li>不以“兼容 Cherry/Rikka 的源码”为目标，只学习交互与功能；两者均为 AGPL-3.0，避免复制受许可约束的实现代码。</li>
+</ul>
+<h3 id="section-4">2.3 建议量化门槛</h3>
+<p>以下是项目目标，不是当前已验证成绩：</p>
+<ul>
+<li>Tauri 路线冷启动 P50：不高于 1.5 秒。</li>
+<li>热启动 P50：不高于 0.7 秒。</li>
+<li>空闲进程树工作集：不高于 180 MB。</li>
+<li>10,000 条消息会话滚动：目标 60 FPS，无持续掉帧。</li>
+<li>UI 主线程长任务：不高于 50 ms。</li>
+<li>流式首段到达后：30–60 ms 合并刷新一次，避免逐 token 重排。</li>
+<li>取消工具后：不残留子进程，不继续写入会话。</li>
+<li>安装包与增量更新尺寸必须在每次发布中记录并比较。</li>
+</ul>
+<p>建议设置两条架构退出条件：</p>
+<ul>
+<li>若优化后的 Tauri 空壳在统一 CI 机器上，冷启动 P50 仍超过 2 秒或空闲工作集长期超过 220 MB，则进入 WinUI 3 壳验证。</li>
+<li>若 Slint 在中文输入法、文本选择、无障碍、Markdown 与长列表上需要大量自研，立即停止把它作为首发主路线。</li>
+</ul>
+<hr />
+<h2 id="section-5">3. 四套候选方案</h2>
+<p>评分采用“首版落地视角”的主观决策模型，满分 100；它只用于排序，必须由真实基准校正。</p>
+<p>权重：</p>
+<ul>
+<li>启动与内存：25</li>
+<li>聊天 UI 完成度：20</li>
+<li>Provider、Agent 与 MCP 实现效率：20</li>
+<li>GitHub Actions 可验证性：15</li>
+<li>Windows 集成：10</li>
+<li>生态、维护与许可风险：10</li>
+</ul>
+<h3 id="arust-tauri-2-svelte-5">3.1 方案 A：Rust + Tauri 2 + Svelte 5</h3>
+<p><strong>建议评分：89/100；首选。</strong></p>
+<p>组成：</p>
+<ul>
+<li>Tauri 2：窗口、菜单、托盘、IPC、安装包与更新。</li>
+<li>Svelte 5 + TypeScript：聊天 UI、设置、工具执行面板。</li>
+<li>Rust + Tokio：网络流、Agent 状态机、MCP 进程、SQLite、策略与密钥。</li>
+<li>WebView2：Windows Web 渲染层。</li>
+<li>SQLite：历史、分支、附件索引、工具执行记录与设置。</li>
+</ul>
+<p>优势：</p>
+<ul>
+<li>不随应用打包 Chromium/Node，安装包与启动成本通常优于 Electron。</li>
+<li>HTML/CSS 对 Markdown、代码高亮、公式、Mermaid、响应式布局和主题非常成熟。</li>
+<li>Tauri 2 有 Windows 安装、GitHub Actions、WebDriver 测试、安全 capability 等官方文档。</li>
+<li>Rust 很适合异步流、子进程生命周期、协议适配、取消与资源边界。</li>
+<li>未来替换 UI 壳时，Rust domain/core 可以继续复用。</li>
+</ul>
+<p>风险：</p>
+<ul>
+<li>WebView2 仍会创建多进程；不能把单个进程的内存当作应用总内存。</li>
+<li>大量逐 token DOM 更新、未虚拟化列表、一次性加载 Shiki/KaTeX/Mermaid，会迅速吃掉优势。</li>
+<li>Tauri capability 只约束 Tauri 命令，不等于完整工具权限系统；核心层仍需独立策略引擎。</li>
+<li>WebView2 Runtime 缺失时必须决定安装策略。</li>
+</ul>
+<p>建议交付形态：</p>
+<ul>
+<li>默认：NSIS x64 安装包。</li>
+<li>WebView2：优先 Evergreen bootstrapper；企业离线环境另做离线安装包。</li>
+<li>第一阶段只发 x64；稳定后再考虑 ARM64。</li>
+<li>自动更新与签名在核心功能稳定后启用，避免过早复杂化。</li>
+</ul>
+<p>适用判断：</p>
+<ul>
+<li>需要尽快达到 Cherry/Rikka 的丰富 UI 与基础能力。</li>
+<li>团队愿意把性能问题当作工程预算，而不是期待换壳自动解决一切。</li>
+</ul>
+<h3 id="bc-winui-3-windows-app-sdk">3.2 方案 B：C# + WinUI 3 + Windows App SDK</h3>
+<p><strong>建议评分：85/100；Windows 原生备选。</strong></p>
+<p>组成：</p>
+<ul>
+<li>WinUI 3 / Windows App SDK：窗口和原生控件。</li>
+<li>.NET：Provider、Agent、MCP 与持久化。</li>
+<li>CommunityToolkit 或自研组件：设置、命令、虚拟列表。</li>
+<li>SQLite + Windows Credential Manager / DPAPI。</li>
+</ul>
+<p>优势：</p>
+<ul>
+<li>Windows 原生视觉、输入、无障碍、窗口管理和系统集成最自然。</li>
+<li>主 UI 不依赖 WebView2 时，空壳启动与内存上限更有机会领先。</li>
+<li>Windows API、通知、托盘、快捷键、文件关联和 MSIX 生态顺手。</li>
+<li>C# 在 Windows GUI 开发与调试上成熟。</li>
+</ul>
+<p>风险：</p>
+<ul>
+<li>聊天消息不是普通业务表单：Markdown、代码块、复制选择、公式、Mermaid、复杂附件、增量流式渲染都需要大量组件工程。</li>
+<li>若为 Markdown 区域重新嵌入 WebView2，会削弱“纯原生”的收益并增加两套 UI 协调成本。</li>
+<li>GitHub-hosted Windows runner 可编译测试，但 GUI E2E、安装器和可视化回归通常比 Web 技术栈难维护。</li>
+<li>打包模式、Windows App SDK Runtime、MSIX/非打包部署和签名需要提前选定。</li>
+</ul>
+<p>建议变体：</p>
+<ul>
+<li>首选 WinUI 3。</li>
+<li>若 WinUI 3 的发布或控件稳定性阻碍首版，可以用 WPF + Fluent 风格作为务实后备。</li>
+<li>不建议在没有性能数据前做“WinUI 外壳 + 大面积 WebView”的复杂混合。</li>
+</ul>
+<p>适用判断：</p>
+<ul>
+<li>Windows 原生体验与企业部署优先级极高。</li>
+<li>团队能接受为聊天渲染和工具面板投入更多 UI 工程。</li>
+</ul>
+<h3 id="crust-slint">3.3 方案 C：Rust + Slint</h3>
+<p><strong>建议评分：74/100；性能实验路线。</strong></p>
+<p>组成：</p>
+<ul>
+<li>Slint：原生编译式 UI。</li>
+<li>Rust 核心：与方案 A 共用 domain、provider、agent、MCP、storage。</li>
+<li>自研 Markdown 分块渲染、消息虚拟化和输入体验。</li>
+</ul>
+<p>优势：</p>
+<ul>
+<li>不依赖浏览器渲染层，理论上最有机会取得最低启动时间与内存。</li>
+<li>Rust 单语言核心，跨平台潜力好。</li>
+<li>壳层可以很薄，适合对启动和设备资源极度敏感的产品。</li>
+</ul>
+<p>风险：</p>
+<ul>
+<li>富文本聊天 UI 的隐性成本最高。</li>
+<li>需要认真验证中文输入法、文本选择、剪贴板、屏幕阅读器、双向文本、高 DPI、多屏和长列表。</li>
+<li>Markdown、代码高亮、公式、Mermaid、HTML 片段、PDF 预览等生态远不如 Web。</li>
+<li>可能得到漂亮的空壳基准，却因功能补齐导致交付周期失控。</li>
+</ul>
+<p>适用判断：</p>
+<ul>
+<li>性能是压倒一切的卖点。</li>
+<li>可以牺牲首版富文本功能，或拥有长期 UI 基础设施预算。</li>
+</ul>
+<h3 id="dgo-wails-2">3.4 方案 D：Go + Wails 2</h3>
+<p><strong>建议评分：83/100；Go 团队的替代选项。</strong></p>
+<p>组成：</p>
+<ul>
+<li>Wails 2：Windows 壳与前后端桥接。</li>
+<li>Svelte/React/Vue：Web UI。</li>
+<li>Go：Provider、Agent、MCP、SQLite 与系统集成。</li>
+<li>WebView2：Windows 渲染层。</li>
+</ul>
+<p>优势：</p>
+<ul>
+<li>Go 编译、并发与部署体验直接，团队上手成本可能低于 Rust。</li>
+<li>UI 仍使用成熟 Web 生态。</li>
+<li>单个 Go 后端可实现供应商、MCP 与工具编排。</li>
+<li>GitHub Actions 构建相对清晰。</li>
+</ul>
+<p>风险：</p>
+<ul>
+<li>与 Tauri 一样无法绕开 WebView2 进程组。</li>
+<li>截至本调研日期，Wails 主 README 将 v2 作为稳定路线、v3 仍需谨慎确认发布状态；首版不要押注不稳定主线。</li>
+<li>Tauri 2 在 capability、安全边界、发布文档和 Rust MCP 生态上的组合更贴合本项目。</li>
+<li>若核心最终需要复杂的取消树、精细资源控制和 Rust SDK，Go 路线复用度较低。</li>
+</ul>
+<p>适用判断：</p>
+<ul>
+<li>团队 Go 熟练度显著高于 Rust。</li>
+<li>愿意接受与 Tauri 类似的 WebView2 性能边界。</li>
+</ul>
+<h3 id="section-6">3.5 暂不推荐作为首发主路线</h3>
+<ul>
+<li>Flutter Desktop：自绘 UI 跨平台优秀，但 Windows 桌面体积、文本与富聊天适配并不天然优于首选路线。</li>
+<li>Qt WebEngine / CEF：通常重新捆绑 Chromium，直接违背“避免 Electron 级浏览器负担”的核心目标。</li>
+<li>.NET MAUI：适合多端产品，但本项目当前是 Windows-first，原生桌面完成度和调试链条不如直接选 WinUI。</li>
+<li>全部逻辑放前端：密钥、工具权限、进程控制和数据一致性风险太高。</li>
+</ul>
+<hr />
+<h2 id="rust">4. 推荐架构：可换壳的 Rust 核心</h2>
+<h3 id="section-7">4.1 仓库结构</h3>
+<pre><code class="language-text">apps/
+  desktop/                 # Tauri 壳、窗口、系统菜单、托盘
+packages/
+  ui/                      # Svelte UI、设计 token、组件与浏览器 mock
+crates/
+  domain/                  # 消息、会话、工具、模型等纯领域类型
+  core/                    # 用例、状态机、事件总线、取消和任务编排
+  providers/               # OpenAI/Anthropic/Gemini/兼容端点
+  agent/                   # 轻 Agent 循环、上下文与错误恢复
+  mcp/                     # MCP client、transport、server lifecycle
+  policy/                  # 工具风险、权限、路径与网络策略
+  storage/                 # SQLite、迁移、导入导出
+  secrets/                 # DPAPI/Credential Manager 封装
+tests/
+  fixtures/                # 固定 SSE、工具调用、MCP 与错误样本
+  contracts/               # provider 与 IPC 契约测试
+.github/
+  workflows/               # CI、E2E、基准、发布、安全
+</code></pre>
+<h3 id="section-8">4.2 分层原则</h3>
+<pre><code class="language-text">Svelte UI
+   │  typed commands + event stream
+   ▼
+Desktop host / Tauri IPC
+   │
+   ▼
+Application core
+   ├── Conversation service
+   ├── Provider router
+   ├── Agent loop
+   ├── Tool policy
+   ├── MCP manager
+   └── Storage / secrets
+</code></pre>
+<p>边界要求：</p>
+<ul>
+<li>domain 不依赖 Tauri、Svelte、数据库或具体供应商。</li>
+<li>core 不知道 UI 组件，只发布稳定事件。</li>
+<li>provider 只负责请求转换、流解析、错误归一化与能力声明。</li>
+<li>tool executor 不直接决定是否允许执行；先经过 policy。</li>
+<li>storage 用迁移控制 schema，UI 不直接写 SQLite。</li>
+<li>所有长任务都接受 cancellation token，并有可观察状态。</li>
+</ul>
+<h3 id="section-9">4.3 核心事件模型</h3>
+<p>建议统一事件，而不是让每个供应商直接驱动 UI：</p>
+<pre><code class="language-text">RunStarted
+MessageDelta
+ReasoningDelta
+UsageUpdated
+ToolCallProposed
+ToolApprovalRequired
+ToolStarted
+ToolOutputDelta
+ToolCompleted
+ToolFailed
+RunCompleted
+RunCancelled
+RunFailed
+</code></pre>
+<p>UI 只消费事件并更新本地投影。这样可以：</p>
+<ul>
+<li>统一 OpenAI、Anthropic、Gemini 和兼容端点的差异。</li>
+<li>记录并重放问题会话。</li>
+<li>在单元测试里用固定事件序列验证 UI。</li>
+<li>避免网络层状态直接渗透到界面。</li>
+</ul>
+<hr />
+<h2 id="section-10">5. 聊天数据模型</h2>
+<h3 id="markdown">5.1 内容块，而不是单个 Markdown 字符串</h3>
+<p>消息内容建议建模为有序块：</p>
+<ul>
+<li>Text：普通 Markdown 文本。</li>
+<li>Reasoning：可折叠推理摘要或供应商返回的 reasoning 内容。</li>
+<li>Image：图片引用和元信息。</li>
+<li>File：附件引用、MIME、大小与解析状态。</li>
+<li>ToolCall：工具名、参数、审批状态和执行 ID。</li>
+<li>ToolResult：结果、截断信息、错误和耗时。</li>
+<li>Error：可恢复错误或失败说明。</li>
+<li>Usage：token、缓存命中与估算成本。</li>
+</ul>
+<p>不要把工具调用和附件序列化进一大段 Markdown。结构化内容更适合重试、迁移、导出、比较和后续协议升级。</p>
+<h3 id="section-11">5.2 会话必须是树</h3>
+<p>核心字段：</p>
+<ul>
+<li>conversation_id</li>
+<li>message_id</li>
+<li>parent_id</li>
+<li>role</li>
+<li>parts</li>
+<li>provider/model snapshot</li>
+<li>created_at / updated_at</li>
+<li>run_id</li>
+<li>status</li>
+</ul>
+<p>编辑旧消息、重新生成和“从这里分叉”都创建新分支，不原地破坏旧链。当前 UI 只展示一条 active path。</p>
+<h3 id="section-12">5.3 附件策略</h3>
+<ul>
+<li>二进制写入应用数据目录，不存进 SQLite BLOB。</li>
+<li>SQLite 只保存内容哈希、相对路径、MIME、大小、原名和引用关系。</li>
+<li>导入时做 MIME 与大小校验。</li>
+<li>删除会话时先减少引用计数，再由后台低优先级任务清理孤儿。</li>
+<li>默认不自动解析大型 PDF/Office；解析器作为延迟加载或可选插件。</li>
+</ul>
+<hr />
+<h2 id="cherry-studio-rikkahub">6. 达到 Cherry Studio / RikkaHub 基础能力的范围</h2>
+<h3 id="p0">6.1 P0：首个可用版本</h3>
+<p>供应商与模型：</p>
+<ul>
+<li>OpenAI-compatible</li>
+<li>Anthropic</li>
+<li>Gemini</li>
+<li>自定义 Base URL</li>
+<li>自定义 Header、请求体覆盖和代理</li>
+<li>模型能力声明：视觉、工具、reasoning、上下文长度</li>
+<li>会话内快速切换模型</li>
+</ul>
+<p>聊天：</p>
+<ul>
+<li>流式输出、停止、重试、重新生成</li>
+<li>编辑旧消息与分支</li>
+<li>搜索、置顶、重命名、归档</li>
+<li>Markdown、表格、代码块、复制、公式</li>
+<li>图片与文本附件</li>
+<li>系统提示词和 Assistant 配置</li>
+<li>JSONL / Markdown 导入导出</li>
+</ul>
+<p>工具与轻 Agent：</p>
+<ul>
+<li>原生 function calling</li>
+<li>内置安全工具的统一注册表</li>
+<li>MCP stdio</li>
+<li>MCP Streamable HTTP</li>
+<li>工具审批、取消、超时、重试与日志</li>
+<li>运行时间线：模型请求、工具参数、结果、耗时和错误</li>
+</ul>
+<p>桌面体验：</p>
+<ul>
+<li>亮/暗主题</li>
+<li>键盘快捷键</li>
+<li>托盘可选</li>
+<li>SQLite 本地历史</li>
+<li>Windows 安装包</li>
+<li>崩溃恢复与未发送草稿</li>
+</ul>
+<h3 id="p1">6.2 P1：基础产品稳定后</h3>
+<ul>
+<li>多模型并排比较</li>
+<li>联网搜索</li>
+<li>Ollama / LM Studio 连接器，但不捆绑运行时</li>
+<li>知识库 / RAG</li>
+<li>可解释的长期记忆</li>
+<li>WebDAV 或可选云同步</li>
+<li>OCR、TTS、图片生成</li>
+<li>PDF / Office 解析</li>
+<li>提示词与 Assistant 模板</li>
+</ul>
+<h3 id="p2">6.3 P2：延后</h3>
+<ul>
+<li>插件市场</li>
+<li>本地模型下载器</li>
+<li>多 Agent / 子 Agent</li>
+<li>Canvas 类交互工作台</li>
+<li>手机端</li>
+<li>自动化工作流市场</li>
+</ul>
+<hr />
+<h2 id="uiux">7. UI/UX 建议</h2>
+<h3 id="section-13">7.1 学习对象与取舍</h3>
+<p>学习 ChatGPT：</p>
+<ul>
+<li>对话本身是第一视觉层级。</li>
+<li>输入区固定、模型与工具状态清楚但不过度占空间。</li>
+<li>停止、重试、编辑和分支动作靠近对应消息。</li>
+<li>工具执行过程按时间线展开。</li>
+</ul>
+<p>学习 Cherry Studio：</p>
+<ul>
+<li>多供应商与模型管理。</li>
+<li>Assistant / 预设。</li>
+<li>丰富附件、知识和工具入口。</li>
+<li>设置项搜索和分组。</li>
+</ul>
+<p>学习 RikkaHub：</p>
+<ul>
+<li>更紧凑的移动式信息密度。</li>
+<li>Provider 配置灵活。</li>
+<li>工具调用和多模型能力。</li>
+<li>不把所有高级功能永久铺在主界面。</li>
+</ul>
+<p>应避免：</p>
+<ul>
+<li>首屏塞满 Provider、知识库、插件、MCP 和高级参数。</li>
+<li>每条消息一直展示整排按钮。</li>
+<li>token 每到一个就触发完整 Markdown 重渲染。</li>
+<li>把供应商设置与会话临时参数混在一起。</li>
+<li>工具运行只显示旋转图标，不展示在做什么。</li>
+</ul>
+<h3 id="section-14">7.2 建议布局</h3>
+<pre><code class="language-text">┌──────────────┬──────────────────────────────────┬───────────────┐
+│ 会话 / 搜索  │ 当前会话                         │ 上下文检查器  │
+│ Assistant    │ 消息树的当前路径                 │ 模型与参数    │
+│              │                                  │ 工具时间线    │
+│              │ 固定输入区                       │ 附件与引用    │
+└──────────────┴──────────────────────────────────┴───────────────┘
+</code></pre>
+<ul>
+<li>左栏可折叠，主栏优先。</li>
+<li>右侧检查器只在需要时打开。</li>
+<li>小窗口隐藏检查器，但不删除功能入口。</li>
+<li>工具审批直接嵌入时间线，不使用阻断整个应用的系统弹窗。</li>
+<li>高级模型参数放进逐步展开的面板。</li>
+</ul>
+<h3 id="section-15">7.3 长对话渲染</h3>
+<ul>
+<li>消息列表必须虚拟化。</li>
+<li>每条消息按内容块局部更新。</li>
+<li>流式文本先以轻量纯文本/基础 Markdown 增量展示，完成后再做完整高亮。</li>
+<li>Shiki、KaTeX、Mermaid、PDF 与 OCR 按首次使用延迟加载。</li>
+<li>代码高亮放进 worker 或低优先级任务。</li>
+<li>不让整个 conversation store 的变化触发所有消息重绘。</li>
+</ul>
+<hr />
+<h2 id="agent-pi">8. 轻 Agent：学习 Pi 的理念，不复制它的全部运行形态</h2>
+<p>Pi 值得借鉴的是：</p>
+<ul>
+<li>一个小而清晰的有状态 Agent 核心。</li>
+<li>工具调用是显式事件，不是隐藏副作用。</li>
+<li>流式事件贯穿模型、工具与 UI。</li>
+<li>上下文组装、工具注册和交互界面彼此解耦。</li>
+<li>能力通过组合与扩展获得，而不是把所有功能硬编码进核心。</li>
+</ul>
+<p>不建议把整个 Pi coding-agent 连同 Node/Bun 环境作为桌面 sidecar 捆绑进首版。这样会重新引入运行时体积、进程管理、升级与安全问题。</p>
+<p>建议把理念映射到 Rust：</p>
+<pre><code class="language-text">用户输入
+  → 构造上下文
+  → 发起 Provider 流
+  → 接收文本或 ToolCall
+  → JSON Schema 校验
+  → 风险评估
+  → 必要时请求用户批准
+  → 执行内置工具或 MCP
+  → 写入 ToolResult
+  → 继续模型循环
+  → 完成 / 取消 / 超时 / 失败
+</code></pre>
+<h3 id="section-16">8.1 明确的运行状态</h3>
+<pre><code class="language-text">Idle
+Preparing
+CallingModel
+AwaitingApproval
+RunningTool
+Continuing
+Completed
+Cancelled
+Failed
+</code></pre>
+<p>每次运行都有 run_id；每个工具调用有 call_id；工具输出与最终回答都能追溯到对应 ID。</p>
+<h3 id="section-17">8.2 默认关闭的能力</h3>
+<ul>
+<li>任意 Shell。</li>
+<li>任意路径文件写入。</li>
+<li>后台无限循环。</li>
+<li>子 Agent。</li>
+<li>自动连接所有 MCP。</li>
+<li>启动时扫描本机服务。</li>
+<li>未经确认向陌生域名上传附件。</li>
+</ul>
+<h3 id="section-18">8.3 内置工具最小集合</h3>
+<p>首版可以只提供：</p>
+<ul>
+<li>read_attachment：读取用户已附加的文件。</li>
+<li>search_conversation：搜索本地会话。</li>
+<li>open_url：交给系统浏览器打开，并明确显示目标域名。</li>
+<li>copy_to_clipboard：写剪贴板，可低风险自动允许。</li>
+</ul>
+<p>文件写入、Shell、浏览器控制等高风险能力在策略模型成熟后再加。</p>
+<hr />
+<h2 id="mcp">9. MCP 与工具系统</h2>
+<h3 id="mcp-transport">9.1 MCP transport</h3>
+<p>首版支持：</p>
+<ul>
+<li>stdio：由应用启动并管理子进程。</li>
+<li>Streamable HTTP：连接远程或本机服务。</li>
+</ul>
+<p>Rust 可优先采用官方 MCP Rust SDK / rmcp，并在自己的 adapter 后面封装，避免协议 SDK 变化扩散到 core。</p>
+<h3 id="mcp-1">9.2 MCP 服务配置</h3>
+<p>建议字段：</p>
+<ul>
+<li>id / display_name</li>
+<li>transport</li>
+<li>command / args / cwd</li>
+<li>env 引用，不把明文秘密写进普通配置</li>
+<li>url / headers 引用</li>
+<li>enabled</li>
+<li>auto_start，默认 false</li>
+<li>trusted，默认 false</li>
+<li>tool allowlist / denylist</li>
+<li>startup timeout / call timeout</li>
+</ul>
+<h3 id="section-19">9.3 工具风险等级</h3>
+<ul>
+<li>低风险：只读本地会话、读取用户主动附加内容。</li>
+<li>中风险：访问已显示域名、写剪贴板、创建应用沙箱内文件。</li>
+<li>高风险：运行命令、写任意路径、发送敏感文件、控制浏览器、修改 Git 仓库。</li>
+</ul>
+<p>审批界面至少显示：</p>
+<ul>
+<li>工具来源：内置或具体 MCP 服务。</li>
+<li>工具名与说明。</li>
+<li>规范化参数。</li>
+<li>涉及的路径、命令、域名。</li>
+<li>本次允许、会话内允许或拒绝。</li>
+</ul>
+<p>“永久允许”不应在首版提供，或必须进入独立设置页管理。</p>
+<h3 id="section-20">9.4 进程安全</h3>
+<ul>
+<li>启动子进程时记录 process tree。</li>
+<li>取消或超时时终止整棵子进程树。</li>
+<li>限制 stdout/stderr 单次与累计大小。</li>
+<li>工具输出超限后落盘并只向模型提供摘要。</li>
+<li>禁止把用户 API Key 自动继承给 MCP 子进程。</li>
+<li>环境变量采用显式 allowlist。</li>
+</ul>
+<hr />
+<h2 id="provider">10. Provider 适配层</h2>
+<p>统一接口应覆盖：</p>
+<pre><code class="language-text">capabilities()
+list_models()
+stream_chat(request, cancellation)
+count_or_estimate_tokens()
+normalize_error()
+</code></pre>
+<p>统一请求包含：</p>
+<ul>
+<li>model</li>
+<li>system / developer instructions</li>
+<li>message parts</li>
+<li>tools 与 JSON Schema</li>
+<li>temperature / top_p / max tokens</li>
+<li>reasoning 参数</li>
+<li>stop</li>
+<li>provider-specific extension map</li>
+</ul>
+<p>统一错误类别：</p>
+<ul>
+<li>authentication</li>
+<li>permission</li>
+<li>rate_limit</li>
+<li>context_too_long</li>
+<li>invalid_request</li>
+<li>unsupported_capability</li>
+<li>network</li>
+<li>timeout</li>
+<li>cancelled</li>
+<li>provider_internal</li>
+</ul>
+<p>不要把所有供应商强行压成最低公分母。通用字段进入核心，独有能力放在带命名空间的 extension，并由 capability 决定 UI 是否显示。</p>
+<hr />
+<h2 id="section-21">11. 安全与隐私</h2>
+<h3 id="section-22">11.1 密钥</h3>
+<ul>
+<li>API Key 不进入 WebView，不进 localStorage，不进前端日志。</li>
+<li>Rust 后端使用 Windows DPAPI 或 Credential Manager 保存。</li>
+<li>SQLite 只保存 secret reference。</li>
+<li>导出默认不包含密钥。</li>
+<li>崩溃日志和诊断包做字段级脱敏。</li>
+</ul>
+<h3 id="section-23">11.2 网络</h3>
+<ul>
+<li>所有模型和 MCP HTTP 请求由后端发起。</li>
+<li>自定义代理、证书和 Base URL 需要单独建模。</li>
+<li>工具审批显示最终解析后的主机名。</li>
+<li>附件上传前显示供应商与目标域。</li>
+<li>可选提供“仅允许已配置 Provider 域名”的严格模式。</li>
+</ul>
+<h3 id="tauri">11.3 Tauri 边界</h3>
+<ul>
+<li>每个窗口只获得所需 capability。</li>
+<li>不向聊天内容开放通用文件系统或 Shell 插件。</li>
+<li>IPC 命令采用明确参数类型和长度限制。</li>
+<li>前端传来的路径、URL、工具参数一律视为不可信。</li>
+<li>capability 之外，Rust policy 仍进行业务级授权。</li>
+</ul>
+<h3 id="section-24">11.4 本地数据</h3>
+<ul>
+<li>数据库开启 WAL，并设计可恢复迁移。</li>
+<li>敏感工具输出允许单独标记“不写历史”。</li>
+<li>一键导出与一键清空必须可用。</li>
+<li>删除应覆盖数据库引用、附件和缓存索引。</li>
+</ul>
+<hr />
+<h2 id="section-25">12. 性能工程</h2>
+<h3 id="section-26">12.1 启动路径</h3>
+<p>启动时只做：</p>
+<ul>
+<li>创建窗口。</li>
+<li>打开数据库并执行廉价 schema 检查。</li>
+<li>加载当前主题、窗口状态和最近会话摘要。</li>
+<li>渲染骨架与输入区。</li>
+</ul>
+<p>延迟执行：</p>
+<ul>
+<li>模型列表刷新。</li>
+<li>MCP 连接。</li>
+<li>全文索引维护。</li>
+<li>更新检查。</li>
+<li>Markdown 重型插件。</li>
+<li>附件解析器。</li>
+</ul>
+<h3 id="section-27">12.2 内存</h3>
+<ul>
+<li>统计整个进程树，不只统计主进程。</li>
+<li>只保留当前窗口附近的消息视图模型。</li>
+<li>附件以文件和流处理，不复制成多份 Base64。</li>
+<li>限制工具输出、日志和 SSE 原始帧的缓存。</li>
+<li>Provider 响应完成后释放临时缓冲。</li>
+<li>一个应用只创建一个必要的 WebView2 environment。</li>
+</ul>
+<h3 id="section-28">12.3 流式渲染</h3>
+<ul>
+<li>网络层继续逐片接收。</li>
+<li>core 将 delta 合并为 30–60 ms 的 UI 批次。</li>
+<li>UI 在动画帧内更新当前内容块。</li>
+<li>完成前不重复执行完整语法高亮。</li>
+<li>用户滚离底部后停止强制自动滚动。</li>
+</ul>
+<h3 id="section-29">12.4 基准方法</h3>
+<p>每个框架使用同一组 fixture：</p>
+<ul>
+<li>空会话。</li>
+<li>200 条普通 Markdown。</li>
+<li>10,000 条短消息。</li>
+<li>50 个大型代码块。</li>
+<li>10 分钟流式响应。</li>
+<li>20 次工具调用，其中含取消、超时和大输出。</li>
+</ul>
+<p>记录：</p>
+<ul>
+<li>进程启动到窗口可交互。</li>
+<li>进程树峰值与空闲工作集。</li>
+<li>首次打开大对话耗时。</li>
+<li>滚动帧时间。</li>
+<li>流式期间 UI 长任务。</li>
+<li>取消到所有子进程退出的时间。</li>
+<li>安装包和解压后体积。</li>
+</ul>
+<p>基准必须上传原始 JSON artifact，README 中只展示趋势，不只展示最好的一次。</p>
+<hr />
+<h2 id="github-actions">13. GitHub Actions：本机零构建方案</h2>
+<h3 id="section-30">13.1 现实边界</h3>
+<p>可以全部放进 Actions：</p>
+<ul>
+<li>Rust/TypeScript 编译</li>
+<li>单元、集成、契约测试</li>
+<li>Windows WebDriver E2E</li>
+<li>启动与内存基准</li>
+<li>安装包构建</li>
+<li>签名</li>
+<li>Release 与更新清单</li>
+</ul>
+<p>不能完全替代：</p>
+<ul>
+<li>日常交互式 Windows UI 调试。</li>
+<li>主观评估中文输入法、文本选择、屏幕阅读器、多显示器。</li>
+<li>真实用户机器上的驱动、企业策略和杀毒软件兼容性。</li>
+</ul>
+<p>折中方式：</p>
+<ul>
+<li>UI 在浏览器 mock 模式开发，fixture 模拟后端事件。</li>
+<li>每个 PR 由 Windows runner 生成安装包、截图、测试视频和基准 JSON。</li>
+<li>里程碑版本下载 artifact，在一台干净 Windows 虚拟机或真实机器做人工验收。</li>
+<li>本机不安装 Rust/Node 也可以编辑，但排错反馈会比本机构建慢。</li>
+</ul>
+<h3 id="section-31">13.2 工作流拆分</h3>
+<p>建议创建：</p>
+<pre><code class="language-text">.github/workflows/
+  ci.yml
+  e2e.yml
+  bench.yml
+  release.yml
+  security.yml
+</code></pre>
+<p>ci.yml：</p>
+<ul>
+<li>pull_request、push 到 main。</li>
+<li>Ubuntu：cargo fmt、clippy、core/provider/policy 单测、前端 lint/typecheck。</li>
+<li>Windows 2025：Tauri compile、Windows-only 单测、安装包 smoke。</li>
+<li>使用依赖缓存，但 cache key 必须包含 lockfile。</li>
+</ul>
+<p>e2e.yml：</p>
+<ul>
+<li>Windows 2025。</li>
+<li>安装匹配的 WebView2/Edge Driver。</li>
+<li>启动 fixture server，不访问真实付费模型。</li>
+<li>测试新建会话、流式、停止、重试、工具审批、取消和恢复。</li>
+<li>失败时上传截图、视频、日志和数据库副本。</li>
+</ul>
+<p>bench.yml：</p>
+<ul>
+<li>workflow_dispatch 和定时运行。</li>
+<li>固定 runner 镜像与 fixture。</li>
+<li>预热后测冷启动/热启动多次。</li>
+<li>PowerShell 收集进程树 working set。</li>
+<li>上传 JSON；与基线比较时先采用告警，数据稳定后再设硬门槛。</li>
+</ul>
+<p>release.yml：</p>
+<ul>
+<li>tag v* 触发。</li>
+<li>首发只构建 x64 NSIS。</li>
+<li>生成校验和、SBOM、安装包和更新清单。</li>
+<li>签名秘密只进入 release environment。</li>
+<li>发布前验证安装、启动、卸载和升级。</li>
+</ul>
+<p>security.yml：</p>
+<ul>
+<li>cargo audit / cargo deny</li>
+<li>pnpm audit 或等价依赖审计</li>
+<li>CodeQL</li>
+<li>secret scanning / gitleaks</li>
+<li>Dependabot 或 Renovate</li>
+<li>许可证清单与 SBOM</li>
+</ul>
+<h3 id="actions">13.3 Actions 权限与供应链</h3>
+<ul>
+<li>workflow 顶层默认 permissions: contents: read。</li>
+<li>Release job 单独申请 contents: write。</li>
+<li>第三方 Action 固定到完整 commit SHA，不只使用 tag。</li>
+<li>fork PR 不获得 secrets。</li>
+<li>不在 pull_request_target 中 checkout 并运行不可信 PR 代码。</li>
+<li>不把 build artifact 当作可信输入跨越高权限 workflow，除非校验来源和哈希。</li>
+<li>签名使用 GitHub Environment 审批与最小可见范围。</li>
+<li>构建日志禁止输出请求头、环境变量和完整用户目录。</li>
+</ul>
+<hr />
+<h2 id="actions-1">14. “先公开跑 Actions，再转私有”的安全方案</h2>
+<p>GitHub 对公开仓库的标准托管 runner 通常免费，但公开并不只是一个计费开关。公开期间：</p>
+<ul>
+<li>完整源码与 Git 历史可被任何人下载。</li>
+<li>Actions 日志、artifact 的可见性需要逐项确认。</li>
+<li>别人可以创建公开 fork；主仓库之后改回私有，既有公开 fork 不会因此自动消失。</li>
+<li>曾经提交过的秘密即使从最新版本删除，也可能仍在历史、缓存、日志或 fork 中。</li>
+<li>仓库改回私有后，公开下载、Pages 与社区协作方式会变化。</li>
+</ul>
+<h3 id="section-32">14.1 首选做法</h3>
+<p>如果源码最终可以开源：</p>
+<ol>
+<li>从第一天就按“永久公开”标准清理仓库。</li>
+<li>不提交真实 Key、签名证书、私人端点、客户数据和内部 URL。</li>
+<li>公开期间只跑不需要秘密的 CI、E2E fixture 与 unsigned build。</li>
+<li>签名发布放到私有仓库、受保护 environment 或后续有额度时执行。</li>
+<li>即使之后改私有，也假设公开过的所有提交永久可获得。</li>
+</ol>
+<h3 id="section-33">14.2 更安全的替代</h3>
+<p>如果源码不希望永久外泄：</p>
+<ul>
+<li>不建议反复切换主私库可见性。</li>
+<li>建立经过清理的公开镜像，只包含允许开源的核心与构建文件。</li>
+<li>或建立独立公开的 cakify-releases 仓库，只承载安装包、校验和与更新清单；源码仍在私库构建，但这不能解决私库 Actions 分钟不足。</li>
+<li>也可以使用自托管 Windows runner，但需要维护干净机器、安全更新与隔离，通常不适合首阶段。</li>
+</ul>
+<h3 id="section-34">14.3 切换公开前检查清单</h3>
+<ul>
+<li>扫描整个 Git 历史中的 secrets。</li>
+<li>检查 LFS 对象、Release、artifact、Actions cache。</li>
+<li>删除或替换私人 issue、讨论、wiki 和项目板内容。</li>
+<li>检查分支保护与 workflow 权限。</li>
+<li>所有真实凭据轮换，而不是只删除文件。</li>
+<li>确认许可证与第三方素材允许公开。</li>
+<li>接受“公开期间产生的 fork 无法收回”这一事实。</li>
+</ul>
+<p>本调研不会自动修改仓库可见性，也不会启动计费或发布动作。</p>
+<hr />
+<h2 id="section-35">15. 分阶段实施</h2>
+<h3 id="section-36">阶段 0：架构竞速，约 1 周</h3>
+<ul>
+<li>建立共享 fixture 和性能采集脚本。</li>
+<li>Tauri、WinUI、Slint 各做最小可比较壳。</li>
+<li>验证中文输入、10,000 消息、流式输出和任务取消。</li>
+<li>用 Actions 产出数据，确认首选壳。</li>
+</ul>
+<p>退出条件：</p>
+<ul>
+<li>有可重复的冷/热启动和内存数据。</li>
+<li>明确 UI 富文本成本。</li>
+<li>决定主路线和备用路线。</li>
+</ul>
+<h3 id="section-37">阶段 1：聊天核心，约 2–3 周</h3>
+<ul>
+<li>domain、SQLite migration、消息树。</li>
+<li>OpenAI-compatible 与 Anthropic。</li>
+<li>流式、停止、重试、编辑和分支。</li>
+<li>Markdown、代码块、图片/文本附件。</li>
+<li>浏览器 mock 与 Windows 安装 artifact。</li>
+</ul>
+<p>退出条件：</p>
+<ul>
+<li>不使用真实 Key 的 fixture E2E 全绿。</li>
+<li>大会话达到初步性能门槛。</li>
+</ul>
+<h3 id="agent-mcp-23">阶段 2：轻 Agent 与 MCP，约 2–3 周</h3>
+<ul>
+<li>统一 tool registry。</li>
+<li>Agent 状态机和事件流。</li>
+<li>MCP stdio / Streamable HTTP。</li>
+<li>审批、取消、超时、输出限制和进程树清理。</li>
+<li>工具执行时间线。</li>
+</ul>
+<p>退出条件：</p>
+<ul>
+<li>恶意参数、超大输出、取消和崩溃均有测试。</li>
+<li>默认配置下不存在任意 Shell/任意文件写入。</li>
+</ul>
+<h3 id="section-38">阶段 3：产品化，约 2 周</h3>
+<ul>
+<li>Gemini、自定义供应商与代理。</li>
+<li>搜索、归档、导入导出。</li>
+<li>主题、快捷键、托盘。</li>
+<li>DPAPI/Credential Manager。</li>
+<li>安装、升级、卸载 smoke。</li>
+</ul>
+<h3 id="section-39">阶段 4：发布与观察，约 1–2 周</h3>
+<ul>
+<li>签名、SBOM、Release、更新清单。</li>
+<li>崩溃诊断与脱敏。</li>
+<li>性能基线变成门禁。</li>
+<li>小范围测试后再排 P1。</li>
+</ul>
+<hr />
+<h2 id="section-40">16. 最终建议</h2>
+<p>如果现在开始实现：</p>
+<ol>
+<li>采用 Rust + Tauri 2 + Svelte 5。</li>
+<li>先建立 domain/core/provider/policy，不先堆 UI 页面。</li>
+<li>UI 只对接稳定 IPC 与事件协议。</li>
+<li>首版只做云端 Provider、SQLite、基础附件、function calling 和 MCP。</li>
+<li>不捆绑本地模型、Node/Python、OCR/PDF 引擎。</li>
+<li>从第一天建立 Windows Actions 的启动、内存和进程清理基准。</li>
+<li>保留 DesktopHost 边界；Tauri 未达门槛时换 WinUI 3，不推倒核心。</li>
+<li>把仓库公开视为不可逆的信息披露，而不是临时借用免费分钟。</li>
+</ol>
+<p>一句话判断：</p>
+<p><strong>Tauri 2 是最可能把产品做出来且明显轻于 Electron 的路线；WinUI 3 是性能与 Windows 原生体验的保险；Slint 是值得基准验证、但不适合直接押注完整首版的激进方案。</strong></p>
+<hr />
+<h2 id="section-41">17. 官方资料</h2>
+<h3 id="tauri-webview2">Tauri 与 WebView2</h3>
+<ul>
+<li><a href="https://v2.tauri.app/start/">Tauri 2：Get Started</a></li>
+<li><a href="https://v2.tauri.app/concept/process-model/">Tauri：Process Model</a></li>
+<li><a href="https://v2.tauri.app/distribute/windows-installer/">Tauri：Windows Installer</a></li>
+<li><a href="https://v2.tauri.app/develop/tests/webdriver/">Tauri：WebDriver Testing</a></li>
+<li><a href="https://v2.tauri.app/develop/tests/webdriver/ci/">Tauri：WebDriver CI</a></li>
+<li><a href="https://v2.tauri.app/distribute/pipelines/github/">Tauri：GitHub Pipelines</a></li>
+<li><a href="https://v2.tauri.app/distribute/sign/windows/">Tauri：Windows Code Signing</a></li>
+<li><a href="https://v2.tauri.app/security/capabilities/">Tauri：Capabilities</a></li>
+<li><a href="https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution">Microsoft：Distribute a WebView2 app</a></li>
+<li><a href="https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/process-model">Microsoft：WebView2 process model</a></li>
+<li><a href="https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/user-data-folder">Microsoft：WebView2 user data folder</a></li>
+</ul>
+<h3 id="windows-slintwails">Windows 原生与 Slint/Wails</h3>
+<ul>
+<li><a href="https://learn.microsoft.com/en-us/windows/apps/winui/winui3/">Microsoft：WinUI 3</a></li>
+<li><a href="https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/">Microsoft：Windows App SDK</a></li>
+<li><a href="https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/">Microsoft：Package and deploy Windows apps</a></li>
+<li><a href="https://slint.dev/">Slint</a></li>
+<li><a href="https://docs.slint.dev/latest/docs/slint/guide/platforms/desktop/">Slint：Desktop platforms</a></li>
+<li><a href="https://github.com/wailsapp/wails#readme">Wails README</a></li>
+</ul>
+<h3 id="agent">参考产品与 Agent</h3>
+<ul>
+<li><a href="https://github.com/CherryHQ/cherry-studio#-key-features">Cherry Studio：Key Features</a></li>
+<li><a href="https://github.com/CherryHQ/cherry-studio/blob/main/LICENSE">Cherry Studio：AGPL-3.0 License</a></li>
+<li><a href="https://github.com/rikkahub/rikkahub#-features">RikkaHub：Features</a></li>
+<li><a href="https://github.com/rikkahub/rikkahub/blob/master/LICENSE">RikkaHub：AGPL-3.0 License</a></li>
+<li><a href="https://github.com/badlogic/pi-mono">Pi mono repository</a></li>
+<li><a href="https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent">Pi coding-agent</a></li>
+<li><a href="https://github.com/badlogic/pi-mono/tree/main/packages/agent">Pi agent core</a></li>
+</ul>
+<h3 id="mcp-github-actions">MCP、安全与 GitHub Actions</h3>
+<ul>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28">Model Context Protocol specification 2026-07-28</a></li>
+<li><a href="https://github.com/modelcontextprotocol/rust-sdk">Official MCP Rust SDK</a></li>
+<li><a href="https://learn.microsoft.com/en-us/windows/win32/api/dpapi/">Microsoft：Windows DPAPI</a></li>
+<li><a href="https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration">GitHub Actions usage limits and billing</a></li>
+<li><a href="https://github.com/actions/runner-images#available-images">GitHub-hosted runner images</a></li>
+<li><a href="https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility">GitHub：Changing repository visibility</a></li>
+<li><a href="https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions">GitHub Actions security hardening</a></li>
+<li><a href="https://docs.github.com/en/codespaces/overview">GitHub Codespaces overview</a></li>
+</ul>
+<hr />
+<h2 id="section-42">18. 决策记录模板</h2>
+<p>在阶段 0 完成后，把实测结果写入下列记录：</p>
+<pre><code class="language-text">Decision:
+Date:
+Candidates:
+Chosen:
+
+Measured on:
+- Runner image:
+- Commit:
+- Fixture version:
+
+Results:
+- Cold start P50/P95:
+- Warm start P50/P95:
+- Idle process-tree working set:
+- 10k-message frame time:
+- Installer size:
+- E2E reliability:
+
+Trade-offs accepted:
+Exit conditions:
+Review date:
+</code></pre>
+<p>这样后续即使替换桌面壳，也能清楚知道当时为什么做出选择。</p>
+      </article>
+      <p class="document-footer">Cakify · Architecture Research · 2026-08-16</p>
+    </main>
+  </div>
+</body>
+</html>
+
