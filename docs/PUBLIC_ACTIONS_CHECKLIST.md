@@ -24,7 +24,7 @@
 - [x] 检查 LFS、Release、Packages、Issue/PR、Actions cache 和 artifact：均为空；没有 LFS 文件。
 - [x] 检查分支保护和默认 Actions 权限：main 无分支保护；workflow 顶层为 contents: read，第三方 Action 固定 SHA。
 - [ ] 明确许可证选择。当前包为 `publish = false`，仓库没有 LICENSE；临时 public 只代表源码可见，不应误写成已开源授权。
-- [x] 已记录当前 PRIVATE visibility 和 commit 4e605d730ca61f3461e517d34955eefba9aa8b92；公开前仍需重新记录一次。
+- [x] 已记录 PRIVATE 状态和共享骨架基线 4e605d730ca61f3461e517d34955eefba9aa8b92；公开前必须重新记录最新 HEAD。
 
 ## 本月运行顺序
 

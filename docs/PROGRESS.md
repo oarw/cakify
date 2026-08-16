@@ -8,7 +8,7 @@
 ## 1. 当前快照
 
 - 工作目录：C:\Users\admin\Desktop\code\cakify
-- Git 状态：本地 `main` 干净，当前 commit 为 4e605d730ca61f3461e517d34955eefba9aa8b92，已跟踪 origin/main；作者使用 GitHub noreply 地址。
+- Git 状态：本地 main 已跟踪 origin/main；共享骨架基线为 4e605d730ca61f3461e517d34955eefba9aa8b92，最近已推送文档提交 cd5a4e2；实际 HEAD 以 git rev-parse HEAD 为准。
 - GitHub 远端：`https://github.com/oarw/cakify.git`。
 - 原型源码：已创建共享 Cargo workspace、benchmark protocol/core、fixture、视觉 token、结果 schema、采集脚本，以及四个 UI 壳目录与实现契约；四个真实 UI 尚未实现。
 - GitHub Actions：已创建 validate.yml 与 benchmark.yml；两者仅允许 workflow_dispatch，首次 push 后 run 列表为空。

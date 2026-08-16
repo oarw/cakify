@@ -56,7 +56,7 @@ Cakify 目标是一个 Windows-first 的高性能 AI Chat 客户端：
 ## 4. 当前真实状态
 
 - 工作区路径：C:\Users\admin\Desktop\code\cakify
-- 本地分支：`main`，当前 commit `4e605d730ca61f3461e517d34955eefba9aa8b92`，工作树干净；作者为 GitHub noreply 地址。
+- 本地分支：main，跟踪 origin/main；共享骨架基线 4e605d730ca61f3461e517d34955eefba9aa8b92，最近已推送文档提交 cd5a4e2；实际 HEAD 以 git rev-parse HEAD 为准。
 - GitHub remote：`https://github.com/oarw/cakify.git`，仓库为 PRIVATE，默认分支 `main`。
 - 已有 Cargo workspace：
   - `crates/bench-protocol`
@@ -286,7 +286,7 @@ Tauri：
 ## 15. 交接槽位
 
 - 当前分支：main
-- 当前 commit：4e605d730ca61f3461e517d34955eefba9aa8b92
+- 当前 HEAD：执行 git rev-parse HEAD；共享骨架基线为 4e605d730ca61f3461e517d34955eefba9aa8b92，最近文档提交为 cd5a4e2
 - GitHub remote：https://github.com/oarw/cakify.git
 - 当前 visibility：PRIVATE
 - 最近 Action run：N/A（首次 push 后为空）

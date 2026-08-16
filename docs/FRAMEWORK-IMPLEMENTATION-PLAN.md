@@ -2,7 +2,7 @@
 
 > 最后更新：2026-08-16（Asia/Shanghai）  
 > 当前仓库：`https://github.com/oarw/cakify`（PRIVATE）  
-> 当前 commit：`4e605d730ca61f3461e517d34955eefba9aa8b92`
+> 共享骨架基线 commit：`4e605d730ca61f3461e517d34955eefba9aa8b92`
 
 ## 为什么今晚没有直接跑四候选
 
