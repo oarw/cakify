@@ -1,0 +1,15 @@
+[package]
+name = "cakify-tauri-bench"
+version = "0.1.0"
+description = "Cakify Tauri benchmark shell"
+authors = ["Cakify"]
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2.5.1" }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2.11.5", features = [] }

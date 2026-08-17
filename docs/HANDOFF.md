@@ -1,8 +1,8 @@
 # Cakify 跨供应商交接文档
 
-> 用途：任何新的 AI 模型、供应商或工程师应在开始工作前完整阅读本文件。  
-> 最后更新：2026-08-16（Asia/Shanghai）  
-> 交接状态：私有远端已建立并推送共享骨架；四个真实 UI 尚未实现，等待实现和公开运行授权。
+> 用途：任何新的 AI 模型、供应商或工程师应在开始工作前完整阅读本文件。
+> 最后更新：2026-08-17（Asia/Shanghai）
+> 交接状态：四个首版 UI 壳、统一采集器和真实 benchmark workflow 已写入私有远端；尚未编译、运行或消耗 Actions 分钟。
 
 ## 1. 五分钟上下文
 
@@ -56,14 +56,14 @@ Cakify 目标是一个 Windows-first 的高性能 AI Chat 客户端：
 ## 4. 当前真实状态
 
 - 工作区路径：C:\Users\admin\Desktop\code\cakify
-- 本地分支：main，跟踪 origin/main；共享骨架基线 4e605d730ca61f3461e517d34955eefba9aa8b92，最近已推送文档提交 cd5a4e2；实际 HEAD 以 git rev-parse HEAD 为准。
+- 本地分支：main，跟踪 origin/main；共享骨架基线 4e605d730ca61f3461e517d34955eefba9aa8b92；实际 HEAD 以 `git rev-parse HEAD` 为准。
 - GitHub remote：`https://github.com/oarw/cakify.git`，仓库为 PRIVATE，默认分支 `main`。
 - 已有 Cargo workspace：
   - `crates/bench-protocol`
   - `crates/bench-core`
 - 已有统一 fixture、视觉 token、附件、结果 schema 和 Windows 采集脚本。
-- `apps/gpui-bench`、`apps/avalonia-bench`、`apps/flutter-bench`、`apps/tauri-bench` 已建立契约 README，真实 UI 尚未实现。
-- 已有 `.github/workflows/validate.yml` 与 `benchmark.yml`；只允许 `workflow_dispatch`，从未运行。
+- `apps/gpui-bench`、`apps/avalonia-bench`、`apps/flutter-bench`、`apps/tauri-bench` 已写入首版可执行 UI 壳；等待 Windows runner 编译验证。
+- 已有 `.github/workflows/validate.yml` 与 `benchmark.yml`；只允许 `workflow_dispatch`，benchmark 已升级为真实 release matrix，但从未运行。
 - 首次 push 后 gh run list 为空；没有 Action run ID、URL、Cargo.lock、构建产物、截图或 benchmark artifact。
 - 本机没有 Cargo；没有执行编译、测试、GUI 启动或 benchmark。
 - 已完成源码级 secret 扫描和静态解析，结果记录在 `docs/PUBLIC_ACTIONS_CHECKLIST.md`。
@@ -159,9 +159,9 @@ cakify-bench-core.exe
   - 执行 Rust workspace 契约测试。
   - 上传首次生成的 `Cargo.lock`。
 - `benchmark.yml`
-  - 当前只是 gpui/avalonia/flutter/tauri 四项 scaffold matrix。
-  - 每项生成明确标记 `scaffold_only` 的 JSON artifact，不冒充真实性能结果。
-  - 四个 UI 完成后再升级为 Windows x64 release 构建、启动和采集。
+  - matrix 为 gpui/avalonia/flutter/tauri 四项 Windows x64 release 构建。
+  - 每项启动共享 core，读取 ready-file，做 health/分页/取消探针，采集整棵进程树并上传 `result.v1` 原始 artifact。
+  - 当前尚未运行；任何数字都不能写成性能结论。
 
 安全约束：
 
@@ -277,11 +277,10 @@ Tauri：
 当前请按以下顺序行动：
 
 1. 读取 AGENTS.md、本文件、docs/PROGRESS.md、docs/PUBLIC_ACTIONS_CHECKLIST.md 和 docs/FRAMEWORK-IMPLEMENTATION-PLAN.md。
-2. 实现四个真正可执行的 UI 壳；不要运行当前 scaffold_only matrix 伪装成 benchmark。
-3. 更新 workflow，构建 GPUI、Avalonia、Flutter、Tauri 四个 Windows x64 release artifact，并采集统一指标。
-4. 完成公开前安全审计并展示结果：当前 PRIVATE、单一初始 commit、无 secrets/variables/environments、无 LFS/Release/Issue/PR/cache/artifact。
-5. 获得用户本次 public -> Actions -> private 授权后再改 visibility 和运行 workflow。
-6. 记录 run URL/ID、commit、artifact、失败原因，并在确认无 queued/in_progress run 后恢复 PRIVATE。
+2. 做源码级 API/路径审阅；不要在本机安装大环境或编译。
+3. 完成公开前安全审计并展示结果：当前 PRIVATE、历史、secrets/variables/environments、LFS、Release、Issue/PR、cache/artifact 和许可证。
+4. 获得用户本次 public -> Actions -> private 授权后再改 visibility 和运行 workflow。
+5. 记录 run URL/ID、commit、artifact、失败原因，并在确认无 queued/in_progress run 后恢复 PRIVATE。
 
 ## 15. 交接槽位
 
@@ -291,10 +290,10 @@ Tauri：
 - 当前 visibility：PRIVATE
 - 最近 Action run：N/A（首次 push 后为空）
 - 最近成功 artifact：N/A
-- 当前正在做：准备四个真实 UI 壳；当前 matrix 仍是 scaffold_only
+- 当前正在做：源码级审阅与公开前审计；四个 UI 壳和真实 benchmark matrix 已写入但未运行
 - 已知失败：无 CI 失败记录；源码尚未编译，本机没有 Cargo
 - 公开前审计：单一初始 commit；无 Secrets/Variables/Environments、Issues/PR、Releases、Artifacts、Caches、LFS；无分支保护
-- 精确下一动作：实现四个最小壳并把 matrix 从 scaffold 升级为真实 release benchmark
+- 精确下一动作：完成公开前远端复核，向用户展示结果并等待本次 public -> Actions -> private 明确授权
 - 需要用户决定：许可证、四壳实现完成后的本次 public -> Actions -> private 授权
 
 每次停止工作或更换供应商前，必须更新以上槽位。

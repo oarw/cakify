@@ -1,14 +1,13 @@
 # 四候选实现与运行计划
 
-> 最后更新：2026-08-16（Asia/Shanghai）  
-> 当前仓库：`https://github.com/oarw/cakify`（PRIVATE）  
+> 最后更新：2026-08-17（Asia/Shanghai）
+> 当前仓库：`https://github.com/oarw/cakify`（PRIVATE）
 > 共享骨架基线 commit：`4e605d730ca61f3461e517d34955eefba9aa8b92`
+> 当前实现状态：四个首版 UI 壳与真实 benchmark workflow 已写入，尚未在 Actions 编译或运行。
 
-## 为什么今晚没有直接跑四候选
+## 为什么当前仍没有直接跑四候选
 
-当前 `apps/gpui-bench`、`apps/avalonia-bench`、`apps/flutter-bench`、`apps/tauri-bench` 只有统一契约 README，没有可执行 UI。`benchmark.yml` 目前明确生成 `scaffold_only` 元数据，不会编译、启动或测量四个框架。
-
-此时运行 matrix 只能消耗临时公开后的 Actions 时间，不能产生内存、启动、滚动或流式对比，因此暂不运行是为了避免得到假结果。
+四个目录现在已经有首版可执行 UI，但仓库仍为 PRIVATE，且 2026 年 8 月私库 Actions 分钟耗尽。当前不运行不是性能结论：必须先完成本轮源码/远端安全复核，取得用户明确的临时公开授权，再在 Windows runner 上编译和测量。
 
 ## 已锁定的共同层
 
@@ -48,9 +47,18 @@
 - Svelte 页面通过带 `x-cakify-session` 的 fetch/stream 访问 core；WebView2 进程组必须纳入整树内存。
 - workflow 必须同时记录 Tauri 主进程、WebView2 和 core sidecar 的退出状态。
 
+## 已落地的首版壳与 workflow
+
+- GPUI：固定 Zed commit `b2d9c2e122fbc408d42276b4456243ba4f90f181`，原生窗口与 `uniform_list`。
+- Avalonia：12.1.1 + .NET 8，虚拟 `ListBox` 与原生 `TextBox`。
+- Flutter：3.47.0 stable，`ListView.builder` 与 `dart:io` core 客户端。
+- Tauri：2.11.5 + Svelte 5.56.9，Rust 生命周期管理与固定行高虚拟窗口。
+- 四个壳都接受 `--core-path` / `--core-ready-file`；token 只来自运行时 ready JSON。
+- `scripts/windows/run-candidate-benchmark.ps1` 负责启动、ready、health、分页、取消、整树采样、截图尝试、清理和 `result.v1`。
+
 ## 真实 benchmark workflow 的最低要求
 
-`benchmark.yml` 从 scaffold 升级时，四个 matrix job 必须全部做到：
+当前 `benchmark.yml` 的四个 matrix job 设计为全部做到：
 
 1. Windows x64 release 构建，并记录 runner、编译器和框架版本。
 2. 启动同一 `cakify-bench-core.exe`，读取 ready JSON 和 session token。

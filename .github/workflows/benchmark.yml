@@ -1,12 +1,17 @@
-name: Benchmark scaffold
+name: Benchmark candidates
 
 on:
   workflow_dispatch:
     inputs:
       run_count:
-        description: "Number of planned samples per candidate"
+        description: "Valid samples per candidate"
         required: true
         default: "3"
+        type: string
+      idle_seconds:
+        description: "Whole-process-tree idle sampling window"
+        required: true
+        default: "60"
         type: string
 
 permissions:
@@ -17,28 +22,146 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  scaffold:
-    name: ${{ matrix.candidate }} scaffold
+  benchmark:
+    name: ${{ matrix.candidate }} release benchmark
     runs-on: windows-2025
-    timeout-minutes: 10
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        candidate: [gpui, avalonia, flutter, tauri]
+        include:
+          - candidate: gpui
+            framework_version: "gpui 0.2.2 @ b2d9c2e"
+          - candidate: avalonia
+            framework_version: "Avalonia 12.1.1 / .NET 8"
+          - candidate: flutter
+            framework_version: "Flutter 3.47.0"
+          - candidate: tauri
+            framework_version: "Tauri 2.11.5 / Svelte 5.56.9"
+    env:
+      CARGO_TERM_COLOR: always
+      CAKIFY_FRAMEWORK_VERSION: ${{ matrix.framework_version }}
+      RUN_COUNT: ${{ inputs.run_count }}
+      IDLE_SECONDS: ${{ inputs.idle_seconds }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
       - name: Validate shared contract
         shell: pwsh
         run: ./scripts/windows/validate-fixture.ps1
-      - name: Emit scaffold artifact
+
+      - name: Record base toolchain
         shell: pwsh
-        env:
-          RUN_COUNT: ${{ inputs.run_count }}
-        run: ./scripts/windows/benchmark-scaffold.ps1 -Candidate "${{ matrix.candidate }}" -RunCount ([int]$env:RUN_COUNT) -OutputDirectory "results/${{ matrix.candidate }}"
-      - name: Upload scaffold metadata
+        run: |
+          rustc -Vv
+          cargo -V
+          dotnet --info
+          node --version
+          npm --version
+
+      - name: Build shared Rust core
+        shell: pwsh
+        run: cargo build --release -p cakify-bench-core
+
+      - name: Build GPUI release
+        if: matrix.candidate == 'gpui'
+        shell: pwsh
+        run: cargo build --release --manifest-path apps/gpui-bench/Cargo.toml
+
+      - name: Stage GPUI release
+        if: matrix.candidate == 'gpui'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/gpui/app | Out-Null
+          Copy-Item -LiteralPath apps/gpui-bench/target/release/cakify-gpui-bench.exe -Destination artifacts/gpui/app/cakify-gpui-bench.exe
+          "CAKIFY_APP_PATH=artifacts/gpui/app/cakify-gpui-bench.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build Avalonia release
+        if: matrix.candidate == 'avalonia'
+        shell: pwsh
+        run: dotnet publish apps/avalonia-bench/Cakify.AvaloniaBench.csproj -c Release -r win-x64 --self-contained false -o artifacts/avalonia/app
+
+      - name: Select Avalonia executable
+        if: matrix.candidate == 'avalonia'
+        shell: pwsh
+        run: '"CAKIFY_APP_PATH=artifacts/avalonia/app/Cakify.AvaloniaBench.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append'
+
+      - name: Setup Flutter
+        if: matrix.candidate == 'flutter'
+        uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c # pinned main, checked 2026-08-17
+        with:
+          flutter-version: "3.47.0"
+          channel: stable
+          cache: true
+
+      - name: Build Flutter release
+        if: matrix.candidate == 'flutter'
+        shell: pwsh
+        working-directory: apps/flutter-bench
+        run: |
+          flutter --version
+          flutter create --platforms=windows --project-name cakify_flutter_bench .
+          flutter pub get
+          flutter build windows --release
+
+      - name: Stage Flutter release
+        if: matrix.candidate == 'flutter'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/flutter/app | Out-Null
+          Copy-Item -Path apps/flutter-bench/build/windows/x64/runner/Release/* -Destination artifacts/flutter/app -Recurse
+          "CAKIFY_APP_PATH=artifacts/flutter/app/cakify_flutter_bench.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install Tauri frontend dependencies
+        if: matrix.candidate == 'tauri'
+        shell: pwsh
+        working-directory: apps/tauri-bench
+        run: npm install --no-audit --no-fund
+
+      - name: Build Tauri release
+        if: matrix.candidate == 'tauri'
+        shell: pwsh
+        working-directory: apps/tauri-bench
+        run: npm run tauri -- build --no-bundle
+
+      - name: Stage Tauri release
+        if: matrix.candidate == 'tauri'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/tauri/app | Out-Null
+          Copy-Item -LiteralPath apps/tauri-bench/src-tauri/target/release/cakify-tauri-bench.exe -Destination artifacts/tauri/app/cakify-tauri-bench.exe
+          "CAKIFY_APP_PATH=artifacts/tauri/app/cakify-tauri-bench.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Stage shared core
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/${{ matrix.candidate }}/core | Out-Null
+          Copy-Item -LiteralPath target/release/cakify-bench-core.exe -Destination artifacts/${{ matrix.candidate }}/core/cakify-bench-core.exe
+
+      - name: Run unified benchmark
+        shell: pwsh
+        run: >-
+          ./scripts/windows/run-candidate-benchmark.ps1
+          -Candidate "${{ matrix.candidate }}"
+          -AppPath $env:CAKIFY_APP_PATH
+          -CorePath "artifacts/${{ matrix.candidate }}/core/cakify-bench-core.exe"
+          -RunCount ([int]$env:RUN_COUNT)
+          -IdleSeconds ([int]$env:IDLE_SECONDS)
+          -OutputDirectory "results/${{ matrix.candidate }}"
+
+      - name: Upload release and raw benchmark data
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-${{ matrix.candidate }}-${{ github.run_id }}
-          path: results/${{ matrix.candidate }}/
-          if-no-files-found: error
+          path: |
+            artifacts/${{ matrix.candidate }}/
+            results/${{ matrix.candidate }}/
+            Cargo.lock
+            apps/gpui-bench/Cargo.lock
+            apps/flutter-bench/pubspec.lock
+            apps/tauri-bench/package-lock.json
+            apps/tauri-bench/src-tauri/Cargo.lock
+          if-no-files-found: warn
+          retention-days: 7

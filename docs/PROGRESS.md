@@ -1,21 +1,21 @@
 # Cakify Benchmark 进度记录
 
-> 本文件是项目状态的单一事实来源。  
-> 最后更新：2026-08-16（Asia/Shanghai）  
-> 当前阶段：Phase 1 - 共享基准骨架  
-> 当前状态：LOCAL_SCAFFOLD_READY
+> 本文件是项目状态的单一事实来源。
+> 最后更新：2026-08-17（Asia/Shanghai）
+> 当前阶段：Phase 2 - 四候选 UI 壳与 CI wiring
+> 当前状态：LOCAL_UI_SHELLS_READY
 
 ## 1. 当前快照
 
 - 工作目录：C:\Users\admin\Desktop\code\cakify
-- Git 状态：本地 main 已跟踪 origin/main；共享骨架基线为 4e605d730ca61f3461e517d34955eefba9aa8b92，最近已推送文档提交 cd5a4e2；实际 HEAD 以 git rev-parse HEAD 为准。
+- Git 状态：本地 main 跟踪 origin/main；共享骨架基线为 4e605d730ca61f3461e517d34955eefba9aa8b92；实际 HEAD 以 `git rev-parse HEAD` 为准。
 - GitHub 远端：`https://github.com/oarw/cakify.git`。
-- 原型源码：已创建共享 Cargo workspace、benchmark protocol/core、fixture、视觉 token、结果 schema、采集脚本，以及四个 UI 壳目录与实现契约；四个真实 UI 尚未实现。
-- GitHub Actions：已创建 validate.yml 与 benchmark.yml；两者仅允许 workflow_dispatch，首次 push 后 run 列表为空。
+- 原型源码：共享 Cargo workspace、benchmark protocol/core、fixture、视觉 token、结果 schema、采集脚本，以及 GPUI、Avalonia、Flutter、Tauri 四个首版可执行 UI 壳均已写入。
+- GitHub Actions：`validate.yml` 与 `benchmark.yml` 均仅允许 `workflow_dispatch`；benchmark 已从 scaffold matrix 升级为四候选 Windows x64 release 构建/采集矩阵，尚未运行。
 - 仓库可见性：当前为 PRIVATE；本轮没有 public/private 切换。
-- 当前目标：先实现四个可执行 UI 壳，再临时公开运行真实四候选 matrix；scaffold_only 不作为性能结果。
+- 当前目标：完成源码审阅与公开前安全复核；获得本次明确授权后，临时公开运行真实四候选 matrix，再恢复 PRIVATE。
 - 执行方式：源码由 AI 完成；本机只做源码编辑和静态解析；构建、测试、基准、打包通过 GitHub Actions。
-- 本地验证：JSON 可解析、PowerShell 语法可解析、常见 secret/私钥文件扫描无命中、workflow 触发器与固定 SHA 已检查。
+- 本地验证：JSON 可解析、PowerShell 语法可解析、常见 secret/私钥文件扫描无命中、workflow 触发器与固定 SHA 已检查；未进行编译、测试或 GUI 启动。
 - 未验证：本机没有 Cargo，未执行 Rust 格式化、编译、测试、GUI 启动或 benchmark；不得把当前状态写成构建通过。
 
 ## 2. 候选技术栈
@@ -84,8 +84,13 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 - [x] Rust core 实现 localhost HTTP/SSE、确定性分页、30 秒流式事件、工具时间线和取消。
 - [x] Rust core 每次启动生成随机会话令牌，所有接口校验 `x-cakify-session`。
 - [x] 建立四个客户端目录和统一实现契约。
+- [x] 实现 GPUI + Rust 原生窗口、`uniform_list`、主题与 core ready/page 接入。
+- [x] 实现 Avalonia + C# + Rust 虚拟 `ListBox`、主题、中文输入和 core 接入。
+- [x] 实现 Flutter + Rust `ListView.builder`、主题、中文输入和 core 接入。
+- [x] 实现 Tauri + Svelte + Rust 虚拟窗口、主题、中文输入和 core 生命周期。
 - [x] 建立进程树采样、fixture 校验和 scaffold artifact 脚本。
-- [x] 创建仅 `workflow_dispatch` 的 validate 与四候选 scaffold matrix。
+- [x] 创建仅 `workflow_dispatch` 的 validate 与四候选四套 release benchmark matrix。
+- [x] 建立统一 ready-file、health、分页、取消探针和 `result.v1` 采集脚本。
 - [x] 通过 GitHub 官方 API 核实 checkout/upload-artifact 的完整 commit SHA。
 - [x] 完成本地 JSON、PowerShell、workflow 触发器和 secret 模式静态检查。
 
@@ -96,11 +101,11 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 - [ ] 选择公开仓库许可证；当前没有 LICENSE，Rust 包为 `publish = false`。
 - [ ] 在 Actions 中运行 Rust 格式化与契约测试（需先实现真实壳并获得临时公开授权）。
 - [ ] 从首次 validate artifact 取得并提交 `Cargo.lock`。
-- [ ] 实现 GPUI UI 原型（当前仅契约 README）。
-- [ ] 实现 Avalonia UI 原型（当前仅契约 README）。
-- [ ] 实现 Flutter UI 原型（当前仅契约 README）。
-- [ ] 实现 Tauri + Svelte UI 原型（当前仅契约 README）。
-- [ ] 把 scaffold matrix 升级为四套 x64 release 构建与真实采集。
+- [ ] 在 Actions 编译并验证 GPUI UI 原型。
+- [ ] 在 Actions 编译并验证 Avalonia UI 原型。
+- [ ] 在 Actions 编译并验证 Flutter UI 原型。
+- [ ] 在 Actions 编译并验证 Tauri + Svelte UI 原型。
+- [ ] 运行四套 x64 release 构建与真实采集矩阵。
 - [ ] 生成第一轮安装包、截图和 JSON 指标。
 - [ ] 至少完成三轮稳定基准。
 - [ ] 输出最终技术选型报告。
@@ -109,12 +114,11 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 
 下一位执行者从这里继续，不要重新做框架泛泛调研：
 
-1. 阅读 docs/FRAMEWORK-IMPLEMENTATION-PLAN.md，按 GPUI、Avalonia、Flutter、Tauri 顺序实现最小可执行壳。
-2. 每个壳都必须启动同一 cakify-bench-core.exe，完成 ready、分页、虚拟列表、主题、工具事件和取消。
-3. 更新 benchmark.yml：真实构建四个 Windows x64 release artifact，不能再只生成 scaffold_only。
-4. 完成远端公开前审计并向用户展示：当前仓库 PRIVATE、只有一个初始 commit、无 secrets/variables/environments、无 LFS/Release/Issue/PR/cache/artifact。
-5. 获得本次 public -> Actions -> private 的明确授权后，先跑 validate，再跑真实四候选 matrix。
-6. 记录每个 run 的 URL/ID、commit、artifact、失败原因和最终结论；未运行不得写成通过。
+1. 在源码层完成 GPUI、Avalonia、Flutter、Tauri 的 API/路径审阅，不在本机编译。
+2. 重新执行公开前历史、Secrets、LFS、Release、Issue/PR、cache/artifact 与许可证审计。
+3. 向用户展示审计结果并获得本次 `public -> Actions -> private` 的明确授权。
+4. 临时公开后先跑 validate，再跑真实四候选 matrix；确认无 queued/in_progress 后恢复 PRIVATE。
+5. 记录每个 run 的 URL/ID、commit、artifact、失败原因和最终结论；未运行不得写成通过。
 
 ## 9. 预计节奏
 
@@ -124,12 +128,12 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 
 ## 10. 当前阻塞与授权门
 
-- UI_IMPLEMENTATION_PENDING：四个 app 目录目前只有 README 契约，直接运行 matrix 只能得到 scaffold_only，不能回答性能问题。
+- CI_COMPILE_PENDING：四个 UI 壳已写入，但尚未在 Windows runner 编译和启动验证。
 - PRIVATE_ACTIONS_QUOTA：2026 年 8 月私库 Actions 分钟耗尽；当前仓库保持 PRIVATE，不运行 workflow。
 - PUBLIC_AUTH_REQUIRED：任何 public/private 切换必须由用户针对本次操作明确授权。
 - SECURITY_REQUIRED：公开前必须完成完整历史、Secrets、LFS、Release、Issue、PR、Actions artifact/cache 和许可证检查。
 - LICENSE_PENDING：当前没有 LICENSE；临时 public 只表示源码可见，不表示已选择开源许可。
-- BOOTSTRAP_PENDING：尚无 Cargo.lock；计划由首次 validate workflow 生成 artifact 后提交。
+- BOOTSTRAP_PENDING：尚无已审核的 Cargo.lock；由首次 validate/release workflow 生成 artifact 后决定是否提交。
 - MANUAL_RISK：真实中文 IME、物理 GPU、DPI 和多显示器无法仅靠普通托管 runner 得出最终结论。
 
 ## 11. 进度日志
@@ -153,6 +157,14 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 - 远端公开前审计完成：单一初始 commit；无 Secrets、Variables、Environments、Issues/PR、Releases、Artifacts、Caches、LFS；无分支保护；Actions 权限为 enabled/all，但 workflow 内第三方 Action 已固定 SHA。
 - 暂不运行四候选 matrix：四个 app 尚未有可执行 UI，当前 workflow 只会生成 scaffold_only。
 
+### 2026-08-17
+
+- 写入 GPUI、Avalonia、Flutter、Tauri 四个首版可执行 UI 壳，统一传入 `--core-path` 与 `--core-ready-file`。
+- GPUI 固定 Zed 官方提交 `b2d9c2e122fbc408d42276b4456243ba4f90f181`；Avalonia 固定 12.1.1；Flutter 固定 3.47.0；Tauri 固定 2.11.5 / Svelte 5.56.9。
+- `benchmark.yml` 从 `scaffold_only` 改为 Windows x64 release matrix，新增整棵进程树、ready、health、分页、取消、截图尝试和 result.v1 artifact 采集。
+- 本地静态检查通过：JSON、PowerShell、workflow 结构和 secret 模式；未运行编译、测试、GUI 或 Actions。
+- 当前仍保持 PRIVATE；等待公开前复核和用户本次 public -> Actions -> private 授权。
+
 ## 12. 更新规则
 
 每次有实质进展后必须：
@@ -163,4 +175,3 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 4. 在“进度日志”追加一条，不覆盖历史。
 5. 若文档与工作区冲突，先以实际状态修正文档，再继续开发。
 6. 未执行的测试不得写成已通过。
-

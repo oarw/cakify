@@ -1,0 +1,49 @@
+:root {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #182026;
+  background: #f7f8fa;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; height: 100%; margin: 0; }
+button, textarea { font: inherit; }
+
+.shell { display: flex; width: 100%; height: 100%; background: #f7f8fa; }
+.sidebar { width: 264px; flex: 0 0 264px; display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #fff; border-right: 1px solid #d7dee4; }
+.sidebar h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
+.workspace-card, .session-row, .message-card, textarea { border: 1px solid #d7dee4; border-radius: 8px; }
+.workspace-card { display: grid; gap: 4px; padding: 12px; background: #eef1f4; }
+.workspace-card span, .section-label, .sidebar small, .composer-meta { color: #64717b; }
+.workspace-card span, .sidebar small { font-size: 12px; }
+.section-label { margin-top: 4px; font-size: 13px; }
+.session-row { padding: 10px 12px; border-color: transparent; font-size: 13px; }
+.session-row.active { background: #eef1f4; border-color: #d7dee4; }
+.sidebar-spacer { flex: 1; }
+.content { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.header { height: 64px; flex: 0 0 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #fff; border-bottom: 1px solid #d7dee4; }
+.header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.header-actions { display: flex; gap: 8px; }
+button { border: 1px solid #d7dee4; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+button.primary, .send-button { color: #fff; background: #1f6f78; border-color: #1f6f78; }
+button.secondary { color: #182026; background: #fff; }
+.message-viewport { min-height: 0; flex: 1; overflow-y: auto; padding: 16px 24px; }
+.message-spacer { position: relative; width: 100%; }
+.message-window { position: absolute; inset: 0 0 auto; display: grid; gap: 8px; }
+.message-card { height: 68px; display: flex; align-items: flex-start; gap: 8px; padding: 12px; overflow: hidden; background: #fff; line-height: 1.5; }
+.message-card.alternate { background: #eef1f4; }
+.message-card .role { flex: 0 0 auto; color: #1f6f78; font-weight: 600; }
+.separator { color: #64717b; }
+.composer-wrap { flex: 0 0 152px; padding: 12px 24px 16px; background: #fff; border-top: 1px solid #d7dee4; }
+textarea { display: block; width: 100%; min-height: 112px; resize: none; padding: 12px; color: #182026; background: #fff; }
+.composer-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 12px; }
+.icon-button, .send-button { min-width: 32px; padding: 4px 8px; }
+.send-button { margin-left: 8px; }
+
+.shell.dark { color: #e8edf0; background: #15191d; }
+.dark .sidebar, .dark .header, .dark .composer-wrap, .dark textarea, .dark .message-card { color: #e8edf0; background: #20262b; border-color: #3a454d; }
+.dark .workspace-card, .dark .session-row.active, .dark .message-card.alternate { background: #2a3238; }
+.dark .session-row { border-color: transparent; }
+.dark .workspace-card span, .dark .section-label, .dark .sidebar small, .dark .composer-meta, .dark .separator { color: #a7b2b9; }
+.dark button.secondary { color: #e8edf0; background: #20262b; border-color: #3a454d; }
+.dark textarea { color: #e8edf0; }
