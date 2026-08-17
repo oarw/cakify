@@ -180,7 +180,7 @@ Core Service ─────────────────
 - Benchmark：启动、整树内存、10k、stream、cancel。
 - Package：portable ZIP、SBOM、checksum；MSIX/签名后置。
 
-2026 年 8 月私库 Actions 分钟已耗尽。源码完成后可以自动 commit/push，但 Actions 不能随 push 自动触发。每次确需运行时必须重新安全审计、取得用户对本次 visibility 切换的明确确认、临时 public、核对 runs/artifacts、确认无 queued/in_progress，再恢复 private。旧授权不可复用。
+2026 年 8 月私库 Actions 分钟已耗尽。源码完成后可以自动 commit/push，但 Actions 不能随 push 自动触发。用户已于 2026-08-17 持续授权本月后续的受控临时公开闭环：每次仍须安全复核；无新增实质风险时由执行者自动临时 public、只运行当前任务所需的手动 workflow、核对 runs/artifacts、确认无 queued/in_progress，再立即恢复 private。长期公开、Release/发包、无关 workflow 或新增风险不在授权内；进入 9 月先核实额度和规则。
 
 ## 12. 决策与风险
 
@@ -202,14 +202,12 @@ Avalonia 是唯一正式回退。只有 IME、accessibility、GPUI 维护或性�
 
 ## 13. 下一次直接开始的位置
 
-下一位执行者不再重复技术选型，按顺序完成 M0：
+M0 workspace、三个首批 crate、Core bridge、GPUI 空窗口、依赖 pin、`gpui-component` 拒绝决策和 Product validate 已完成。下一位执行者不再重复这些工作，按顺序继续：
 
-1. 创建产品 Cargo workspace、toolchain 与依赖 pin 策略。
-2. 创建 `cakify-desktop`、`cakify-core`、`cakify-platform-windows` 最小骨架。
-3. 实现 bounded `AppCommand`/`AppEvent` 与 fake core loop。
-4. 建 GPUI 原生窗口，连接 fake event，不接真实 Provider。
-5. 做 `gpui-component` textarea/Markdown/virtual-list 隔离 spike并当轮定案。
-6. 写手动 product validate workflow；未经本次公开授权不运行。
-7. 更新 `PROGRESS.md`/`HANDOFF.md`，自动 commit/push。
+1. 增加 Windows runtime smoke，验证 release EXE 窗口启动/退出、默认进程树、Working Set 与无残留。
+2. 按 8 月持续授权自动完成安全复核 -> public -> 只运行 smoke 所需手动 workflow -> 核对 -> 无活动任务 -> private。
+3. 保留真实微软拼音/日文 IME、DPI 和 UI Automation 为独立人工门，不用 M0 空壳替代。
+4. 进入 M1，先实现 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
+5. 更新 `PROGRESS.md`/`HANDOFF.md`，自动 commit/push。
 
-这一步之后进入 M1，先把 SQLite 与 Credential Manager 做扎实，再叠真实聊天 UI；不从“大而全首页”或 RAG 开始。
+数据与密钥边界闭合后再叠真实聊天 UI；不从“大而全首页”或 RAG 开始。

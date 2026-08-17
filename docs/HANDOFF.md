@@ -2,7 +2,7 @@
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
 > 最后更新：2026-08-17（Asia/Shanghai）
-> 交接状态：M0 产品源码已 bootstrap，下一步先跑产品 validate Actions 闭环。
+> 交接状态：M0 Product validate 已通过，下一步补 Windows runtime smoke 后进入 M1。
 
 ## 1. 五分钟上下文
 
@@ -41,16 +41,17 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 分支：`main`，跟踪 `origin/main`
 - 本轮开始 HEAD：`36742654d67b276ce964ecaea1b6a5d1a2c4c58f`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
+- Product validate 已验证源码提交：`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
 - 根产品 Cargo workspace 已建立，首批成员为 desktop、core、platform-windows。
-- GPUI 空窗口和 fake Core bridge 已写入源码，但没有在本机或 Actions 编译。
+- GPUI 空窗口和 fake Core bridge 已通过 Actions 的 fmt/check/tests/Clippy/release build；EXE 尚未做 runtime smoke。
 - 旧 benchmark 完整归档在 `archi/framework-benchmark-2026-08/`。
 - 根 `.github/workflows/product-validate.yml` 只有 `workflow_dispatch`；push 不会自动运行。
-- 最近实际成功 run：Validate `32017467536`、Benchmark `32017470781`，都在 commit `40209896dca0009b747efc51ac885bed32b81f25`。
-- 本轮创建产品源码、ADR 和手动 workflow；未运行 Actions、未切换 visibility、未本地编译/测试。
-- 首个产品 `Cargo.lock`、release EXE 和产品依赖树尚不存在；不能把 M0 源码写成已通过。
-- 针对 HEAD `b87789ce6c145cb8b1507ba077d8112d744dcdac` 的公开前安全审计已完成，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；尚未取得本次 visibility 授权。
+- 最近实际成功 run：Product validate `32034202488`，commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`。
+- 本轮只运行 Product validate：前两轮分别暴露格式和 Core 借用错误，第三轮全部通过；本机未编译/测试/运行。
+- 首个产品 `Cargo.lock` 已提交；最终 artifact 含 release EXE 和依赖树，详见第 12 节。
+- 公开前安全审计和本次 public -> Product validate -> private 已闭环，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
 - 仓库没有 LICENSE。
 
 接手后先执行只读检查：`git status --short --branch`、`git rev-parse HEAD`、`git remote -v`、`gh repo view ... --json visibility,isPrivate`、`gh run list`。实际状态优先于本文。
@@ -61,8 +62,9 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 本机原则上只编辑源码；不安装大批环境，不执行项目编译、测试、benchmark、打包或发布。
 - 完成源码/文档后自动 commit/push；不要等待用户再提醒推送。
 - 2026 年 8 月私库 Actions 分钟已耗尽，PRIVATE 时不得运行 workflow。
-- 本月每次 Actions 都必须：安全复核 -> 获得本次明确授权 -> public -> 运行/核对 -> 确认无 queued/in_progress -> private。
-- 不自动修改仓库可见性，旧授权不能复用。
+- 用户已于 2026-08-17 持续授权本月后续受控闭环。每次 Actions 必须安全复核；无新增实质风险时自动执行：确认 private/无活动任务 -> public -> 只运行当前任务所需手动 workflow -> 核对 -> 确认无 queued/in_progress -> 立即 private，不再逐次询问。
+- 自动授权不包括长期公开、Release/发包、无关 workflow 或审计发现新增风险后继续；这些情况请求用户确认。授权于 2026-08-31 23:59（Asia/Shanghai）或用户撤销时失效。
+- 公开状态不得闲置或跨会话遗留；失败修复期间可维持同一闭环，但停止工作前必须恢复 private。
 - 不提交/打印真实 API Key、OAuth token、签名证书、私人 endpoint 或用户数据。
 - Actions 未实际运行不得写“通过”。
 - 每次实质进展更新 `PROGRESS.md`；停止/换供应商更新本文件交接槽位。
@@ -118,18 +120,16 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 ## 9. M0 精确任务
 
-源码任务 1–7 已在 `07643ab45f1eaabfa6e44d5a57116496ad1c25d2` 完成：workspace、三个首批 crate、Core 协议/fake loop、GPUI 空窗口、Windows 数据目录边界、手动 validate workflow 和 ADR 均已写入。
+源码任务 1–7 已在 `07643ab45f1eaabfa6e44d5a57116496ad1c25d2` 完成：workspace、三个首批 crate、Core 协议/fake loop、GPUI 空窗口、Windows 数据目录边界、手动 validate workflow 和 ADR 均已写入。格式、借用错误与锁文件在 `2fe81c3a4b2e1b744c9c0d003577da5482a7e24b`、`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab` 闭合。
 
 `gpui-component` 的 M0 结论是拒绝当前依赖：调研 commit 的 lock 指向比产品 pin 落后 88 个提交的 GPUI，workspace 又未声明 Zed revision。没有继续运行 textarea/IME/体积测试，也没有把这些项目写成通过。详情见 `docs/decisions/0002-reject-gpui-component-for-m0.md`。
 
 接手后的顺序：
 
-1. 阅读已完成的 `docs/PUBLIC-ACTIONS-AUDIT.md`，取得用户针对这一次 visibility 切换的明确授权。
-2. 临时设为 public，只运行 `Product validate`，记录 run URL/ID、SHA、artifact 和每个 step 结论。
-3. 下载并核对 `product-validation-<run_id>`，把生成的 `Cargo.lock` 提交；编译失败则按日志修复，不得宣称 M0 通过。
-4. 确认没有 queued/in_progress 后恢复 private，并再次复核可见性。
-5. 核对 release EXE 的窗口启动/退出和默认进程树；物理机 IME/无障碍保持独立人工门。
-6. M0 验证完成后进入 M1，不要提前接真实 Provider。
+1. 为 M0 增加 Windows runtime smoke：启动 release EXE、等待窗口、记录进程树/Working Set、正常关闭并确认无残留。
+2. 按持续授权自动完成安全复核 -> public -> 只运行该 smoke 所需的手动 workflow -> 核对 -> 无活动任务 -> private。
+3. 物理微软拼音/日文 IME、DPI、无障碍仍是独立人工门；M0 空壳没有真实输入框，不能写成 IME 通过。
+4. runtime smoke 闭合后进入 M1，先做 SQLite actor/schema/migration，再做 Credential Manager/DPAPI；不要提前接真实 Provider。
 
 ## 10. 后续顺序
 
@@ -161,23 +161,27 @@ Benchmark 壳的 `113.745 ms / 42.016 MiB` 只是基线，不代表产品已达�
 - Validate：<https://github.com/oarw/cakify/actions/runs/32017467536>，success，artifact `cargo-lock-32017467536`。
 - Benchmark：<https://github.com/oarw/cakify/actions/runs/32017470781>，success，artifacts `benchmark-{gpui,avalonia,flutter,tauri}-32017470781`。
 - 两者 commit：`40209896dca0009b747efc51ac885bed32b81f25`。
-- 历史运行完成后已确认无 queued/in_progress，并恢复 PRIVATE。
-- 本轮无新 run；不得把文档静态检查写成 Actions 通过。
+- Product validate：<https://github.com/oarw/cakify/actions/runs/32032509531>，failure，commit `9b6e71e07514c6f447de084a527d9a571b8368bd`，artifact ID `9289483786`；格式失败。
+- Product validate：<https://github.com/oarw/cakify/actions/runs/32033412479>，failure，commit `2fe81c3a4b2e1b744c9c0d003577da5482a7e24b`，artifact ID `9289873982`；workspace check 发现 6 个同源 E0503。
+- Product validate：<https://github.com/oarw/cakify/actions/runs/32034202488>，success，commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`，job `95400694626`，artifact ID `9290400569`；fmt/check/tests/Clippy/release/upload 全部通过。
+- 最终 artifact `product-validation-32034202488` digest `sha256:e9c4f5f0db1488d8f946acfcb2766d2d0ccd4f313fa4f7a476747639f9a8a7b5`；EXE 5,722,112 bytes，SHA-256 `4EB5AF9970EAFFC35850C599CD2A91685D6C1CC9FCB11B45526CA5B8D7DBF8DF`，未签名。
+- 最终锁文件与仓库逐行一致，越界框架包与 artifact 文本 secret 0 命中。恢复 private 前已确认 queued/in_progress 为空；当前仓库 PRIVATE。
 
 ## 13. 交接槽位
 
 - 当前分支：`main`
 - 本轮开始 HEAD：`36742654d67b276ce964ecaea1b6a5d1a2c4c58f`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
+- 已验证源码提交：`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
-- 当前 milestone：M0 源码已 bootstrap，等待产品 validate Actions 与首个 `Cargo.lock`
-- 当前正在做：GPUI 空窗口、Core bridge、Windows 数据目录边界和手动 workflow 已写入；编译状态未知
-- 最近成功 Actions：Validate `32017467536`；Benchmark `32017470781`
-- 本轮 Actions：未运行
-- 精确下一动作：基于已完成的公开前审计，取得新的 visibility 授权并运行 `Product validate`
-- 需要用户决定：未来每次本月 Actions visibility 授权；项目许可证；M7 签名/发行渠道
-- 已知风险：M0 尚未编译、无 `Cargo.lock`、GPUI pre-1.0、直接 UI 组件工作量、真实 IME/accessibility、产品性能未跑
+- 当前 milestone：M0 Product validate 已通过，Windows runtime smoke 待完成
+- 当前正在做：编译/测试/Clippy/release build 已闭合；窗口生命周期、默认进程树和产品内存尚未验证
+- 最近成功 Actions：Product validate `32034202488`
+- 本轮 Actions：三次 Product validate，结论依次为 format failure、borrow-check failure、success
+- 精确下一动作：创建并运行 M0 Windows runtime smoke，之后进入 M1 SQLite actor/schema/migration
+- 需要用户决定：项目许可证；M7 签名/发行渠道。8 月受控 visibility 闭环已有持续授权，不再逐次询问
+- 已知风险：runtime smoke 未跑、GPUI pre-1.0、直接 UI 组件工作量、真实 IME/accessibility、产品性能未跑、EXE 未签名
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
 
 交接时用实际 `git rev-parse HEAD` 更新或解释 HEAD；不要让文档中的工作前基线冒充最新提交。

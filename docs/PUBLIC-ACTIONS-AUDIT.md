@@ -2,7 +2,7 @@
 
 > 审计日期：2026-08-17（Asia/Shanghai）
 > 审计源码基线：commit `b87789ce6c145cb8b1507ba077d8112d744dcdac`
-> 当前结论：未发现 secret 或用户数据；等待用户对本次 public -> Product validate -> private 的明确授权。
+> 当前结论：未发现 secret 或用户数据；本次 public -> Product validate -> private 已完成并恢复 PRIVATE。
 
 本文件及同步进度文档是审计完成后的记录增量，提交前同样执行敏感模式和 staged diff 检查。真正切换 public 前还必须对当时的实际 HEAD 做一次增量复核。
 
@@ -63,9 +63,9 @@ Fork 计数为 0 只代表 GitHub 当前记录的 fork。前次公开期间是�
 - 许可证未定不妨碍 owner 手动运行 CI，但会增加公开分发和第三方理解成本；正式长期公开或发布前必须解决。
 - 不得因为临时公开而引入或复制 Zed GPL Agent/AI 业务代码。产品依赖树仍由 workflow 的禁止列表检查。
 
-## 7. 本次允许范围
+## 7. 本次允许范围与结果
 
-用户明确授权后，本次只执行：
+用户明确授权后，本次只执行了：
 
 1. 再次确认 HEAD、private 状态和没有 queued/in_progress run。
 2. 将 `oarw/cakify` 临时设为 public。
@@ -74,15 +74,25 @@ Fork 计数为 0 只代表 GitHub 当前记录的 fork。前次公开期间是�
 5. 核对依赖树、release EXE 和生成的 `Cargo.lock`；失败则记录真实失败，不扩大运行范围。
 6. 确认没有 queued/in_progress run 后恢复 private，并再次核对 visibility。
 
-本次授权不包含 benchmark、package、release、删除 cache/artifact、创建 Release 或长期公开。任何新一轮 public/private 切换都需要重新授权。
+本次没有运行 benchmark、package、release，没有删除 GitHub cache/artifact、创建 Release 或长期公开。
+
+实际 Product validate 记录：
+
+- `32032509531`，commit `9b6e71e07514c6f447de084a527d9a571b8368bd`，`failure`：依赖/许可证边界通过，格式检查失败；artifact `product-validation-32032509531`（ID `9289483786`）。
+- `32033412479`，commit `2fe81c3a4b2e1b744c9c0d003577da5482a7e24b`，`failure`：格式通过，workspace check 发现 6 个同源 E0503；artifact `product-validation-32033412479`（ID `9289873982`）。
+- `32034202488`，commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`，`success`：fmt、check、tests、Clippy、release build、artifact upload 全部通过；artifact `product-validation-32034202488`（ID `9290400569`）。
+
+最终 artifact archive digest 为 `sha256:e9c4f5f0db1488d8f946acfcb2766d2d0ccd4f313fa4f7a476747639f9a8a7b5`。release EXE 为 5,722,112 bytes，SHA-256 `4EB5AF9970EAFFC35850C599CD2A91685D6C1CC9FCB11B45526CA5B8D7DBF8DF`，当前未签名；锁文件逐行匹配仓库，越界框架包与 artifact 文本 secret 均为 0 命中。恢复 private 前确认 queued/in_progress 均为空，随后已复核仓库为 PRIVATE。
+
+用户另于 2026-08-17 持续授权 2026 年 8 月后续的受控临时公开闭环。后续每次仍须按本审计维度复核；无新增实质风险时可自动执行 public -> 当前任务所需手动 workflow -> 核对 -> 无活动任务 -> private，不再逐次询问。长期公开、Release/发包、无关 workflow 或新增风险不在该授权内；授权于 2026-08-31 23:59（Asia/Shanghai）或用户撤销时失效。
 
 ## 8. 审计结论
 
-没有发现阻止本次临时公开运行 `Product validate` 的 secret 或用户数据问题。已知残余风险是：
+没有发现阻止本次临时公开运行 `Product validate` 的 secret 或用户数据问题。本次运行和恢复 PRIVATE 已完成。已知残余风险是：
 
 - 公开可见性和第三方下载不可逆。
 - 两份旧 Flutter cache 未逐文件扫描，但当前 workflow 不使用，且创建来源和日志无 secret 证据。
 - 仓库没有许可证。
-- M0 产品代码未编译，workflow 很可能暴露需要修复的格式或 API 错误；这属于验证目标，不是安全审计失败。
+- M0 产品代码已通过编译、测试、Clippy 和 release build，但 EXE 尚未做窗口生命周期/进程树 runtime smoke；这不属于本次公开审计结论。
 
-在用户明确确认本次 visibility 切换前，仓库必须保持 private，不得 dispatch workflow。
+后续执行者必须遵守持续授权的边界，任何公开状态都不得闲置或跨会话遗留。

@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-17（Asia/Shanghai）
 > 当前阶段：M0 - 产品工作区与技术 spike
-> 当前状态：M0_PRODUCT_VALIDATE_FIX_IN_PROGRESS
+> 当前状态：M0_PRODUCT_VALIDATE_PASSED_RUNTIME_SMOKE_PENDING
 
 ## 1. 当前快照
 
@@ -11,15 +11,16 @@
 - 分支：`main`，跟踪 `origin/main`。
 - 本轮开始时 HEAD：`36742654d67b276ce964ecaea1b6a5d1a2c4c58f`。
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
+- 已验证产品修复提交：`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：本次经用户明确授权临时设为 `PUBLIC`；闭环结束前必须恢复 `PRIVATE`。
-- 最近成功 Actions：Validate `32017467536`、Benchmark `32017470781`，均针对 benchmark commit `40209896dca0009b747efc51ac885bed32b81f25`。
-- 本轮 Actions：Product validate `32032509531` 因格式失败；修复后 `32033412479` 的格式通过，但 workspace check 暴露 Core revision 的 6 个 Rust E0503 借用错误。测试、Clippy、release build 仍未执行。
+- 仓库可见性：`PRIVATE`；最终 run 完成且确认无 queued/in_progress 后已恢复并复核。
+- 最近成功 Actions：产品 Product validate `32034202488`，目标 commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`。
+- 本轮 Actions：前两轮分别暴露格式和 Core 借用错误；第三轮 fmt、workspace check、tests、Clippy、release build、artifact upload 全部通过。
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- 产品构建状态：本机没有编译/测试；`Cargo.lock` 已提交，runner 已编译到产品 Core 并暴露单一类型的借用错误，尚未取得 release EXE，正在修复后重跑。
+- 产品构建状态：本机没有编译/测试；Actions 已验证并生成 5,722,112-byte release EXE。窗口启动/退出、默认进程树、内存和 IME 仍未做 runtime smoke。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
-- 本次公开前审计：已完成并写入 `docs/PUBLIC-ACTIONS-AUDIT.md`；目标 HEAD `b87789ce6c145cb8b1507ba077d8112d744dcdac`，等待明确授权。
+- 本次公开前审计与 visibility 闭环：已完成，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
 - 组件决定：M0 不引入 `gpui-component`；直接使用 GPUI primitives，见 ADR 0002。
 - 历史 benchmark：完整移入 `archi/framework-benchmark-2026-08/`。
 - 许可证：尚未选择，仓库仍没有 `LICENSE`。
@@ -83,11 +84,14 @@
 - [x] 完成本次公开前安全审计：Git 全历史、GitHub secrets/config、10 个 run 日志、20 个 artifact、cache 元数据、LFS、Release、Issue/PR、fork 与许可证均已检查。
 - [x] 经用户明确授权执行本次临时公开，并只触发 Product validate；首轮准确记录为格式检查失败。
 - [x] 从首轮 artifact 取回并核对首个产品 `Cargo.lock` 与依赖树；锁文件固定 GPUI/Zed revision，未发现候选框架越界依赖。
+- [x] 修复 rustfmt 差异与 Core revision E0503 借用冲突，提交锁文件。
+- [x] Product validate `32034202488` 通过 fmt/check/tests/Clippy/release build，并产出 release EXE、锁文件与依赖树。
+- [x] 核对最终 artifact 的哈希、锁文件逐行一致性、固定 Zed revision、越界依赖和文本 secret；确认无活动任务后恢复 PRIVATE。
+- [x] 将用户的 2026 年 8 月后续 Actions 受控闭环持续授权写入 AGENTS、Cursor 规则、计划、进度和交接文档。
 
 ## 6. 尚未完成
 
-- [ ] 通过产品 validate Actions 生成并提交首个 `Cargo.lock`，取得 release EXE 与依赖树。
-- [ ] 在 Actions/物理机验证 GPUI 空窗口启动、退出、默认子进程和基础内存；当前只有源码。
+- [ ] 在 Actions/物理机验证 GPUI 空窗口启动、退出、默认子进程和基础内存；当前只有编译成功的 EXE，尚未运行。
 - [ ] 实现 SQLite initial schema/migration/storage actor。
 - [ ] 实现 Credential Manager/DPAPI SecretStore。
 - [ ] 实现 fake provider 聊天纵向切片。
@@ -100,12 +104,10 @@
 
 下一位执行者先闭合 M0，不再做框架泛泛选型：
 
-1. 读取提交 `07643ab45f1eaabfa6e44d5a57116496ad1c25d2` 的 workspace、两个 ADR 和手动 validate workflow。
-2. 提交 CI 精确格式修复与 Actions 生成的 `Cargo.lock`，推送后只重跑 Product validate。
-3. 记录重跑 URL/ID、commit、结论与 artifact；若仍失败，按日志继续修复同一 workflow。
-4. 成功后检查 release EXE 与依赖树，确认无 queued/in_progress，再恢复仓库为 `PRIVATE`。
-5. 另行补齐默认进程树和窗口启动/退出验证；物理微软拼音/无障碍仍单独标记人工未验。
-6. M0 通过后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
+1. 为 M0 增加 Windows runtime smoke：启动 release EXE、等待窗口、记录进程树/Working Set、正常关闭并确认无残留；不在本机执行。
+2. 按 8 月持续授权自动执行安全复核 -> public -> 只运行所需手动 workflow -> 核对 -> 无活动任务 -> private。
+3. 物理微软拼音、日文 IME、DPI 与 UI Automation 保持独立人工门，不把无输入框的 M0 空壳写成 IME 通过。
+4. runtime smoke 闭合后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
 
 详细验收见 `docs/ROADMAP.md` 的 M0。
 
@@ -126,10 +128,10 @@
 ## 9. 当前阻塞与风险
 
 - `PRIVATE_ACTIONS_QUOTA`：2026 年 8 月私库 Actions 分钟已耗尽。
-- `PUBLIC_CYCLE_ACTIVE`：本次 public -> Product validate -> private 已获明确授权且正在执行；仓库尚未恢复 private。
+- `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M0_CI_FAILED_BORROW`：格式已通过；workspace check 暴露 6 个同源 E0503 借用错误，测试、Clippy、release build 尚未执行。
+- `M0_RUNTIME_SMOKE_PENDING`：产品 validate 已通过，但 release EXE 尚未实际启动，窗口生命周期、默认进程树和内存仍未知。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
 - `PRODUCT_METRICS_UNRUN`：42 MiB/113 ms 是 benchmark 壳，不是产品性能。
@@ -141,7 +143,9 @@
 - [Benchmark candidates #32017470781](https://github.com/oarw/cakify/actions/runs/32017470781)：`success`，同一 commit，artifacts `benchmark-{gpui,avalonia,flutter,tauri}-32017470781`。
 - [Product validate #32032509531](https://github.com/oarw/cakify/actions/runs/32032509531)：`failure`，commit `9b6e71e07514c6f447de084a527d9a571b8368bd`，artifact `product-validation-32032509531`（ID `9289483786`，含 `Cargo.lock`、`dependency-tree.txt`，无 EXE）。依赖/许可证边界通过，`cargo fmt --check` 失败，后续步骤被跳过。
 - [Product validate #32033412479](https://github.com/oarw/cakify/actions/runs/32033412479)：`failure`，commit `2fe81c3a4b2e1b744c9c0d003577da5482a7e24b`，artifact `product-validation-32033412479`（ID `9289873982`，含锁文件与依赖树，无 EXE）。格式通过；workspace check 在 Core 发现 6 个同源 E0503 借用错误，后续步骤被跳过。
-- 本次 visibility 授权闭环仍在进行；仓库当前为 PUBLIC，必须在无 queued/in_progress 后恢复 PRIVATE。
+- [Product validate #32034202488](https://github.com/oarw/cakify/actions/runs/32034202488)：`success`，commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`，job `95400694626`，artifact `product-validation-32034202488`（ID `9290400569`，archive digest `sha256:e9c4f5f0db1488d8f946acfcb2766d2d0ccd4f313fa4f7a476747639f9a8a7b5`）。fmt、workspace check、tests、Clippy、release build 与上传全部通过。
+- 最终 EXE：5,722,112 bytes，SHA-256 `4EB5AF9970EAFFC35850C599CD2A91685D6C1CC9FCB11B45526CA5B8D7DBF8DF`，`NotSigned`（M7 前预期状态）。artifact `Cargo.lock` 与仓库逐行一致，依赖树 SHA-256 `4F424A9412718C56907ECE687A2342E55F491C9C6F7E4B3BFE3712E3276E729A`，越界框架包与文本 secret 均 0 命中。
+- 恢复 private 前再次确认最终 run 为 completed/success，queued 与 in_progress 均为空；随后恢复 PRIVATE 并复核可见性。
 
 ### 公开前审计记录
 
@@ -152,7 +156,7 @@
 - 20 个 artifact 实际解包为 221 个文件、410,466,234 bytes，高置信 secret 与敏感文件名 0 命中；本地临时目录已删除。
 - 两份旧 Flutter cache 只核对了 key、来源 workflow 和创建日志，未逐文件扫描；当前 workflow 不使用 cache。
 - LFS、Release、Issue、PR、tag、fork 均为 0；仓库无 `LICENSE`。
-- 结论：安全审计未发现阻止本次临时公开的问题，但仍需用户针对本次 visibility 切换明确授权。
+- 结论：安全审计未发现阻止本次临时公开的问题；本次授权、运行、产物核对和恢复 PRIVATE 已闭环。
 
 ## 11. 进度日志
 
@@ -187,7 +191,7 @@
 - 按 2026 年 8 月规则完成 Git 历史、GitHub secrets/config、Actions 日志/artifact/cache、LFS、Release、Issue/PR、fork 与许可证检查。
 - 未发现 secret 或用户数据；artifact 临时下载已清理，仓库保持 PRIVATE，无 queued/in_progress run。
 - 记录旧 Flutter cache 未逐文件扫描、无 LICENSE 与公开副本不可收回等残余风险。
-- 本轮未切换 visibility、未 dispatch workflow，等待本次明确授权。
+- 公开前审计阶段尚未切换 visibility 或 dispatch workflow，当时等待本次明确授权；后续闭环结果见下一节。
 
 ### 2026-08-17：Product validate 首轮
 
@@ -198,6 +202,9 @@
 - 已按 runner 的 rustfmt 精确差异修复 4 个源码文件；等待提交、推送并重跑同一 workflow。
 - 格式修复与锁文件已提交为 `2fe81c3a4b2e1b744c9c0d003577da5482a7e24b`；第二轮格式通过并进入 workspace check。
 - 第二轮发现事件构造与 `send_event` 同时借用 revision 的 6 个 E0503 错误；由于 `send_event` 会统一覆盖 revision，已将构造值改为占位 `0`，等待重跑。
+- 借用修复提交为 `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`；第三轮 Product validate `32034202488` 全部通过并生成 release EXE。
+- 核对最终 artifact 后，在 queued/in_progress 均为空时恢复仓库 PRIVATE；本轮只运行了 Product validate。
+- 用户要求后续无需逐次提醒，自动 push 并自动完成 8 月受控 public -> 所需 Actions -> private 闭环；已写入持久规则，超出授权边界仍需确认。
 
 ## 12. 更新规则
 
@@ -207,4 +214,4 @@
 2. Actions 必须记录 run URL/ID、commit SHA、artifact 和结论；未运行不得写通过。
 3. 架构决定写文档/ADR，不只留在聊天。
 4. 停止或更换模型/供应商前更新 `HANDOFF.md`。
-5. 源码/文档完成后自动 commit/push；Actions 与可见性授权规则不因自动推送而放宽。
+5. 源码/文档完成后自动 commit/push；8 月 Actions 按持续授权自动闭环，新增风险、范围扩大、长期公开或进入新月份时重新确认规则。

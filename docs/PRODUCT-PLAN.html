@@ -411,22 +411,21 @@ AppEvent ▲  delta 按 16–33 ms 合并后返回 UI</code></pre>
       <h2>构建与发布</h2>
       <p>本机只编辑源码，编译、测试、基准、打包和发布都在 GitHub Actions。产品 workflow 分为 validate、Windows smoke、benchmark、package 与 release，默认使用假 Provider 和合成 secret。</p>
       <div class="callout danger">
-        <p><strong>2026 年 8 月限制：</strong>私库 Actions 分钟已耗尽。源码可以自动 commit/push，但 workflow 只能手动触发；每次运行都要重新安全检查、取得该次 public/private 明确授权、临时公开、核对 artifact、确认无活动任务，再恢复私有。</p>
+        <p><strong>2026 年 8 月限制：</strong>私库 Actions 分钟已耗尽。源码可以自动 commit/push，但 workflow 只能手动触发。用户已持续授权本月后续受控闭环：每次仍要安全复核；无新增实质风险时自动临时公开、只运行当前任务所需 workflow、核对 artifact、确认无活动任务，再立即恢复私有。长期公开、Release/发包、无关 workflow 或新增风险仍需另行确认；进入 9 月先核实额度和规则。</p>
       </div>
     </section>
 
     <section id="next">
       <h2>下一次直接开始</h2>
       <ol>
-        <li>创建产品 Cargo workspace、toolchain 与完整 SHA pin。</li>
-        <li>建立 <code>cakify-desktop</code>、<code>cakify-core</code>、<code>cakify-platform-windows</code> 骨架。</li>
-        <li>实现 bounded <code>AppCommand</code>/<code>AppEvent</code> 和 fake core loop。</li>
-        <li>建立 GPUI 原生窗口并连接 fake event。</li>
-        <li>隔离验证 <code>gpui-component</code> 的 textarea/IME、Markdown、virtual list 与体积，当轮定案。</li>
-        <li>写手动 validate workflow；未经新的临时公开授权不运行。</li>
+        <li>增加 Windows runtime smoke，验证 release EXE 窗口启动/退出、默认进程树、Working Set 与无残留。</li>
+        <li>按 8 月持续授权自动完成安全复核、临时公开、只运行所需手动 workflow、核对并恢复私有。</li>
+        <li>保留真实微软拼音、日文 IME、DPI 与 UI Automation 为独立人工门。</li>
+        <li>进入 M1，先实现 SQLite storage actor、schema 和 migration。</li>
+        <li>再实现 Windows Credential Manager 与 DPAPI SecretStore。</li>
       </ol>
       <div class="callout info">
-        <p>从 M0 开始，不再重做四框架选型，也不从知识库、营销首页或插件市场开始。完整技术细节请阅读同目录的 Markdown 文档。</p>
+        <p>M0 workspace 与 Product validate 已完成，不再重做四框架选型或产品骨架，也不从知识库、营销首页或插件市场开始。完整技术细节请阅读同目录的 Markdown 文档。</p>
       </div>
     </section>
   </main>

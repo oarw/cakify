@@ -67,8 +67,9 @@ AI 可以完成全部源码、测试、CI、文档和修复。仍需要用户参
 4. [x] 创建 Windows 数据目录边界；真实 known-folder FFI 与 SecretStore 在 M1 实现。
 5. [x] 添加只允许 `workflow_dispatch` 的 validate workflow 和首批 ADR。
 6. [x] `gpui-component` revision 兼容门失败，M0 决定直接使用 GPUI primitives。
-7. [ ] 获得当次 visibility 授权后运行产品 validate，生成 release EXE、`Cargo.lock` 和依赖树。
-8. [ ] 核对 artifact、默认进程树和窗口生命周期；提交锁文件后关闭 M0。
+7. [x] Product validate `32034202488` 生成 release EXE、`Cargo.lock` 和依赖树；fmt/check/tests/Clippy/release build 全部通过。
+8. [x] 核对最终 artifact、锁文件一致性、依赖边界、哈希与 secret；提交锁文件并恢复仓库 PRIVATE。
+9. [ ] 增加 Windows runtime smoke，核对默认进程树、窗口生命周期、Working Set 和退出无残留后关闭 M0。
 
 ## 4. M1：数据与秘密基础
 
@@ -225,7 +226,7 @@ AI 可以完成全部源码、测试、CI、文档和修复。仍需要用户参
 - `package.yml`：portable ZIP/SBOM/checksum；只手动运行。
 - `release.yml`：tag、签名、release environment；到 M7 才创建。
 
-2026 年 8 月约束仍有效：仓库 PRIVATE 时不触发 Actions。即使源码自动 commit/push，workflow 也保持 `workflow_dispatch`；每次运行前重新做公开安全检查并取得用户对该次 public -> run -> private 的明确授权。进入 9 月先检查额度，再决定是否恢复 push/PR validate。
+2026 年 8 月约束仍有效：仓库 PRIVATE 时不触发 Actions。即使源码自动 commit/push，workflow 也保持 `workflow_dispatch`。用户已持续授权本月后续受控闭环；每次运行前仍做公开安全复核，无新增实质风险时自动完成 public -> 当前任务所需 workflow -> 核对 -> 无活动任务 -> private，不再逐次询问。进入 9 月先检查额度和规则，再决定是否恢复 push/PR validate。
 
 ## 12. 回退与停止条件
 
@@ -255,4 +256,4 @@ AI 可以完成全部源码、测试、CI、文档和修复。仍需要用户参
 2. 实质架构决定写 ADR 或更新 `docs/ARCHITECTURE.md`，不只留在聊天里。
 3. Actions 记录 run URL/ID、commit SHA、artifact 名和结论；未运行写“未运行”。
 4. 停止或换模型前更新 `docs/HANDOFF.md`。
-5. 完成的源码与文档自动 commit/push；Actions 可见性授权仍逐次获取。
+5. 完成的源码与文档自动 commit/push；8 月 Actions 按持续授权自动完成受控临时公开闭环，超出授权边界时再请求确认。
