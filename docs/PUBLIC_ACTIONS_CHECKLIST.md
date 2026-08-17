@@ -19,12 +19,22 @@
 
 - [x] 在授权环境中验证 `gh auth status` 和 `gh api user`；账号 `oarw` 有效。普通沙箱的 keyring/代理隔离不代表账号失效。
 - [x] remote 已核实为 https://github.com/oarw/cakify.git，仓库为 PRIVATE、默认分支为 main。
-- [ ] 公开前重新检查完整 Git 历史；共享骨架基线为 4e605d730ca61f3461e517d34955eefba9aa8b92，当前 HEAD 必须在公开前记录。
+- [x] 已重新检查完整 Git 历史：当前共 4 个提交，最新实现提交为 `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`；共享骨架基线为 `4e605d730ca61f3461e517d34955eefba9aa8b92`。
 - [x] 检查 GitHub Actions secrets、variables、environments 和 OIDC 入口：没有 secrets、variables 或 environments；Actions enabled/all。
-- [x] 检查 LFS、Release、Packages、Issue/PR、Actions cache 和 artifact：均为空；没有 LFS 文件。
+- [x] LFS endpoint 返回 404（未配置）、Release、Issue/PR、Actions cache 和 artifact 均为空；远端敏感路径扫描无命中。
+- [ ] 重新确认 Packages：当前 `gh` token 没有 `read:packages`，用户级 packages API 返回 403，不能将其误记为空。
 - [x] 检查分支保护和默认 Actions 权限：main 无分支保护；workflow 顶层为 contents: read，第三方 Action 固定 SHA。
 - [ ] 明确许可证选择。当前包为 `publish = false`，仓库没有 LICENSE；临时 public 只代表源码可见，不应误写成已开源授权。
 - [x] 已记录 PRIVATE 状态和共享骨架基线 4e605d730ca61f3461e517d34955eefba9aa8b92；公开前必须重新记录最新 HEAD。
+
+## 2026-08-17 远端复核记录
+
+- visibility：`PRIVATE`；default branch：`main`；远端 URL：`https://github.com/oarw/cakify`。
+- commit history：4 个提交，HEAD `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`。
+- Actions：run 列表为空；Secrets 0、Variables 0、Environments 0、Artifacts 0、Caches 0；Actions enabled/all，默认 workflow permissions 为 read。
+- Releases、Issues、Pull requests、webhooks 均为 0；main 无分支保护；Pages endpoint 未配置（404）。
+- 本地与远端树的敏感扩展名/私钥路径扫描无命中；本轮没有修改 visibility 或触发 workflow。
+- Packages 尚有权限缺口，公开前必须补核。
 
 ## 本月运行顺序
 

@@ -54,7 +54,7 @@
 - Flutter：3.47.0 stable，`ListView.builder` 与 `dart:io` core 客户端。
 - Tauri：2.11.5 + Svelte 5.56.9，Rust 生命周期管理与固定行高虚拟窗口。
 - 四个壳都接受 `--core-path` / `--core-ready-file`；token 只来自运行时 ready JSON。
-- `scripts/windows/run-candidate-benchmark.ps1` 负责启动、ready、health、分页、取消、整树采样、截图尝试、清理和 `result.v1`。
+- `scripts/windows/run-candidate-benchmark.ps1` 负责启动、ready、health、分页、SSE ready/cancelled、整树采样、截图尝试、清理和 `result.v1`。
 
 ## 真实 benchmark workflow 的最低要求
 

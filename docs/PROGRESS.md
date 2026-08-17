@@ -13,6 +13,7 @@
 - 原型源码：共享 Cargo workspace、benchmark protocol/core、fixture、视觉 token、结果 schema、采集脚本，以及 GPUI、Avalonia、Flutter、Tauri 四个首版可执行 UI 壳均已写入。
 - GitHub Actions：`validate.yml` 与 `benchmark.yml` 均仅允许 `workflow_dispatch`；benchmark 已从 scaffold matrix 升级为四候选 Windows x64 release 构建/采集矩阵，尚未运行。
 - 仓库可见性：当前为 PRIVATE；本轮没有 public/private 切换。
+- 远端审计：2026-08-17 已核实 4 个提交、Secrets/Variables/Environments/Release/Issue/PR/Artifacts/Caches 为 0、Actions run 为空、main 无保护；Packages 因 token 缺 `read:packages` 尚待补核。
 - 当前目标：完成源码审阅与公开前安全复核；获得本次明确授权后，临时公开运行真实四候选 matrix，再恢复 PRIVATE。
 - 执行方式：源码由 AI 完成；本机只做源码编辑和静态解析；构建、测试、基准、打包通过 GitHub Actions。
 - 本地验证：JSON 可解析、PowerShell 语法可解析、常见 secret/私钥文件扫描无命中、workflow 触发器与固定 SHA 已检查；未进行编译、测试或 GUI 启动。
@@ -90,7 +91,7 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 - [x] 实现 Tauri + Svelte + Rust 虚拟窗口、主题、中文输入和 core 生命周期。
 - [x] 建立进程树采样、fixture 校验和 scaffold artifact 脚本。
 - [x] 创建仅 `workflow_dispatch` 的 validate 与四候选四套 release benchmark matrix。
-- [x] 建立统一 ready-file、health、分页、取消探针和 `result.v1` 采集脚本。
+- [x] 建立统一 ready-file、health、分页、SSE ready/cancelled 探针和 `result.v1` 采集脚本。
 - [x] 通过 GitHub 官方 API 核实 checkout/upload-artifact 的完整 commit SHA。
 - [x] 完成本地 JSON、PowerShell、workflow 触发器和 secret 模式静态检查。
 
@@ -161,9 +162,10 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 
 - 写入 GPUI、Avalonia、Flutter、Tauri 四个首版可执行 UI 壳，统一传入 `--core-path` 与 `--core-ready-file`。
 - GPUI 固定 Zed 官方提交 `b2d9c2e122fbc408d42276b4456243ba4f90f181`；Avalonia 固定 12.1.1；Flutter 固定 3.47.0；Tauri 固定 2.11.5 / Svelte 5.56.9。
-- `benchmark.yml` 从 `scaffold_only` 改为 Windows x64 release matrix，新增整棵进程树、ready、health、分页、取消、截图尝试和 result.v1 artifact 采集。
+- `benchmark.yml` 从 `scaffold_only` 改为 Windows x64 release matrix，新增整棵进程树、ready、health、分页、SSE 取消、截图尝试和 result.v1 artifact 采集。
 - 本地静态检查通过：JSON、PowerShell、workflow 结构和 secret 模式；未运行编译、测试、GUI 或 Actions。
 - 当前仍保持 PRIVATE；等待公开前复核和用户本次 public -> Actions -> private 授权。
+- 远端审计记录已写入 `docs/PUBLIC_ACTIONS_CHECKLIST.md`；Packages 权限缺口不能当作“无包”结论。
 
 ## 12. 更新规则
 

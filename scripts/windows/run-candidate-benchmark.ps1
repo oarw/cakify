@@ -96,12 +96,47 @@ function Invoke-ProtocolProbe($Ready, [int]$RunIndex) {
     $runId = "$Candidate-$RunIndex"
     $body = @{ run_id = $runId } | ConvertTo-Json -Compress
     $cancel = Invoke-RestMethod -Method Post -Uri "$base/run/cancel" -Headers $headers -ContentType "application/json" -Body $body -TimeoutSec 5
+    $stream = Invoke-StreamProbe -Ready $Ready -RunId "$Candidate-stream-$RunIndex"
     return [pscustomobject]@{
-        ok = [bool]$health.ok -and ([string]$page.fixture_hash -eq [string]$manifest.fixture_hash) -and [bool]$cancel.accepted
+        ok = [bool]$health.ok -and ([string]$page.fixture_hash -eq [string]$manifest.fixture_hash) -and [bool]$cancel.accepted -and [bool]$stream.ok
         health_fixture_hash = [string]$health.fixture_hash
         page_count = @($page.messages).Count
         page_total = [int]$page.total
         cancel_accepted = [bool]$cancel.accepted
+        stream = $stream
+    }
+}
+
+function Invoke-StreamProbe($Ready, [string]$RunId) {
+    $base = "http://127.0.0.1:$($Ready.port)"
+    $headers = @{ "x-cakify-session" = [string]$Ready.session_token }
+    $job = Start-Job -ArgumentList "$base/run/events?run_id=$RunId&scenario=cancel", ([string]$Ready.session_token) -ScriptBlock {
+        param($Url, $Token)
+        try {
+            $response = Invoke-WebRequest -Uri $Url -Headers @{ "x-cakify-session" = $Token } -TimeoutSec 15
+            [pscustomobject]@{ ok = $true; content = [string]$response.Content }
+        } catch {
+            [pscustomobject]@{ ok = $false; content = $_.Exception.Message }
+        }
+    }
+    Start-Sleep -Milliseconds 250
+    $cancelBody = @{ run_id = $RunId } | ConvertTo-Json -Compress
+    $cancelAccepted = $false
+    try {
+        $cancel = Invoke-RestMethod -Method Post -Uri "$base/run/cancel" -Headers $headers -ContentType "application/json" -Body $cancelBody -TimeoutSec 5
+        $cancelAccepted = [bool]$cancel.accepted
+    } catch {
+        Stop-Job -Job $job -ErrorAction SilentlyContinue
+    }
+    Wait-Job -Job $job -Timeout 20 | Out-Null
+    $payload = Receive-Job -Job $job -ErrorAction SilentlyContinue | Select-Object -Last 1
+    Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+    $content = if ($payload) { [string]$payload.content } else { "" }
+    [pscustomobject]@{
+        ok = $cancelAccepted -and ($content -match 'event: ready') -and ($content -match 'event: cancelled')
+        cancel_accepted = $cancelAccepted
+        saw_ready = $content -match 'event: ready'
+        saw_cancelled = $content -match 'event: cancelled'
     }
 }
 
