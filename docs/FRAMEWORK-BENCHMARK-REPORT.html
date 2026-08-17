@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cakify 四候选 Windows 基准报告</title>
+  <style>
+    :root { color-scheme: light; --ink:#17212b; --muted:#5b6875; --line:#d9e0e6; --wash:#f4f7f9; --accent:#167c86; --warn:#8a5a00; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #eef2f4; color: var(--ink); font: 16px/1.65 "Segoe UI", "Microsoft YaHei", sans-serif; }
+    main { max-width: 1120px; margin: 0 auto; padding: 48px 28px 72px; background: #fff; min-height: 100vh; }
+    h1 { margin: 0 0 8px; font-size: 34px; line-height: 1.2; }
+    h2 { margin: 38px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); font-size: 23px; }
+    h3 { margin: 24px 0 6px; font-size: 18px; }
+    p { margin: 10px 0; }
+    .meta { color: var(--muted); margin-bottom: 28px; }
+    .callout { border-left: 5px solid var(--accent); background: #edf8f8; padding: 16px 18px; margin: 20px 0; }
+    .warning { border-left-color: #c48a17; background: #fff8e8; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 9px 10px; text-align: left; vertical-align: top; }
+    th { background: var(--wash); font-weight: 650; }
+    code { background: #f1f3f5; padding: 1px 4px; border-radius: 3px; font-size: .92em; }
+    li { margin: 5px 0; }
+    a { color: #096d78; }
+    footer { margin-top: 42px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 760px) { main { padding: 30px 16px 48px; } h1 { font-size: 28px; } table { display: block; overflow-x: auto; white-space: nowrap; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Cakify 四候选 Windows 基准报告</h1>
+  <p class="meta">报告日期：2026-08-17（Asia/Shanghai）<br>测试 commit：<code>40209896dca0009b747efc51ac885bed32b81f25</code><br>仓库状态：<strong>PRIVATE</strong></p>
+
+  <div class="callout">
+    <strong>结论：</strong>对于 Windows-first、启动快、常驻内存低的目标，GPUI + Rust 是第一选择。它的整棵进程树空闲 Working Set 中位数为 <strong>42.016 MiB</strong>，ready 中位数为 <strong>113.745 ms</strong>。Avalonia 是成熟度优先的回退方案；Flutter 适合跨平台优先；Tauri 的包体最小，但 WebView2 进程组使运行时内存最高，不应被当成低内存方案。
+  </div>
+  <p>GPUI 仍需通过中文 IME、无障碍、Markdown 和物理 Windows 硬件门禁后才能进入产品主线。当前推荐采用“GPUI 主线 + Avalonia 可回退”的决策结构。</p>
+
+  <h2>测试范围</h2>
+  <ul>
+    <li><a href="https://github.com/oarw/cakify/actions/runs/32017467536">Validate shared core #32017467536</a>：成功。</li>
+    <li><a href="https://github.com/oarw/cakify/actions/runs/32017470781">Benchmark candidates #32017470781</a>：四个 matrix job 全部成功。</li>
+    <li>Windows x64 release，runner 为 <code>win25-vs2026</code>（image <code>20260810.198.2</code>），同一 Rust core、同一 10,000 消息 fixture、每项三轮、每轮空闲 60 秒。</li>
+    <li>验证 health、首 200 条分页、取消请求和 SSE <code>ready/cancelled</code>；内存统计应用根进程及整棵子进程树。</li>
+  </ul>
+  <p class="warning">注意：ready 是 core ready-file 可用时间，不等同于完整窗口可交互时间；本轮没有真实帧时间、GPU 内存、安装器大小、暗色截图或物理机 IME 数据。</p>
+
+  <h2>结果摘要</h2>
+  <table>
+    <thead><tr><th>候选</th><th>发布目录</th><th>ready 中位数 / P95</th><th>空闲 Working Set</th><th>空闲 Private</th><th>峰值 Working Set</th><th>进程数</th></tr></thead>
+    <tbody>
+      <tr><td>GPUI + Rust</td><td>5.509 MiB</td><td>113.745 / 125.014 ms</td><td>42.016 MiB</td><td>33.688 MiB</td><td>44.770 MiB</td><td>2</td></tr>
+      <tr><td>Avalonia + C# + Rust</td><td>128.782 MiB</td><td>565.515 / 998.396 ms</td><td>125.102 MiB</td><td>52.359 MiB</td><td>138.887 MiB</td><td>3</td></tr>
+      <tr><td>Flutter + Rust</td><td>26.317 MiB</td><td>1,642.973 / 2,047.155 ms</td><td>126.180 MiB</td><td>99.199 MiB</td><td>130.504 MiB</td><td>3</td></tr>
+      <tr><td>Tauri + Svelte + Rust</td><td>2.687 MiB</td><td>554.475 / 3,042.485 ms</td><td>326.496 MiB</td><td>113.785 MiB</td><td>330.195 MiB</td><td>8</td></tr>
+    </tbody>
+  </table>
+  <p>P95 在每项仅有三个样本时等于最大值，仅用于这轮候选排序，不代表大样本置信区间。发布目录不是安装器大小；Tauri 的 WebView2 runtime 不重复计入磁盘目录，但其进程已经计入内存。</p>
+
+  <h2>候选判断</h2>
+  <h3>GPUI + Rust</h3>
+  <p>四项运行时指标均领先，没有 WebView2 或托管 runtime 进程组，最符合低内存目标。主要风险是 pre-1.0 API、文档成熟度、中文 IME 和无障碍。当前壳的输入区仍需产品级实现。</p>
+  <h3>Avalonia + C# + Rust</h3>
+  <p>控件和 TextBox 输入路径成熟，适合设置页、审批弹窗和无障碍语义；代价是约 126 MiB 空闲 Working Set 和约 129 MiB 发布目录。窗口句柄探针三轮误报 false，但截图显示窗口可见，下一轮要改 UI 自动化探针。</p>
+  <h3>Flutter + Rust</h3>
+  <p>UI 和跨平台能力完整，发布目录约 26 MiB；Windows engine 使空闲 Working Set 约 128 MiB、ready 中位数约 1.64 秒，不适合本项目把 Windows 低占用放在第一位的目标。</p>
+  <h3>Tauri + Svelte + Rust</h3>
+  <p>包体约 2.7 MiB，视觉交付速度快；但 WebView2 进程树达到 8 个进程、约 327 MiB Working Set，首轮 ready 达 3 秒。包小不等于运行时内存小。</p>
+
+  <h2>决策门与工作量</h2>
+  <p>先用 GPUI 做 Provider 设置、会话持久化、流式聊天、工具审批、MCP transport 抽象、取消/重试和错误恢复的纵向切片。粗估 AI 工作量：GPUI 10–15 个工作日，Avalonia 8–12 个，Flutter 9–14 个，Tauri 6–9 个；不含 Actions 排队和人工硬件验证。</p>
+  <ol>
+    <li>物理 Windows 中文 IME、焦点恢复、DPI、多显示器和无障碍无阻断。</li>
+    <li>冷启动到可交互 ready 中位数小于 500 ms。</li>
+    <li>空闲整树 Working Set 小于 80 MiB，10k 消息虚拟滚动和流式输出稳定。</li>
+  </ol>
+  <p>GPUI 任一硬门失败时，保留共享 Rust core/协议并切换 Avalonia；不要因为 Tauri 包体最小而选择它。</p>
+
+  <h2>Artifact 与限制</h2>
+  <p>Benchmark artifact：<code>benchmark-gpui-32017470781</code>、<code>benchmark-tauri-32017470781</code>、<code>benchmark-flutter-32017470781</code>、<code>benchmark-avalonia-32017470781</code>；Validate 生成 <code>cargo-lock-32017467536</code>。原始 JSON、进程树日志和 light 截图均在对应 artifact 中。</p>
+  <p>早期失败已逐项修复：GPUI 闭包类型、Avalonia 控件 API、Tauri workspace/图标/生命周期类型，以及 core SSE 取消竞态。最终两条 workflow 在同一 commit 成功。当前仓库已恢复 private，workflow 仍只允许手动 dispatch；源码可自动提交/推送，但不会在私库 push 上隐式消耗 Actions 分钟。</p>
+  <footer>详细原始样本、run URL、artifact ID 和完整限制见同目录 Markdown 版本 <code>FRAMEWORK-BENCHMARK-REPORT.md</code>。</footer>
+</main>
+</body>
+</html>

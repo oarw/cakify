@@ -1,6 +1,6 @@
 # Cakify：Windows 高性能 AI Chat 客户端架构调研与实施建议
 
-> 文档版本：2026-08-16  
+> 文档版本：2026-08-17（已按第一轮实测更新结论）
 > 目标平台：Windows 10/11，首发 x64  
 > 目标产品：比 Electron 套壳更快启动、更低常驻内存，同时达到 Cherry Studio 与 RikkaHub 的基础聊天能力，并吸收 Pi Agent 的轻量 Agent 理念  
 > 研发约束：本机只编辑源码；编译、测试、基准、打包和发布尽量全部交给 GitHub Actions
@@ -9,30 +9,33 @@
 
 ## 1. 一页结论
 
-首选方案是：
+第一轮实测后的首选方案是：
 
-**Rust 核心 + Tauri 2 桌面壳 + Svelte 5 UI + Windows WebView2。**
+**GPUI + Rust 主线，Avalonia + C# + Rust 回退。**
 
-这条路线在“丰富聊天 UI、工具调用、MCP、Windows 交付、开发效率、启动速度和内存”之间最均衡。关键不是只把 Electron 换成 Tauri，而是把产品拆成可替换的桌面壳与稳定的 Rust 核心：
+2026-08-17 的 Windows Actions 四候选 benchmark 已完成。三轮中位数中，GPUI 的整树空闲 Working Set 为 42.016 MiB、ready 为 113.745 ms；Avalonia 为 125.102 MiB / 565.515 ms；Flutter 为 126.180 MiB / 1,642.973 ms；Tauri 为 326.496 MiB / 554.475 ms。完整方法、原始样本和限制见 [四候选最终报告](docs/FRAMEWORK-BENCHMARK-REPORT.md)。
+
+关键仍是把产品拆成可替换的桌面壳与稳定的 Rust 核心：
 
 - UI 只负责渲染、输入与交互，不直接持有 API Key，不直接启动工具进程。
 - 对话、供应商适配、Agent 循环、MCP、权限策略、SQLite 与密钥管理全部放进 Rust。
-- Tauri 只是第一种宿主。如果实测无法达到性能门槛，可以保留核心，替换为 WinUI 3 或 Slint 壳。
+- GPUI 先做产品纵向切片；若中文 IME、无障碍或 API 稳定性无法过硬门，保留核心并切到 Avalonia。
 - 第一版不捆绑本地模型、Node/Python 运行时、OCR/PDF 引擎和浏览器内核。
 
-需要准确理解“Tauri 更轻”：
+实测也验证了“包体小不等于运行时内存小”：
 
 - 它不随应用重复打包 Chromium 与 Node.js，安装包通常会明显小于 Electron。
 - Windows 上仍使用 WebView2。WebView2 本身是多进程模型，任务管理器里会看到浏览器进程组。
-- 因此目标应是“相对 Electron 显著变轻”，而不是承诺“纯原生、几十 MB 常驻”。
+- Tauri 发布目录最小，但 Windows WebView2 的 8 进程树在本轮约 326.496 MiB，因此不进入低内存主线。
 
-建议在第一周做三个可比较的空壳基准：
+第一轮已完成四个可比较的空壳基准：
 
-1. Tauri 2 + Svelte：真实聊天布局、虚拟列表和流式 Markdown。
-2. WinUI 3：同样的数据量和窗口结构。
-3. Slint：只验证最关键的消息列表、输入框、中文输入法和文本选择。
+1. GPUI + Rust。
+2. Avalonia + C# + Rust。
+3. Flutter + Rust。
+4. Tauri 2 + Svelte + Rust。
 
-最终按 CI 中采集的启动时间、进程树工作集、滚动帧率和实现成本决策，不凭框架宣传材料决策。
+本轮已经按 CI 中采集的 ready、整树工作集、产物和实现风险做出 GPUI 主线决策；滚动帧率、物理机 IME、GPU 和无障碍仍是下一轮门禁。下文保留预研时的详细方案分析，涉及 Tauri-first 的段落应结合本页更新和最终报告阅读。
 
 ---
 
@@ -936,18 +939,18 @@ GitHub 对公开仓库的标准托管 runner 通常免费，但公开并不只�
 
 如果现在开始实现：
 
-1. 采用 Rust + Tauri 2 + Svelte 5。
+1. 采用 GPUI + Rust 作为主线，Avalonia + C# + Rust 作为可切换回退。
 2. 先建立 domain/core/provider/policy，不先堆 UI 页面。
 3. UI 只对接稳定 IPC 与事件协议。
 4. 首版只做云端 Provider、SQLite、基础附件、function calling 和 MCP。
 5. 不捆绑本地模型、Node/Python、OCR/PDF 引擎。
 6. 从第一天建立 Windows Actions 的启动、内存和进程清理基准。
-7. 保留 DesktopHost 边界；Tauri 未达门槛时换 WinUI 3，不推倒核心。
+7. 保留 DesktopHost 边界；GPUI 的 IME、无障碍或稳定性未达门槛时切换 Avalonia，不推倒核心。
 8. 把仓库公开视为不可逆的信息披露，而不是临时借用免费分钟。
 
 一句话判断：
 
-**Tauri 2 是最可能把产品做出来且明显轻于 Electron 的路线；WinUI 3 是性能与 Windows 原生体验的保险；Slint 是值得基准验证、但不适合直接押注完整首版的激进方案。**
+**GPUI 的实测性能最符合 Cakify 的 Windows 低占用目标；Avalonia 是成熟度保险；Tauri 的 UI 交付速度很有吸引力，但本轮 WebView2 整树内存使它不再是默认方案。**
 
 ---
 

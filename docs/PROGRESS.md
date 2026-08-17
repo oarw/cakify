@@ -2,22 +2,22 @@
 
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-17（Asia/Shanghai）
-> 当前阶段：Phase 2 - 四候选 UI 壳与 CI wiring
-> 当前状态：LOCAL_UI_SHELLS_READY
+> 当前阶段：Phase 3 - 选型决策与产品纵向切片
+> 当前状态：BENCHMARK_COMPLETE_GPUI_PRIMARY
 
 ## 1. 当前快照
 
 - 工作目录：C:\Users\admin\Desktop\code\cakify
-- Git 状态：本地 main 跟踪 origin/main；共享骨架基线为 4e605d730ca61f3461e517d34955eefba9aa8b92；实际 HEAD 以 `git rev-parse HEAD` 为准。
+- Git 状态：本地 `main` 跟踪 `origin/main`；最终 benchmark commit 为 `40209896dca0009b747efc51ac885bed32b81f25`；文档提交后的实际 HEAD 以 `git rev-parse HEAD` 为准。
 - GitHub 远端：`https://github.com/oarw/cakify.git`。
 - 原型源码：共享 Cargo workspace、benchmark protocol/core、fixture、视觉 token、结果 schema、采集脚本，以及 GPUI、Avalonia、Flutter、Tauri 四个首版可执行 UI 壳均已写入。
-- GitHub Actions：`validate.yml` 与 `benchmark.yml` 均仅允许 `workflow_dispatch`；benchmark 已从 scaffold matrix 升级为四候选 Windows x64 release 构建/采集矩阵，尚未运行。
-- 仓库可见性：当前为 PRIVATE；本轮没有 public/private 切换。
-- 远端审计：2026-08-17 已核实 Secrets/Variables/Environments/Release/Issue/PR/Packages/Artifacts/Caches 为 0、Actions run 为空、main 无保护；实现审计基线为 `60b0a2c`，实际 HEAD/提交数须在公开前重新读取。
-- 当前目标：完成源码审阅与公开前安全复核；获得本次明确授权后，临时公开运行真实四候选 matrix，再恢复 PRIVATE。
+- GitHub Actions：`validate.yml` 与 `benchmark.yml` 均仅允许 `workflow_dispatch`。最终 [`Validate shared core #32017467536`](https://github.com/oarw/cakify/actions/runs/32017467536) 和 [`Benchmark candidates #32017470781`](https://github.com/oarw/cakify/actions/runs/32017470781) 在同一 commit 成功。
+- 仓库可见性：本轮经用户明确授权临时切为 PUBLIC，完成运行与 artifact 核对、确认活动任务为 0 后，已恢复为 `PRIVATE`。
+- 远端审计：公开前已核实历史、Secrets、Variables、Environments、LFS、Release、Issue/PR、Packages、Artifacts/Caches、许可证和分支保护；当前仍没有 LICENSE，临时公开不代表开源授权。
+- 当前目标：以 GPUI + Rust 为主线实现产品纵向切片；保留 Avalonia + C# + Rust 作为 IME、无障碍或 API 稳定性不达标时的回退。
 - 执行方式：源码由 AI 完成；本机只做源码编辑和静态解析；构建、测试、基准、打包通过 GitHub Actions。
-- 本地验证：JSON 可解析、PowerShell 语法可解析、常见 secret/私钥文件扫描无命中、workflow 触发器与固定 SHA 已检查；未进行编译、测试或 GUI 启动。
-- 未验证：本机没有 Cargo，未执行 Rust 格式化、编译、测试、GUI 启动或 benchmark；不得把当前状态写成构建通过。
+- Actions 验证：Rust 格式检查/契约测试成功；四个 Windows x64 release job 均成功；每个候选三轮、60 秒空闲采样、同一 fixture 与协议探针通过，artifact 已下载并检查结果 JSON/light 截图。
+- 本机验证边界：本机没有执行项目编译、测试、GUI 启动或 benchmark；只解析 Actions 产物和文档。物理机中文 IME、DPI、多显示器、无障碍、帧时间与 GPU 指标仍未验证。
 
 ## 2. 候选技术栈
 
@@ -26,7 +26,7 @@
 3. Flutter + Rust
 4. Tauri + Svelte + Rust
 
-WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候选。第一轮结束前不选最终 UI 框架。
+第一轮决策为 **GPUI 主线、Avalonia 回退**。WinUI 3、C++/WinRT、Slint 不进入下一轮，除非 GPUI 与 Avalonia 都触发硬性阻断。
 
 ## 3. 第一轮统一功能范围
 
@@ -94,48 +94,58 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 - [x] 建立统一 ready-file、health、分页、SSE ready/cancelled 探针和 `result.v1` 采集脚本。
 - [x] 通过 GitHub 官方 API 核实 checkout/upload-artifact 的完整 commit SHA。
 - [x] 完成本地 JSON、PowerShell、workflow 触发器和 secret 模式静态检查。
+- [x] 经用户明确授权完成一次 `PRIVATE -> PUBLIC -> Actions -> PRIVATE` 闭环。
+- [x] Validate run `32017467536` 成功：fixture、Rust 格式检查、workspace 契约测试与 lockfile artifact 均成功。
+- [x] Benchmark run `32017470781` 成功：GPUI、Avalonia、Flutter、Tauri 四个 release job 全部成功。
+- [x] 四个候选各完成三轮 60 秒整树采样，fixture、分页和 SSE 取消协议探针全部通过。
+- [x] 下载并检查四个 benchmark artifact 的 `result.json`、进程树日志、应用产物和 light 截图。
+- [x] 输出 `docs/FRAMEWORK-BENCHMARK-REPORT.md` 与离线 HTML 报告，形成 GPUI 主线、Avalonia 回退决策。
 
-## 7. 尚未开始
+## 7. 状态清单
 
 - [x] 配置 Git 作者身份并创建初始 commit。
 - [x] 配置并核实 oarw/cakify 私有 GitHub 远端。
 - [ ] 选择公开仓库许可证；当前没有 LICENSE，Rust 包为 `publish = false`。
-- [ ] 在 Actions 中运行 Rust 格式化与契约测试（需先实现真实壳并获得临时公开授权）。
-- [ ] 从首次 validate artifact 取得并提交 `Cargo.lock`。
-- [ ] 在 Actions 编译并验证 GPUI UI 原型。
-- [ ] 在 Actions 编译并验证 Avalonia UI 原型。
-- [ ] 在 Actions 编译并验证 Flutter UI 原型。
-- [ ] 在 Actions 编译并验证 Tauri + Svelte UI 原型。
-- [ ] 运行四套 x64 release 构建与真实采集矩阵。
-- [ ] 生成第一轮安装包、截图和 JSON 指标。
-- [ ] 至少完成三轮稳定基准。
-- [ ] 输出最终技术选型报告。
+- [x] 在 Actions 中运行 Rust 格式化与契约测试。
+- [x] Validate 生成 `cargo-lock-32017467536` artifact；为保持已测 commit 不变，暂未提交生成锁文件。
+- [x] 在 Actions 编译并验证 GPUI UI 原型。
+- [x] 在 Actions 编译并验证 Avalonia UI 原型。
+- [x] 在 Actions 编译并验证 Flutter UI 原型。
+- [x] 在 Actions 编译并验证 Tauri + Svelte UI 原型。
+- [x] 运行四套 x64 release 构建与真实采集矩阵。
+- [x] 生成四套 portable app、light 截图、进程树日志和 `result.v1` JSON。
+- [x] 每个候选完成三轮有效基准。
+- [x] 输出第一轮技术选型报告（Markdown + HTML）。
+- [ ] 在物理 Windows 硬件验证中文 IME、DPI、多显示器、无障碍和 GPU/帧时间。
+- [ ] 为 GPUI 实现产品纵向切片；达到硬门后再确认最终产品框架。
 
 ## 8. 精确下一步
 
-下一位执行者从这里继续，不要重新做框架泛泛调研：
+下一位执行者从这里继续，不要重新做框架泛泛调研，也不要重复跑四候选：
 
-1. 在源码层完成 GPUI、Avalonia、Flutter、Tauri 的 API/路径审阅，不在本机编译。
-2. 重新执行公开前历史、Secrets、LFS、Release、Issue/PR、cache/artifact 与许可证审计。
-3. 向用户展示审计结果并获得本次 `public -> Actions -> private` 的明确授权。
-4. 临时公开后先跑 validate，再跑真实四候选 matrix；确认无 queued/in_progress 后恢复 PRIVATE。
-5. 记录每个 run 的 URL/ID、commit、artifact、失败原因和最终结论；未运行不得写成通过。
+1. 阅读 `docs/FRAMEWORK-BENCHMARK-REPORT.md`，以 GPUI + Rust 为主线、Avalonia 为回退。
+2. 先设计并实现 GPUI 产品纵向切片：Provider 设置、会话持久化、流式聊天、工具审批、MCP transport、取消/重试与错误恢复。
+3. 保持 UI 与共享 Rust core/协议分离；真实密钥使用 Windows Credential Manager/DPAPI 抽象，不写进仓库或 fixture。
+4. 源码修改完成后自动提交并推送；2026 年 8 月 Actions 仍只允许手动 dispatch，必须重新完成安全复核并获得本次 visibility 授权。
+5. 下一轮 Actions 增加 UI 自动化窗口探针、dark/tool-running 截图、帧时间和 GPUI IME smoke；物理机验证不允许用托管 runner 结论替代。
 
 ## 9. 预计节奏
 
-- 快速粗测：8–16 小时 AI 工作时间。
-- 可用于架构决策：2–4 个自然日，取决于 Actions 反馈轮次。
-- 接近产品体验的四套原型：5–8 个自然日，不作为第一轮目标。
+- 第一轮四候选粗测与架构决策：已完成。
+- GPUI 可用纵向切片：粗估 10–15 个 AI 工作日，不含 Actions 等待和人工硬件验证。
+- Avalonia 回退纵向切片：粗估 8–12 个 AI 工作日；仅在 GPUI 硬门失败后启动。
 
 ## 10. 当前阻塞与授权门
 
-- CI_COMPILE_PENDING：四个 UI 壳已写入，但尚未在 Windows runner 编译和启动验证。
-- PRIVATE_ACTIONS_QUOTA：2026 年 8 月私库 Actions 分钟耗尽；当前仓库保持 PRIVATE，不运行 workflow。
-- PUBLIC_AUTH_REQUIRED：任何 public/private 切换必须由用户针对本次操作明确授权。
-- SECURITY_REQUIRED：公开前必须完成完整历史、Secrets、LFS、Release、Issue、PR、Actions artifact/cache 和许可证检查。
+- GPUI_PRODUCT_RISK：GPUI pre-1.0；真实中文 IME、无障碍、Markdown 编辑、DPI 和多显示器尚未验证。
+- METRICS_GAP：当前只有 ready/整树内存/协议探针/light 截图，没有真实帧时间、GPU 内存、CPU、冷/热分离或安装器体积。
+- WINDOW_PROBE_GAP：Avalonia 三轮、Flutter 两轮未观察到 `MainWindowHandle`，但截图显示窗口存在；下一轮要改成 UI 自动化探针。
+- PRIVATE_ACTIONS_QUOTA：2026 年 8 月私库 Actions 分钟耗尽；仓库已恢复 PRIVATE，不在 push 上触发 workflow。
+- PUBLIC_AUTH_REQUIRED：未来每次 public/private 切换仍必须由用户针对该次操作明确授权；本轮授权已用完。
+- SECURITY_REQUIRED：未来再次公开前仍需重新检查完整历史、Secrets、LFS、Release、Issue/PR、Actions artifact/cache 和许可证。
 - LICENSE_PENDING：当前没有 LICENSE；临时 public 只表示源码可见，不表示已选择开源许可。
-- BOOTSTRAP_PENDING：尚无已审核的 Cargo.lock；由首次 validate/release workflow 生成 artifact 后决定是否提交。
-- MANUAL_RISK：真实中文 IME、物理 GPU、DPI 和多显示器无法仅靠普通托管 runner 得出最终结论。
+- LOCKFILE_DECISION：Validate 已生成 `cargo-lock-32017467536` artifact，但没有为了文档提交改变已测 commit；进入产品依赖冻结时再审核并提交。
+- MANUAL_RISK：真实中文 IME、物理 GPU、DPI、多显示器和无障碍无法仅靠普通托管 runner 得出最终结论。
 
 ## 11. 进度日志
 
@@ -166,6 +176,14 @@ WinUI 3、C++/WinRT、Slint 暂不进入第一轮矩阵，但保留为后续候�
 - 本地静态检查通过：JSON、PowerShell、workflow 结构和 secret 模式；未运行编译、测试、GUI 或 Actions。
 - 当前仍保持 PRIVATE；等待公开前复核和用户本次 public -> Actions -> private 授权。
 - 远端审计记录已写入 `docs/PUBLIC_ACTIONS_CHECKLIST.md`；Packages 通过仓库级 GraphQL `totalCount=0` 核实。
+- 用户明确授权本次 `oarw/cakify` 临时公开，运行 Validate 和四候选 Benchmark，并在无活动任务后恢复私有。
+- Validate 首两轮因 `cargo fmt --check` 发现格式问题失败；修复后 run `31998398331` 起通过，最终 run `32017467536` 在 commit `4020989` 成功并上传 `cargo-lock-32017467536`。
+- Benchmark 早期 run `31998652946` 暴露 GPUI 类型推断、Avalonia API、Tauri workspace 和 core 取消竞态；run `32015445971` 暴露 Tauri icon；run `32016531269` 暴露 Tauri ready 类型/生命周期问题。均按日志修复并自动提交、推送、重跑。
+- 最终 [`Benchmark candidates #32017470781`](https://github.com/oarw/cakify/actions/runs/32017470781) 在 commit `40209896dca0009b747efc51ac885bed32b81f25` 成功，四个 matrix job 和 artifact 均成功。
+- 三轮中位数：GPUI ready 113.745 ms / idle Working Set 42.016 MiB；Avalonia 565.515 ms / 125.102 MiB；Flutter 1,642.973 ms / 126.180 MiB；Tauri 554.475 ms / 326.496 MiB。
+- artifact 已下载检查：四个 `result.json` 均为同一 fixture/hash、三轮无失败、协议探针通过；四个 light 截图存在。暗色/工具截图、真实帧时间和物理机 IME 尚未覆盖。
+- 确认 GitHub Actions `queued/in_progress` 数量为 0 后，仓库已恢复为 PRIVATE；本轮 visibility 授权闭环完成。
+- 新增第一轮最终报告 Markdown/HTML；技术方向确定为 GPUI 主线、Avalonia 回退，进入产品纵向切片阶段。
 
 ## 12. 更新规则
 

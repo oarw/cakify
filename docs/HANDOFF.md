@@ -2,7 +2,7 @@
 
 > 用途：任何新的 AI 模型、供应商或工程师应在开始工作前完整阅读本文件。
 > 最后更新：2026-08-17（Asia/Shanghai）
-> 交接状态：四个首版 UI 壳、统一采集器和真实 benchmark workflow 已写入私有远端；尚未编译、运行或消耗 Actions 分钟。
+> 交接状态：第一轮四候选 Actions benchmark 已完成；GPUI 为主线、Avalonia 为回退；仓库已恢复 PRIVATE。
 
 ## 1. 五分钟上下文
 
@@ -15,12 +15,14 @@ Cakify 目标是一个 Windows-first 的高性能 AI Chat 客户端：
 - 本机尽量不安装 Rust、Node、Python、Flutter、Visual Studio 等大批环境。
 - 编译、测试、基准、打包、发布通过 GitHub Actions。
 
-目前没有选定最终 UI 框架。第一步是比较四种同规格原型：
+第一轮已比较四种同规格原型：
 
 1. GPUI + Rust
 2. Avalonia + C# + Rust
 3. Flutter + Rust
 4. Tauri + Svelte + Rust
+
+当前决策是 **GPUI + Rust 主线，Avalonia + C# + Rust 回退**。这仍是进入产品纵向切片的工程决策，不是忽略 GPUI pre-1.0、IME 和无障碍风险的永久承诺。完整数据见 `docs/FRAMEWORK-BENCHMARK-REPORT.md`。
 
 ## 2. 用户已确认的偏好
 
@@ -56,18 +58,20 @@ Cakify 目标是一个 Windows-first 的高性能 AI Chat 客户端：
 ## 4. 当前真实状态
 
 - 工作区路径：C:\Users\admin\Desktop\code\cakify
-- 本地分支：main，跟踪 origin/main；共享骨架基线 4e605d730ca61f3461e517d34955eefba9aa8b92；实际 HEAD 以 `git rev-parse HEAD` 为准。
+- 本地分支：`main`，跟踪 `origin/main`；最终 benchmark commit 为 `40209896dca0009b747efc51ac885bed32b81f25`；文档提交后的实际 HEAD 以 `git rev-parse HEAD` 为准。
 - GitHub remote：`https://github.com/oarw/cakify.git`，仓库为 PRIVATE，默认分支 `main`。
 - 已有 Cargo workspace：
   - `crates/bench-protocol`
   - `crates/bench-core`
 - 已有统一 fixture、视觉 token、附件、结果 schema 和 Windows 采集脚本。
-- `apps/gpui-bench`、`apps/avalonia-bench`、`apps/flutter-bench`、`apps/tauri-bench` 已写入首版可执行 UI 壳；等待 Windows runner 编译验证。
-- 已有 `.github/workflows/validate.yml` 与 `benchmark.yml`；只允许 `workflow_dispatch`，benchmark 已升级为真实 release matrix，但从未运行。
-- 首次 push 后 gh run list 为空；没有 Action run ID、URL、Cargo.lock、构建产物、截图或 benchmark artifact。
-- 本机没有 Cargo；没有执行编译、测试、GUI 启动或 benchmark。
+- `apps/gpui-bench`、`apps/avalonia-bench`、`apps/flutter-bench`、`apps/tauri-bench` 均已在 Windows x64 release runner 编译、启动并完成三轮采样。
+- `.github/workflows/validate.yml` 与 `benchmark.yml` 只允许 `workflow_dispatch`。最终 Validate run `32017467536`、Benchmark run `32017470781` 均在 commit `4020989` 成功。
+- 四个 benchmark artifact 已下载检查，包含 portable app、原始进程树日志、`result.json` 和 light 截图；Validate 提供 `cargo-lock-32017467536` artifact。
+- 三轮中位数（ready / 整树 idle Working Set）：GPUI `113.745 ms / 42.016 MiB`；Avalonia `565.515 ms / 125.102 MiB`；Flutter `1,642.973 ms / 126.180 MiB`；Tauri `554.475 ms / 326.496 MiB`。
+- 本机没有执行项目编译、测试、GUI 启动或 benchmark；编译/测试/采集全部来自 Actions。本机仅下载和解析 artifact。
 - 已完成源码级 secret 扫描和静态解析，结果记录在 `docs/PUBLIC_ACTIONS_CHECKLIST.md`。
-- 普通沙箱曾因 keyring/代理隔离误报 token 失效；在授权环境中 gh auth status 与 gh api user 已验证账号 oarw 有效。私有 cakify 远端已创建并核实。
+- 用户已明确授权并完成本轮临时公开；确认无 queued/in_progress 后已恢复 PRIVATE。本轮授权不能自动沿用到未来 visibility 切换。
+- 普通沙箱曾因 keyring/代理隔离误报 token 失效；实际 `gh auth status` 与 `gh api user` 已验证账号 `oarw` 有效。
 
 如果接手时上述状态已经变化，先检查实际工作区并更新本节，不要假设本文永远正确。
 
@@ -161,7 +165,7 @@ cakify-bench-core.exe
 - `benchmark.yml`
   - matrix 为 gpui/avalonia/flutter/tauri 四项 Windows x64 release 构建。
   - 每项启动共享 core，读取 ready-file，做 health/分页/SSE ready-cancelled 探针，采集整棵进程树并上传 `result.v1` 原始 artifact。
-  - 当前尚未运行；任何数字都不能写成性能结论。
+  - 最终 run `32017470781` 四个 job 均成功；每项有三轮、60 秒空闲整树采样。
 
 安全约束：
 
@@ -169,6 +173,7 @@ cakify-bench-core.exe
 - 不存在 push、PR、schedule 或 `pull_request_target` 触发器。
 - runner 镜像和工具版本最终必须写入结果 JSON。
 - 未经用户明确授权，不得运行任何 workflow 或修改 visibility。
+- 2026 年 8 月源码改动应在完成后自动 commit/push，但 workflow 继续手动 dispatch；不要给私库 push 增加自动触发而消耗已耗尽的私库分钟。
 
 ## 9. 结果格式
 
@@ -260,40 +265,41 @@ Tauri：
 
 ## 13. Definition of Done
 
-第一轮 benchmark 完成必须满足：
+第一轮筛选的实际完成状态：
 
-- 四个 Windows x64 release 原型均可从 artifact 启动。
-- 四个原型使用同一 fixture hash。
-- 每个原型至少完成三轮有效测量。
-- 结果包含原始样本，而不是只给最好数字。
-- 有统一尺寸的亮/暗主题截图。
-- 取消测试后没有残留 Rust core 或工具进程。
-- 有 Actions run URL/ID 和 commit SHA。
-- docs/PROGRESS.md 已更新。
-- 输出一份包含推荐、反例和保留风险的最终报告。
+- [x] 四个 Windows x64 release 原型均从 artifact 成功启动。
+- [x] 四个原型使用同一 fixture hash。
+- [x] 每个原型完成三轮有效测量。
+- [x] 结果包含原始样本，而不是只给最好数字。
+- [x] 四个候选均有 light 截图并经人工检查。
+- [ ] 统一尺寸的 dark/tool-running 截图尚未生成，留给 GPUI 纵向切片回归。
+- [x] 取消协议通过，采集脚本没有记录残留 core/工具进程失败。
+- [x] 已记录 Actions run URL/ID、commit SHA 和 artifact。
+- [x] `docs/PROGRESS.md` 已更新。
+- [x] 已输出包含推荐、反例和保留风险的 Markdown/HTML 最终报告。
 
 ## 14. 接手者的精确起点
 
 当前请按以下顺序行动：
 
-1. 读取 AGENTS.md、本文件、docs/PROGRESS.md、docs/PUBLIC_ACTIONS_CHECKLIST.md 和 docs/FRAMEWORK-IMPLEMENTATION-PLAN.md。
-2. 做源码级 API/路径审阅；不要在本机安装大环境或编译。
-3. 完成公开前安全审计并展示结果：当前 PRIVATE、历史、secrets/variables/environments、LFS、Release、Issue/PR、cache/artifact 和许可证。
-4. 获得用户本次 public -> Actions -> private 授权后再改 visibility 和运行 workflow。
-5. 记录 run URL/ID、commit、artifact、失败原因，并在确认无 queued/in_progress run 后恢复 PRIVATE。
+1. 读取 AGENTS.md、本文件、`docs/PROGRESS.md` 和 `docs/FRAMEWORK-BENCHMARK-REPORT.md`。
+2. 不再做四框架泛泛调研或重复矩阵；从 GPUI 产品纵向切片开始。
+3. 先确定共享产品 core 的最小协议：Provider 配置、会话存储、流式消息、工具审批、MCP transport、取消/重试和错误恢复。
+4. 在 GPUI 接入真实输入控件与 UI 自动化探针，优先解决中文 IME/焦点/无障碍；保持 Avalonia 回退边界可用。
+5. 源码完成后自动 commit/push；需要 Actions 时重新执行安全审计并取得新的 public/private 明确授权，不能复用本轮授权。
 
 ## 15. 交接槽位
 
 - 当前分支：main
-- 当前 HEAD：执行 git rev-parse HEAD；共享骨架基线为 4e605d730ca61f3461e517d34955eefba9aa8b92，最近文档提交为 cd5a4e2
+- 当前 HEAD：最终 benchmark commit 为 `40209896dca0009b747efc51ac885bed32b81f25`；本次文档提交后执行 `git rev-parse HEAD` 取得最新值
 - GitHub remote：https://github.com/oarw/cakify.git
 - 当前 visibility：PRIVATE
-- 最近 Action run：N/A（首次 push 后为空）
-- 最近成功 artifact：N/A
-- 当前正在做：源码级审阅与公开前审计；四个 UI 壳和真实 benchmark matrix 已写入但未运行
-- 已知失败：无 CI 失败记录；源码尚未编译，本机没有 Cargo
-- 公开前审计（2026-08-17，针对实现基线 `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`，随后仅有审计文档提交）：PRIVATE；Secrets/Variables/Environments、Issues/PR、Releases、Packages、Artifacts、Caches 为 0；LFS/Pages 未配置；无分支保护；远端敏感路径扫描无命中。实际 HEAD/提交数必须在公开前重新读取。
-- 精确下一动作：完成公开前远端复核，向用户展示结果并等待本次 public -> Actions -> private 明确授权
-- 需要用户决定：许可证、四壳实现完成后的本次 public -> Actions -> private 授权
+- 最近 Action run：Benchmark `32017470781`（success）；Validate `32017467536`（success）；两者均为 commit `4020989`
+- 最近成功 artifact：`benchmark-{gpui,avalonia,flutter,tauri}-32017470781`、`cargo-lock-32017467536`
+- 当前正在做：第一轮报告已完成，准备进入 GPUI 产品纵向切片
+- 已知失败：早期格式、GPUI 类型、Avalonia API、Tauri workspace/icon/ready 类型和 core 取消竞态均已修复；最终 run 全绿。保留风险是 GPUI IME/无障碍、窗口探针和缺失帧/GPU 指标。
+- 公开流程记录：公开前安全审计完成，用户明确授权，本轮临时 PUBLIC 运行并核对产物；确认活动任务为 0 后恢复 PRIVATE。
+- 精确下一动作：设计并实现 GPUI 产品纵向切片的共享协议与真实输入控件，不在本机编译。
+- 需要用户决定：许可证；未来每次 Actions visibility 切换仍需单独授权。
 
 每次停止工作或更换供应商前，必须更新以上槽位。
