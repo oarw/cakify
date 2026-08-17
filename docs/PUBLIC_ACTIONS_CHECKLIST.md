@@ -22,7 +22,7 @@
 - [x] 已重新检查完整 Git 历史：实现审计基线为 `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`，随后只追加审计/交接文档；共享骨架基线为 `4e605d730ca61f3461e517d34955eefba9aa8b92`。公开前必须用 API 重新读取实际 HEAD/提交数，避免文档提交造成自引用失真。
 - [x] 检查 GitHub Actions secrets、variables、environments 和 OIDC 入口：没有 secrets、variables 或 environments；Actions enabled/all。
 - [x] LFS endpoint 返回 404（未配置）、Release、Issue/PR、Actions cache 和 artifact 均为空；远端敏感路径扫描无命中。
-- [ ] 重新确认 Packages：当前 `gh` token 没有 `read:packages`，用户级 packages API 返回 403，不能将其误记为空。
+- [x] 仓库级 GraphQL `packages.totalCount` 返回 0；读取包名/类型详情需要 `read:packages`，但确认当前仓库无 Packages 不需要扩 scope。
 - [x] 检查分支保护和默认 Actions 权限：main 无分支保护；workflow 顶层为 contents: read，第三方 Action 固定 SHA。
 - [ ] 明确许可证选择。当前包为 `publish = false`，仓库没有 LICENSE；临时 public 只代表源码可见，不应误写成已开源授权。
 - [x] 已记录 PRIVATE 状态和共享骨架基线 4e605d730ca61f3461e517d34955eefba9aa8b92；公开前必须重新记录最新 HEAD。
@@ -34,7 +34,7 @@
 - Actions：run 列表为空；Secrets 0、Variables 0、Environments 0、Artifacts 0、Caches 0；Actions enabled/all，默认 workflow permissions 为 read。
 - Releases、Issues、Pull requests、webhooks 均为 0；main 无分支保护；Pages endpoint 未配置（404）。
 - 本地与远端树的敏感扩展名/私钥路径扫描无命中；本轮没有修改 visibility 或触发 workflow。
-- Packages 尚有权限缺口，公开前必须补核。
+- Packages：仓库级 `totalCount` 为 0；没有扩 token scope。
 
 ## 本月运行顺序
 

@@ -292,7 +292,7 @@ Tauri：
 - 最近成功 artifact：N/A
 - 当前正在做：源码级审阅与公开前审计；四个 UI 壳和真实 benchmark matrix 已写入但未运行
 - 已知失败：无 CI 失败记录；源码尚未编译，本机没有 Cargo
-- 公开前审计（2026-08-17，针对实现基线 `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`，随后仅有审计文档提交）：PRIVATE；Secrets/Variables/Environments、Issues/PR、Releases、Artifacts、Caches 为 0；LFS/Pages 未配置；无分支保护；远端敏感路径扫描无命中。实际 HEAD/提交数必须在公开前重新读取；Packages 因当前 token 缺 `read:packages` 尚待补核。
+- 公开前审计（2026-08-17，针对实现基线 `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`，随后仅有审计文档提交）：PRIVATE；Secrets/Variables/Environments、Issues/PR、Releases、Packages、Artifacts、Caches 为 0；LFS/Pages 未配置；无分支保护；远端敏感路径扫描无命中。实际 HEAD/提交数必须在公开前重新读取。
 - 精确下一动作：完成公开前远端复核，向用户展示结果并等待本次 public -> Actions -> private 明确授权
 - 需要用户决定：许可证、四壳实现完成后的本次 public -> Actions -> private 授权
 
