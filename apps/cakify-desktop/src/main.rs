@@ -1,10 +1,10 @@
 use cakify_core::{
-    AppCommand, AppEvent, CoreEvents, CoreRuntime, ConversationId, RequestId, start_core,
+    start_core, AppCommand, AppEvent, ConversationId, CoreEvents, CoreRuntime, RequestId,
 };
 use cakify_platform_windows::app_data_paths;
 use gpui::{
-    App, Bounds, Context, MouseButton, MouseUpEvent, SharedString, Window, WindowBounds,
-    WindowOptions, div, prelude::*, px, rgb, size,
+    div, prelude::*, px, rgb, size, App, Bounds, Context, MouseButton, MouseUpEvent, SharedString,
+    Window, WindowBounds, WindowOptions,
 };
 use gpui_platform::application;
 
@@ -90,10 +90,13 @@ impl CakifyApp {
     fn new_conversation(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         let request_id = RequestId::new(self.next_request);
         self.next_request += 1;
-        let result = self.core.handle().try_dispatch(AppCommand::CreateConversation {
-            request_id,
-            title: "新会话".to_owned(),
-        });
+        let result = self
+            .core
+            .handle()
+            .try_dispatch(AppCommand::CreateConversation {
+                request_id,
+                title: "新会话".to_owned(),
+            });
         self.status = match result {
             Ok(()) => "creating conversation…".into(),
             Err(error) => error.to_string().into(),
@@ -162,18 +165,13 @@ impl Render for CakifyApp {
                             .child(div().mt_1().text_color(muted_text).child("GPUI + Rust")),
                     )
                     .child(div().text_sm().text_color(muted_text).child("会话"))
-                    .child(
-                        div()
-                            .rounded_md()
-                            .bg(muted_surface)
-                            .p_2()
-                            .text_sm()
-                            .child(if self.active_conversation.is_some() {
-                                "新会话"
-                            } else {
-                                "还没有会话"
-                            }),
-                    )
+                    .child(div().rounded_md().bg(muted_surface).p_2().text_sm().child(
+                        if self.active_conversation.is_some() {
+                            "新会话"
+                        } else {
+                            "还没有会话"
+                        },
+                    ))
                     .child(div().flex_1())
                     .child(
                         div()
@@ -182,12 +180,7 @@ impl Render for CakifyApp {
                             .child("M0 · core revision ")
                             .child(revision.to_string()),
                     )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(muted_text)
-                            .child(data_root),
-                    ),
+                    .child(div().text_xs().text_color(muted_text).child(data_root)),
             )
             .child(
                 div()
@@ -264,13 +257,9 @@ impl Render for CakifyApp {
                                             .text_color(muted_text)
                                             .child("M0 原生窗口已连接 Core command/event bridge。"),
                                     )
-                                    .child(
-                                        div()
-                                            .mt_3()
-                                            .text_sm()
-                                            .text_color(muted_text)
-                                            .child("真实输入、SQLite、Provider 和密钥存储按路线图逐步接入。"),
-                                    ),
+                                    .child(div().mt_3().text_sm().text_color(muted_text).child(
+                                        "真实输入、SQLite、Provider 和密钥存储按路线图逐步接入。",
+                                    )),
                             ),
                     )
                     .child(

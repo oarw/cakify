@@ -35,7 +35,13 @@ impl AppDataPaths {
     }
 
     pub fn create_layout(&self) -> Result<(), PlatformError> {
-        for path in [&self.root, &self.data, &self.attachments, &self.logs, &self.cache] {
+        for path in [
+            &self.root,
+            &self.data,
+            &self.attachments,
+            &self.logs,
+            &self.cache,
+        ] {
             std::fs::create_dir_all(path).map_err(|source| PlatformError::CreateDirectory {
                 path: path.clone(),
                 source,
@@ -68,7 +74,10 @@ mod tests {
     #[test]
     fn layout_is_stable_and_scoped_to_cakify() {
         let paths = AppDataPaths::from_local_app_data(r"C:\Users\test\AppData\Local");
-        assert_eq!(paths.root, PathBuf::from(r"C:\Users\test\AppData\Local\Cakify"));
+        assert_eq!(
+            paths.root,
+            PathBuf::from(r"C:\Users\test\AppData\Local\Cakify")
+        );
         assert_eq!(paths.data, paths.root.join("data"));
         assert_eq!(paths.attachments, paths.root.join("attachments"));
     }

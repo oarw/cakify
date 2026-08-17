@@ -114,10 +114,12 @@ pub struct CoreHandle {
 
 impl CoreHandle {
     pub fn try_dispatch(&self, command: AppCommand) -> Result<(), DispatchError> {
-        self.commands.try_send(command).map_err(|error| match error {
-            TrySendError::Full(command) => DispatchError::Full(command),
-            TrySendError::Closed(command) => DispatchError::Closed(command),
-        })
+        self.commands
+            .try_send(command)
+            .map_err(|error| match error {
+                TrySendError::Full(command) => DispatchError::Full(command),
+                TrySendError::Closed(command) => DispatchError::Closed(command),
+            })
     }
 
     pub fn dispatch(&self, command: AppCommand) -> Result<(), DispatchError> {
@@ -211,7 +213,10 @@ fn run_loop(commands: Receiver<AppCommand>, events: Sender<AppEvent>) {
                     },
                 );
             }
-            AppCommand::CreateConversation { request_id, title: _ } => {
+            AppCommand::CreateConversation {
+                request_id,
+                title: _,
+            } => {
                 let conversation_id = ConversationId::new(next_conversation);
                 next_conversation += 1;
                 send_event(
@@ -249,11 +254,7 @@ fn run_loop(commands: Receiver<AppCommand>, events: Sender<AppEvent>) {
                 );
             }
             AppCommand::Shutdown => {
-                send_event(
-                    &events,
-                    &mut revision,
-                    AppEvent::CoreStopped { revision },
-                );
+                send_event(&events, &mut revision, AppEvent::CoreStopped { revision });
                 break;
             }
         }
@@ -269,9 +270,15 @@ fn send_event(events: &Sender<AppEvent>, revision: &mut u64, mut event: AppEvent
 fn set_revision(event: &mut AppEvent, revision: u64) {
     match event {
         AppEvent::CoreReady { revision: value }
-        | AppEvent::ConversationCreated { revision: value, .. }
-        | AppEvent::DraftAccepted { revision: value, .. }
-        | AppEvent::Status { revision: value, .. }
+        | AppEvent::ConversationCreated {
+            revision: value, ..
+        }
+        | AppEvent::DraftAccepted {
+            revision: value, ..
+        }
+        | AppEvent::Status {
+            revision: value, ..
+        }
         | AppEvent::CoreStopped { revision: value } => *value = revision,
     }
 }

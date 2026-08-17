@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-17（Asia/Shanghai）
 > 当前阶段：M0 - 产品工作区与技术 spike
-> 当前状态：M0_SOURCE_BOOTSTRAPPED_CI_PENDING
+> 当前状态：M0_PRODUCT_VALIDATE_FIX_IN_PROGRESS
 
 ## 1. 当前快照
 
@@ -12,12 +12,12 @@
 - 本轮开始时 HEAD：`36742654d67b276ce964ecaea1b6a5d1a2c4c58f`。
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：`PRIVATE`，已通过 `gh repo view` 复核。
+- 仓库可见性：本次经用户明确授权临时设为 `PUBLIC`；闭环结束前必须恢复 `PRIVATE`。
 - 最近成功 Actions：Validate `32017467536`、Benchmark `32017470781`，均针对 benchmark commit `40209896dca0009b747efc51ac885bed32b81f25`。
-- 本轮 Actions：**未运行**；没有修改仓库可见性，也没有复用旧授权。
+- 本轮 Actions：Product validate `32032509531` 已运行并因 `cargo fmt --check` 失败；依赖/许可证边界步骤通过，后续 check/test/clippy/release build 被跳过。
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- 产品构建状态：本机没有编译/测试；首个 `Cargo.lock`、release EXE 和依赖树 artifact 尚未由 Actions 生成。
+- 产品构建状态：本机没有编译/测试；首轮 artifact 已生成并取回 `Cargo.lock` 与依赖树，但尚未取得 release EXE，正在按 CI 差异修复格式并重跑。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
 - 本次公开前审计：已完成并写入 `docs/PUBLIC-ACTIONS-AUDIT.md`；目标 HEAD `b87789ce6c145cb8b1507ba077d8112d744dcdac`，等待明确授权。
 - 组件决定：M0 不引入 `gpui-component`；直接使用 GPUI primitives，见 ADR 0002。
@@ -81,6 +81,8 @@
 - [x] 写 ADR 0001/0002，固定 runtime/thread/pin，并基于 revision 不兼容门拒绝 M0 引入 `gpui-component`。
 - [x] 对新增源码做静态结构、链接、敏感模式、workflow trigger、括号和 staged diff 检查；没有把它们写成编译通过。
 - [x] 完成本次公开前安全审计：Git 全历史、GitHub secrets/config、10 个 run 日志、20 个 artifact、cache 元数据、LFS、Release、Issue/PR、fork 与许可证均已检查。
+- [x] 经用户明确授权执行本次临时公开，并只触发 Product validate；首轮准确记录为格式检查失败。
+- [x] 从首轮 artifact 取回并核对首个产品 `Cargo.lock` 与依赖树；锁文件固定 GPUI/Zed revision，未发现候选框架越界依赖。
 
 ## 6. 尚未完成
 
@@ -99,10 +101,11 @@
 下一位执行者先闭合 M0，不再做框架泛泛选型：
 
 1. 读取提交 `07643ab45f1eaabfa6e44d5a57116496ad1c25d2` 的 workspace、两个 ADR 和手动 validate workflow。
-2. 阅读 `docs/PUBLIC-ACTIONS-AUDIT.md`，取得用户对这一次 public -> Product validate -> private 的明确授权；旧授权不可复用。
-3. Actions 运行后记录 run URL/ID、commit、结论与 artifact，下载 `Cargo.lock` 并提交；若失败，按日志修源码后重复本次闭环所需的授权流程。
-4. 检查 release EXE、依赖树、默认进程树和窗口启动/退出；物理微软拼音/无障碍仍单独标记人工未验。
-5. M0 通过后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
+2. 提交 CI 精确格式修复与 Actions 生成的 `Cargo.lock`，推送后只重跑 Product validate。
+3. 记录重跑 URL/ID、commit、结论与 artifact；若仍失败，按日志继续修复同一 workflow。
+4. 成功后检查 release EXE 与依赖树，确认无 queued/in_progress，再恢复仓库为 `PRIVATE`。
+5. 另行补齐默认进程树和窗口启动/退出验证；物理微软拼音/无障碍仍单独标记人工未验。
+6. M0 通过后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
 
 详细验收见 `docs/ROADMAP.md` 的 M0。
 
@@ -123,11 +126,11 @@
 ## 9. 当前阻塞与风险
 
 - `PRIVATE_ACTIONS_QUOTA`：2026 年 8 月私库 Actions 分钟已耗尽。
-- `PUBLIC_AUTH_REQUIRED`：未来每次 public/private 切换需要用户针对该次明确授权；旧授权已结束。
+- `PUBLIC_CYCLE_ACTIVE`：本次 public -> Product validate -> private 已获明确授权且正在执行；仓库尚未恢复 private。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M0_CI_UNRUN`：产品 workspace、测试和 release EXE 尚未实际编译/运行，可能仍有 API 或格式问题。
-- `CARGO_LOCK_PENDING`：首个产品锁文件必须由后续 Actions 生成、核对并提交。
+- `M0_CI_FAILED_FMT`：首轮只暴露出格式差异；check/test/clippy/release build 尚未执行，仍可能有 API 或编译问题。
+- `CARGO_LOCK_UNCOMMITTED`：首个产品锁文件已由 Actions 生成并核对，正与格式修复一起提交。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
 - `PRODUCT_METRICS_UNRUN`：42 MiB/113 ms 是 benchmark 壳，不是产品性能。
@@ -137,8 +140,8 @@
 
 - [历史 benchmark Validate #32017467536](https://github.com/oarw/cakify/actions/runs/32017467536)：`success`，commit `40209896dca0009b747efc51ac885bed32b81f25`，artifact `cargo-lock-32017467536`。GitHub 曾因短暂复用 workflow 路径而改变其显示名；它不是产品 M0 run。
 - [Benchmark candidates #32017470781](https://github.com/oarw/cakify/actions/runs/32017470781)：`success`，同一 commit，artifacts `benchmark-{gpui,avalonia,flutter,tauri}-32017470781`。
-- 当前仓库已恢复 PRIVATE；上述 visibility 授权闭环完成，不能用于下一次运行。
-- 本轮 M0 源码/ADR/工作流没有 Actions run 或 artifact，不能写成通过。
+- [Product validate #32032509531](https://github.com/oarw/cakify/actions/runs/32032509531)：`failure`，commit `9b6e71e07514c6f447de084a527d9a571b8368bd`，artifact `product-validation-32032509531`（ID `9289483786`，含 `Cargo.lock`、`dependency-tree.txt`，无 EXE）。依赖/许可证边界通过，`cargo fmt --check` 失败，后续步骤被跳过。
+- 本次 visibility 授权闭环仍在进行；仓库当前为 PUBLIC，必须在无 queued/in_progress 后恢复 PRIVATE。
 
 ### 公开前审计记录
 
@@ -185,6 +188,14 @@
 - 未发现 secret 或用户数据；artifact 临时下载已清理，仓库保持 PRIVATE，无 queued/in_progress run。
 - 记录旧 Flutter cache 未逐文件扫描、无 LICENSE 与公开副本不可收回等残余风险。
 - 本轮未切换 visibility、未 dispatch workflow，等待本次明确授权。
+
+### 2026-08-17：Product validate 首轮
+
+- 用户明确确认本次临时 PUBLIC -> 只运行 Product validate -> 核对产物 -> PRIVATE。
+- 将仓库临时设为 PUBLIC，只触发 Product validate `32032509531`，目标 commit `9b6e71e07514c6f447de084a527d9a571b8368bd`。
+- 首轮依赖树与许可证边界通过，但格式检查失败；check/test/clippy/release build 未执行，结论准确记录为 `failure`。
+- artifact `product-validation-32032509531` 已取回：`Cargo.lock` SHA-256 `F6FF23586B01F6569C32CE3359F517E01F3C9E7591ED25798D52D4B2D7FC99C6`，依赖树 SHA-256 `4F424A9412718C56907ECE687A2342E55F491C9C6F7E4B3BFE3712E3276E729A`。
+- 已按 runner 的 rustfmt 精确差异修复 4 个源码文件；等待提交、推送并重跑同一 workflow。
 
 ## 12. 更新规则
 

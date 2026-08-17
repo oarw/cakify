@@ -12,5 +12,8 @@ fn public_ids_and_events_are_serializable() {
     assert!(json.contains("DraftAccepted"));
 
     let command = AppCommand::Bootstrap;
-    assert_eq!(serde_json::to_string(&command).expect("command JSON"), "\"Bootstrap\"");
+    assert_eq!(
+        serde_json::to_string(&command).expect("command JSON"),
+        "\"Bootstrap\""
+    );
 }
