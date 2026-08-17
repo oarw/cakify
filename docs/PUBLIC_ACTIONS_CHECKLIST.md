@@ -19,7 +19,7 @@
 
 - [x] 在授权环境中验证 `gh auth status` 和 `gh api user`；账号 `oarw` 有效。普通沙箱的 keyring/代理隔离不代表账号失效。
 - [x] remote 已核实为 https://github.com/oarw/cakify.git，仓库为 PRIVATE、默认分支为 main。
-- [x] 已重新检查完整 Git 历史：当前共 4 个提交，最新实现提交为 `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`；共享骨架基线为 `4e605d730ca61f3461e517d34955eefba9aa8b92`。
+- [x] 已重新检查完整 Git 历史：实现审计基线为 `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`，随后只追加审计/交接文档；共享骨架基线为 `4e605d730ca61f3461e517d34955eefba9aa8b92`。公开前必须用 API 重新读取实际 HEAD/提交数，避免文档提交造成自引用失真。
 - [x] 检查 GitHub Actions secrets、variables、environments 和 OIDC 入口：没有 secrets、variables 或 environments；Actions enabled/all。
 - [x] LFS endpoint 返回 404（未配置）、Release、Issue/PR、Actions cache 和 artifact 均为空；远端敏感路径扫描无命中。
 - [ ] 重新确认 Packages：当前 `gh` token 没有 `read:packages`，用户级 packages API 返回 403，不能将其误记为空。
@@ -30,7 +30,7 @@
 ## 2026-08-17 远端复核记录
 
 - visibility：`PRIVATE`；default branch：`main`；远端 URL：`https://github.com/oarw/cakify`。
-- commit history：4 个提交，HEAD `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`。
+- commit history：实现审计基线 `60b0a2c8eb8e51c9b184b0f36b45cd4d043fa725`；之后仅追加审计文档。实际 HEAD/提交数以公开前的 `gh api repos/oarw/cakify/commits/main` 为准。
 - Actions：run 列表为空；Secrets 0、Variables 0、Environments 0、Artifacts 0、Caches 0；Actions enabled/all，默认 workflow permissions 为 read。
 - Releases、Issues、Pull requests、webhooks 均为 0；main 无分支保护；Pages endpoint 未配置（404）。
 - 本地与远端树的敏感扩展名/私钥路径扫描无命中；本轮没有修改 visibility 或触发 workflow。
