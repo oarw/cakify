@@ -1,7 +1,6 @@
 use std::{
     convert::Infallible,
-    env,
-    fs,
+    env, fs,
     io::Write,
     path::PathBuf,
     sync::Arc,
@@ -220,11 +219,7 @@ async fn next_event(mut state: EventState) -> Option<(Result<Event, Infallible>,
     if matches!(state.phase, EventPhase::Complete) {
         return None;
     }
-    let cancelled = state
-        .cancelled_runs
-        .lock()
-        .await
-        .remove(&state.run_id);
+    let cancelled = state.cancelled_runs.lock().await.remove(&state.run_id);
     if cancelled {
         let payload = BenchEvent::Cancelled {
             run_id: state.run_id.clone(),
@@ -235,9 +230,7 @@ async fn next_event(mut state: EventState) -> Option<(Result<Event, Infallible>,
         return Some((Ok(event), state));
     }
 
-    if matches!(state.phase, EventPhase::Tool)
-        && state.sequence >= state.manifest.tool_event_count
-    {
+    if matches!(state.phase, EventPhase::Tool) && state.sequence >= state.manifest.tool_event_count {
         state.phase = EventPhase::Stream;
         state.sequence = 0;
     }
@@ -369,4 +362,3 @@ fn argument(name: &str) -> Option<String> {
     }
     None
 }
-
