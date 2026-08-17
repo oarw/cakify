@@ -2,7 +2,7 @@
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
 > 最后更新：2026-08-17（Asia/Shanghai）
-> 交接状态：产品规划完成，benchmark 已归档，下一步直接做 M0。
+> 交接状态：M0 产品源码已 bootstrap，下一步先跑产品 validate Actions 闭环。
 
 ## 1. 五分钟上下文
 
@@ -39,14 +39,17 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 - 路径：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`
-- 本轮开始 HEAD：`c28cce92afb4462b0475895e0514cc00709c4bb6`
+- 本轮开始 HEAD：`36742654d67b276ce964ecaea1b6a5d1a2c4c58f`
+- M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
-- 产品源码尚未 bootstrap；根目录当前没有产品 Cargo workspace。
+- 根产品 Cargo workspace 已建立，首批成员为 desktop、core、platform-windows。
+- GPUI 空窗口和 fake Core bridge 已写入源码，但没有在本机或 Actions 编译。
 - 旧 benchmark 完整归档在 `archi/framework-benchmark-2026-08/`。
-- 根 `.github/workflows` 当前无产品 workflow；旧 workflow 归档后不会被 GitHub 识别。
+- 根 `.github/workflows/validate.yml` 只有 `workflow_dispatch`；push 不会自动运行。
 - 最近实际成功 run：Validate `32017467536`、Benchmark `32017470781`，都在 commit `40209896dca0009b747efc51ac885bed32b81f25`。
-- 本轮只做调研、文档与文件迁移；未运行 Actions、未切换 visibility、未本地编译/测试。
+- 本轮创建产品源码、ADR 和手动 workflow；未运行 Actions、未切换 visibility、未本地编译/测试。
+- 首个产品 `Cargo.lock`、release EXE 和产品依赖树尚不存在；不能把 M0 源码写成已通过。
 - 仓库没有 LICENSE。
 
 接手后先执行只读检查：`git status --short --branch`、`git rev-parse HEAD`、`git remote -v`、`gh repo view ... --json visibility,isPrivate`、`gh run list`。实际状态优先于本文。
@@ -84,7 +87,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - `crates/gpui`：Apache-2.0，可用。
 - `crates/agent`、`agent_ui`、`language_model`、`context_server` 等：GPL-3.0-or-later。
 
-当前项目许可证未定，不复制或依赖 GPL AI 业务代码。可以观察公开产品行为、阅读 API 用法、形成独立设计。Apache-2.0 的 `gpui-component` 是候选组件库，但它对 GPUI Git 依赖未固定；M0 spike 后必须明确 adopt/partial/reject。
+当前项目许可证未定，不复制或依赖 GPL AI 业务代码。可以观察公开产品行为、阅读 API 用法、形成独立设计。Apache-2.0 的 `gpui-component` 可作为交互/API 参考，但当前 revision 对 GPUI Git 依赖未固定且与产品 pin 不一致；ADR 0002 已决定 M0 不引入。
 
 ## 7. 架构要点
 
@@ -114,19 +117,18 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 ## 9. M0 精确任务
 
-按此顺序实现：
+源码任务 1–7 已在 `07643ab45f1eaabfa6e44d5a57116496ad1c25d2` 完成：workspace、三个首批 crate、Core 协议/fake loop、GPUI 空窗口、Windows 数据目录边界、手动 validate workflow 和 ADR 均已写入。
 
-1. 创建 `rust-toolchain.toml`、根产品 `Cargo.toml`、workspace lint/profile/dependency policy。
-2. 创建 `apps/cakify-desktop`、`crates/cakify-core`、`crates/cakify-platform-windows`。
-3. 在 core 定义 ID、`AppCommand`、`AppEvent`、错误和 fake core loop；channel 有界且可观察 backpressure。
-4. 创建 GPUI 空窗口，消费 fake events；无 SQLite/真实网络/secret。
-5. 创建隔离 component spike，覆盖 textarea、微软拼音 composition、Markdown streaming、virtual list、主题和体积。
-6. 根据 spike 写 ADR：完整采用、只采用 `gpui-base` 或拒绝；不能拖到 M1。
-7. 创建仅 `workflow_dispatch` 的 product validate workflow，固定第三方 Action SHA。
-8. 本机只做静态解析；需要 Action 时完成新的安全审计并向用户申请本次 visibility 授权。
-9. 更新进度/交接并自动 commit/push。
+`gpui-component` 的 M0 结论是拒绝当前依赖：调研 commit 的 lock 指向比产品 pin 落后 88 个提交的 GPUI，workspace 又未声明 Zed revision。没有继续运行 textarea/IME/体积测试，也没有把这些项目写成通过。详情见 `docs/decisions/0002-reject-gpui-component-for-m0.md`。
 
-M0 完成定义见 `docs/ROADMAP.md`，不要提前接真实 Provider。
+接手后的顺序：
+
+1. 静态复核仓库公开风险，并取得用户针对这一次 visibility 切换的明确授权。
+2. 临时设为 public，只运行 `Validate product workspace`，记录 run URL/ID、SHA、artifact 和每个 step 结论。
+3. 下载并核对 `product-validation-<run_id>`，把生成的 `Cargo.lock` 提交；编译失败则按日志修复，不得宣称 M0 通过。
+4. 确认没有 queued/in_progress 后恢复 private，并再次复核可见性。
+5. 核对 release EXE 的窗口启动/退出和默认进程树；物理机 IME/无障碍保持独立人工门。
+6. M0 验证完成后进入 M1，不要提前接真实 Provider。
 
 ## 10. 后续顺序
 
@@ -164,16 +166,17 @@ Benchmark 壳的 `113.745 ms / 42.016 MiB` 只是基线，不代表产品已达�
 ## 13. 交接槽位
 
 - 当前分支：`main`
-- 本轮开始 HEAD：`c28cce92afb4462b0475895e0514cc00709c4bb6`
+- 本轮开始 HEAD：`36742654d67b276ce964ecaea1b6a5d1a2c4c58f`
+- M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
-- 当前 milestone：M0 准备完成，待 bootstrap 产品 workspace
-- 当前正在做：产品计划/架构/安全/路线图已经写完，benchmark 已归档
+- 当前 milestone：M0 源码已 bootstrap，等待产品 validate Actions 与首个 `Cargo.lock`
+- 当前正在做：GPUI 空窗口、Core bridge、Windows 数据目录边界和手动 workflow 已写入；编译状态未知
 - 最近成功 Actions：Validate `32017467536`；Benchmark `32017470781`
 - 本轮 Actions：未运行
-- 精确下一动作：执行第 9 节 M0 任务 1–4，再做 component spike
+- 精确下一动作：按第 9 节取得新的 visibility 授权并运行 `Validate product workspace`
 - 需要用户决定：未来每次本月 Actions visibility 授权；项目许可证；M7 签名/发行渠道
-- 已知风险：GPUI pre-1.0、`gpui-component` 兼容性、真实 IME/accessibility、产品性能未跑
-- 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
+- 已知风险：M0 尚未编译、无 `Cargo.lock`、GPUI pre-1.0、直接 UI 组件工作量、真实 IME/accessibility、产品性能未跑
+- 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
 
 交接时用实际 `git rev-parse HEAD` 更新或解释 HEAD；不要让文档中的工作前基线冒充最新提交。

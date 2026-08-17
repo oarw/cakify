@@ -44,11 +44,11 @@ AI 可以完成全部源码、测试、CI、文档和修复。仍需要用户参
 
 交付：
 
-- 创建产品 Cargo workspace 和约定的 8 个 crate。
+- 创建产品 Cargo workspace 与首批 desktop/core/platform-windows crate；其余边界在首次实现时加入。
 - 固定 Rust toolchain、GPUI commit 和最小 Windows feature。
-- 建立 `AppCommand`/`AppEvent`、fake clock/id/provider 与空壳 GPUI window。
+- 建立 `AppCommand`/`AppEvent`、确定性 ID/fake core loop 与空壳 GPUI window。
 - 创建只允许 `workflow_dispatch` 的产品 validate workflow。
-- 对 `gpui-component` 做隔离 spike：textarea/IME、Markdown streaming、virtual list、主题、二进制体积与依赖树。
+- 对 `gpui-component` 先做 revision/依赖兼容门；不通过时直接形成拒绝 ADR，不把未运行的 UI 测试写成通过。
 - 写首批 ADR：GPUI pin、UI component 采用/拒绝、线程模型、依赖许可。
 
 验收门：
@@ -59,13 +59,16 @@ AI 可以完成全部源码、测试、CI、文档和修复。仍需要用户参
 - `gpui-component` 形成明确 adopt/partial/reject 结论，不能悬而不决进入 M1。
 - 依赖树没有 GPL-only Zed Agent/AI crate。
 
-当前精确起步任务：
+当前状态与剩余任务：
 
-1. 创建根 `rust-toolchain.toml`、`Cargo.toml` 和 workspace dependency policy。
-2. 创建 `apps/cakify-desktop` 与 `crates/cakify-core` 的最小可编译骨架。
-3. 实现 bounded command/event bridge 和 fake core loop。
-4. 创建 `cakify-platform-windows` 的 known-folder API。
-5. 添加手动 validate workflow；本月不运行，直到完成安全检查并获得本次 visibility 授权。
+1. [x] 创建根 `rust-toolchain.toml`、`Cargo.toml` 和 workspace dependency policy。
+2. [x] 创建 `apps/cakify-desktop`、`crates/cakify-core`、`crates/cakify-platform-windows` 首批骨架。
+3. [x] 实现 bounded command/event bridge、revision 和 fake core loop 测试源码。
+4. [x] 创建 Windows 数据目录边界；真实 known-folder FFI 与 SecretStore 在 M1 实现。
+5. [x] 添加只允许 `workflow_dispatch` 的 validate workflow 和首批 ADR。
+6. [x] `gpui-component` revision 兼容门失败，M0 决定直接使用 GPUI primitives。
+7. [ ] 获得当次 visibility 授权后运行产品 validate，生成 release EXE、`Cargo.lock` 和依赖树。
+8. [ ] 核对 artifact、默认进程树和窗口生命周期；提交锁文件后关闭 M0。
 
 ## 4. M1：数据与秘密基础
 
