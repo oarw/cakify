@@ -5,10 +5,10 @@ use std::{
     sync::Mutex,
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, State};
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 struct ReadyResponse {
     port: u16,
     protocol_version: String,
@@ -49,7 +49,7 @@ fn main() {
                     let _ = child.kill();
                 }
                 child.take();
-            }
+            };
         }
     });
 }
