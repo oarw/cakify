@@ -2,6 +2,7 @@
 /dist/
 /artifacts/
 /runtime-data/
+/runtime-smoke/
 **/bin/
 **/obj/
 **/.dart_tool/

@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-17（Asia/Shanghai）
 > 当前阶段：M0 - 产品工作区与技术 spike
-> 当前状态：M0_PRODUCT_VALIDATE_PASSED_RUNTIME_SMOKE_PENDING
+> 当前状态：M0_RUNTIME_SMOKE_SOURCE_READY_CI_PENDING
 
 ## 1. 当前快照
 
@@ -17,6 +17,7 @@
 - 最近成功 Actions：产品 Product validate `32034202488`，目标 commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`。
 - 本轮 Actions：前两轮分别暴露格式和 Core 借用错误；第三轮 fmt、workspace check、tests、Clippy、release build、artifact upload 全部通过。
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
+- 根 `.github/workflows/windows-runtime-smoke.yml`：源码已创建且只有 `workflow_dispatch`；尚未运行。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
 - 产品构建状态：本机没有编译/测试；Actions 已验证并生成 5,722,112-byte release EXE。窗口启动/退出、默认进程树、内存和 IME 仍未做 runtime smoke。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
@@ -88,6 +89,8 @@
 - [x] Product validate `32034202488` 通过 fmt/check/tests/Clippy/release build，并产出 release EXE、锁文件与依赖树。
 - [x] 核对最终 artifact 的哈希、锁文件逐行一致性、固定 Zed revision、越界依赖和文本 secret；确认无活动任务后恢复 PRIVATE。
 - [x] 将用户的 2026 年 8 月后续 Actions 受控闭环持续授权写入 AGENTS、Cursor 规则、计划、进度和交接文档。
+- [x] 实现 Windows runtime smoke 脚本与独立手动 workflow：三轮主窗口探针、进程树采样、80 MiB idle 门、0 默认子进程门、WM_CLOSE 正常退出、残留检查、截图与结构化 artifact。
+- [x] 对 runtime smoke 做本机静态核验：PowerShell AST 解析错误 0，workflow 只有手动触发与 `contents: read`，不在本机执行 EXE 或 Cargo。
 
 ## 6. 尚未完成
 
@@ -104,10 +107,11 @@
 
 下一位执行者先闭合 M0，不再做框架泛泛选型：
 
-1. 为 M0 增加 Windows runtime smoke：启动 release EXE、等待窗口、记录进程树/Working Set、正常关闭并确认无残留；不在本机执行。
-2. 按 8 月持续授权自动执行安全复核 -> public -> 只运行所需手动 workflow -> 核对 -> 无活动任务 -> private。
-3. 物理微软拼音、日文 IME、DPI 与 UI Automation 保持独立人工门，不把无输入框的 M0 空壳写成 IME 通过。
-4. runtime smoke 闭合后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
+1. 提交并推送 runtime smoke 脚本/workflow；确认远端 commit 与本地一致。
+2. 按 8 月持续授权自动执行安全复核 -> public -> 只运行 `Windows runtime smoke` -> 核对 artifact -> 无活动任务 -> private。
+3. 若 smoke 失败，按真实日志修复并只重跑同一 workflow；未通过前不关闭 M0。
+4. 物理微软拼音、日文 IME、DPI 与 UI Automation 保持独立人工门，不把无输入框的 M0 空壳写成 IME 通过。
+5. runtime smoke 闭合后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
 
 详细验收见 `docs/ROADMAP.md` 的 M0。
 
@@ -131,7 +135,7 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M0_RUNTIME_SMOKE_PENDING`：产品 validate 已通过，但 release EXE 尚未实际启动，窗口生命周期、默认进程树和内存仍未知。
+- `M0_RUNTIME_SMOKE_CI_PENDING`：脚本/workflow 已静态解析，但 release EXE 尚未实际启动，窗口生命周期、默认进程树和内存仍未知。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
 - `PRODUCT_METRICS_UNRUN`：42 MiB/113 ms 是 benchmark 壳，不是产品性能。
@@ -205,6 +209,13 @@
 - 借用修复提交为 `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`；第三轮 Product validate `32034202488` 全部通过并生成 release EXE。
 - 核对最终 artifact 后，在 queued/in_progress 均为空时恢复仓库 PRIVATE；本轮只运行了 Product validate。
 - 用户要求后续无需逐次提醒，自动 push 并自动完成 8 月受控 public -> 所需 Actions -> private 闭环；已写入持久规则，超出授权边界仍需确认。
+
+### 2026-08-17：M0 Windows runtime smoke 源码
+
+- 新增 `scripts/windows/runtime-smoke.ps1`：连续三轮启动 release EXE，以主窗口句柄判定 ready，采样整棵进程树并执行 80 MiB idle Working Set 与 0 默认子进程门。
+- 每轮通过 `CloseMainWindow()` 发送 WM_CLOSE，要求 10 秒内以 exit code 0 退出，再按 executable path 检查残留；失败路径强制清理但保留失败结论。
+- 新增仅手动触发、`contents: read` 的 `Windows runtime smoke` workflow，使用 locked release build，上传 JSON/JSONL、Markdown 摘要、日志、截图与 EXE。
+- 本机只完成 PowerShell AST、workflow trigger/permission、路径和 diff 静态检查；未启动应用、未编译、未运行 smoke，等待 Actions 实证。
 
 ## 12. 更新规则
 

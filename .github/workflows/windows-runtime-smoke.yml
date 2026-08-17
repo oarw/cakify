@@ -1,0 +1,59 @@
+name: Windows runtime smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-runtime-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Record toolchain and runner
+        shell: pwsh
+        run: |
+          rustc -Vv
+          cargo -V
+          Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsBuildNumber
+
+      - name: Build release desktop
+        shell: pwsh
+        run: cargo build --release --locked --package cakify-desktop
+
+      - name: Run native window smoke
+        shell: pwsh
+        run: |
+          ./scripts/windows/runtime-smoke.ps1 `
+            -AppPath target/release/cakify-desktop.exe `
+            -OutputDirectory runtime-smoke `
+            -RunCount 3 `
+            -ReadyTimeoutSeconds 15 `
+            -IdleSeconds 3 `
+            -SampleIntervalMs 250 `
+            -ExitTimeoutSeconds 10 `
+            -MaxIdleWorkingSetMiB 80
+
+      - name: Publish smoke summary
+        if: always() && hashFiles('runtime-smoke/SUMMARY.md') != ''
+        shell: pwsh
+        run: Get-Content -LiteralPath runtime-smoke/SUMMARY.md | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload runtime smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-runtime-smoke-${{ github.run_id }}
+          path: |
+            runtime-smoke/**
+            target/release/cakify-desktop.exe
+          if-no-files-found: warn
+          retention-days: 7
