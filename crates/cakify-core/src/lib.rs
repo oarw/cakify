@@ -199,7 +199,7 @@ fn run_loop(commands: Receiver<AppCommand>, events: Sender<AppEvent>) {
     let mut next_conversation = 1_u64;
     let mut next_run = 1_u64;
 
-    send_event(&events, &mut revision, AppEvent::CoreReady { revision });
+    send_event(&events, &mut revision, AppEvent::CoreReady { revision: 0 });
 
     while let Ok(command) = commands.recv_blocking() {
         match command {
@@ -209,7 +209,7 @@ fn run_loop(commands: Receiver<AppCommand>, events: Sender<AppEvent>) {
                     &mut revision,
                     AppEvent::Status {
                         message: "core bootstrap complete".to_owned(),
-                        revision,
+                        revision: 0,
                     },
                 );
             }
@@ -225,7 +225,7 @@ fn run_loop(commands: Receiver<AppCommand>, events: Sender<AppEvent>) {
                     AppEvent::ConversationCreated {
                         request_id,
                         conversation_id,
-                        revision,
+                        revision: 0,
                     },
                 );
             }
@@ -244,17 +244,24 @@ fn run_loop(commands: Receiver<AppCommand>, events: Sender<AppEvent>) {
                         request_id,
                         conversation_id,
                         run_id,
-                        revision,
+                        revision: 0,
                     },
                 );
                 send_event(
                     &events,
                     &mut revision,
-                    AppEvent::Status { message, revision },
+                    AppEvent::Status {
+                        message,
+                        revision: 0,
+                    },
                 );
             }
             AppCommand::Shutdown => {
-                send_event(&events, &mut revision, AppEvent::CoreStopped { revision });
+                send_event(
+                    &events,
+                    &mut revision,
+                    AppEvent::CoreStopped { revision: 0 },
+                );
                 break;
             }
         }
