@@ -5,6 +5,7 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -43,7 +44,6 @@ public sealed class MainWindow : Window
         _messages = new ListBox
         {
             ItemsSource = Enumerable.Range(0, 10_000).ToArray(),
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(24, 16),
@@ -141,7 +141,7 @@ public sealed class MainWindow : Window
     {
         var input = new TextBox
         {
-            Watermark = "输入消息… 支持中文 IME",
+            PlaceholderText = "输入消息… 支持中文 IME",
             AcceptsReturn = true,
             MinHeight = 112,
             TextWrapping = TextWrapping.Wrap,

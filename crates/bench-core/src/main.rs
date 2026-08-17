@@ -219,7 +219,13 @@ async fn next_event(mut state: EventState) -> Option<(Result<Event, Infallible>,
     if matches!(state.phase, EventPhase::Complete) {
         return None;
     }
-    let cancelled = state.cancelled_runs.lock().await.remove(&state.run_id);
+    // Every SSE stream begins with a ready marker, even if cancellation races
+    // ahead of the first poll. The next poll will emit the cancelled marker.
+    let cancelled = if matches!(state.phase, EventPhase::Ready) {
+        false
+    } else {
+        state.cancelled_runs.lock().await.remove(&state.run_id)
+    };
     if cancelled {
         let payload = BenchEvent::Cancelled {
             run_id: state.run_id.clone(),

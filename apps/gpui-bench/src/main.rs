@@ -2,6 +2,7 @@ use std::{
     env,
     io::{BufRead, BufReader, Read, Write},
     net::TcpStream,
+    ops::Range,
     path::PathBuf,
     process::{Child, Command, Stdio},
     time::Duration,
@@ -187,7 +188,7 @@ impl Render for BenchApp {
                         uniform_list(
                             "messages",
                             total,
-                            cx.processor(move |_this, range, _window, _cx| {
+                            cx.processor(move |_this, range: Range<usize>, _window, _cx| {
                                 range
                                     .map(|index| {
                                         let message = messages.get(index);
