@@ -230,7 +230,8 @@ async fn next_event(mut state: EventState) -> Option<(Result<Event, Infallible>,
         return Some((Ok(event), state));
     }
 
-    if matches!(state.phase, EventPhase::Tool) && state.sequence >= state.manifest.tool_event_count {
+    if matches!(state.phase, EventPhase::Tool) && state.sequence >= state.manifest.tool_event_count
+    {
         state.phase = EventPhase::Stream;
         state.sequence = 0;
     }
