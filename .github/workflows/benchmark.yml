@@ -119,6 +119,12 @@ jobs:
         working-directory: apps/tauri-bench
         run: npm install --no-audit --no-fund
 
+      - name: Generate Tauri platform icons
+        if: matrix.candidate == 'tauri'
+        shell: pwsh
+        working-directory: apps/tauri-bench
+        run: npm run tauri -- icon icon-source.svg
+
       - name: Build Tauri release
         if: matrix.candidate == 'tauri'
         shell: pwsh
