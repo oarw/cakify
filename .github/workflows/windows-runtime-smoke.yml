@@ -25,6 +25,10 @@ jobs:
           cargo -V
           Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsBuildNumber
 
+      - name: Check formatting
+        shell: pwsh
+        run: cargo fmt --all -- --check
+
       - name: Build release desktop
         shell: pwsh
         run: cargo build --release --locked --package cakify-desktop
@@ -40,6 +44,7 @@ jobs:
             -IdleSeconds 3 `
             -SampleIntervalMs 250 `
             -ExitTimeoutSeconds 10 `
+            -ExpectedWindowTitle Cakify `
             -MaxIdleWorkingSetMiB 80
 
       - name: Publish smoke summary

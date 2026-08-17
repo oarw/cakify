@@ -13,6 +13,8 @@ param(
     [int]$SampleIntervalMs = 250,
     [ValidateRange(5, 60)]
     [int]$ExitTimeoutSeconds = 10,
+    [ValidateNotNullOrEmpty()]
+    [string]$ExpectedWindowTitle = "Cakify",
     [ValidateRange(1, 1024)]
     [int]$MaxIdleWorkingSetMiB = 80
 )
@@ -56,14 +58,23 @@ function Get-TreeSnapshot([int]$RootPid, [int]$Index) {
         }
     }
 
+    $workingSetBytes = [int64]0
+    $privateBytes = [int64]0
+    $virtualBytes = [int64]0
+    foreach ($row in $rows) {
+        $workingSetBytes += [int64]$row.working_set_bytes
+        $privateBytes += [int64]$row.private_bytes
+        $virtualBytes += [int64]$row.virtual_bytes
+    }
+
     return [ordered]@{
         sample = $Index
         timestamp_utc = (Get-Date).ToUniversalTime().ToString("o")
         root_pid = $RootPid
         process_count = $rows.Count
-        working_set_bytes = [int64](($rows | Measure-Object -Property working_set_bytes -Sum).Sum ?? 0)
-        private_bytes = [int64](($rows | Measure-Object -Property private_bytes -Sum).Sum ?? 0)
-        virtual_bytes = [int64](($rows | Measure-Object -Property virtual_bytes -Sum).Sum ?? 0)
+        working_set_bytes = $workingSetBytes
+        private_bytes = $privateBytes
+        virtual_bytes = $virtualBytes
         processes = $rows
     }
 }
@@ -102,7 +113,6 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
     $readyMs = 0.0
     $mainWindowHandle = [int64]0
     $mainWindowTitle = ""
-    $inputIdleObserved = $false
     $closeRequested = $false
     $exitMs = 0.0
     $exitCode = $null
@@ -133,7 +143,7 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
             if ($process.MainWindowHandle -ne 0) {
                 $mainWindowHandle = [int64]$process.MainWindowHandle
                 $mainWindowTitle = [string]$process.MainWindowTitle
-                break
+                if ($mainWindowTitle -eq $ExpectedWindowTitle) { break }
             }
             Start-Sleep -Milliseconds 50
         }
@@ -142,10 +152,8 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
         if ($mainWindowHandle -eq 0) {
             throw "main window handle was not observed within $ReadyTimeoutSeconds seconds"
         }
-        try {
-            $inputIdleObserved = $process.WaitForInputIdle(1000)
-        } catch {
-            $notes.Add("input_idle_probe_failed: $($_.Exception.Message)")
+        if ($mainWindowTitle -ne $ExpectedWindowTitle) {
+            throw "window title '$mainWindowTitle' did not match expected title '$ExpectedWindowTitle' within $ReadyTimeoutSeconds seconds"
         }
 
         if ($runIndex -eq 0) {
@@ -229,7 +237,6 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
         ready_ms = [Math]::Round($readyMs, 3)
         main_window_handle = $mainWindowHandle
         main_window_title = $mainWindowTitle
-        input_idle_observed = $inputIdleObserved
         sample_count = $snapshots.Count
         idle_working_set_bytes = Get-Median -Values $workingSets
         peak_working_set_bytes = [int64](($workingSets | Measure-Object -Maximum).Maximum ?? 0)
@@ -264,6 +271,7 @@ $result = [ordered]@{
         ready_timeout_seconds = $ReadyTimeoutSeconds
         idle_seconds = $IdleSeconds
         max_idle_working_set_mib = $MaxIdleWorkingSetMiB
+        expected_window_title = $ExpectedWindowTitle
         expected_child_process_count = 0
         exit_timeout_seconds = $ExitTimeoutSeconds
     }

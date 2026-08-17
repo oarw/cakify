@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-17（Asia/Shanghai）
 > 当前阶段：M0 - 产品工作区与技术 spike
-> 当前状态：M0_RUNTIME_SMOKE_SOURCE_READY_CI_PENDING
+> 当前状态：M0_RUNTIME_SMOKE_METRICS_FIX_IN_PROGRESS
 
 ## 1. 当前快照
 
@@ -16,8 +16,9 @@
 - 仓库可见性：`PRIVATE`；最终 run 完成且确认无 queued/in_progress 后已恢复并复核。
 - 最近成功 Actions：产品 Product validate `32034202488`，目标 commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`。
 - 本轮 Actions：前两轮分别暴露格式和 Core 借用错误；第三轮 fmt、workspace check、tests、Clippy、release build、artifact upload 全部通过。
+- Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0；GitHub conclusion 虽为 success，内存门证据无效，正在修复后重跑。
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
-- 根 `.github/workflows/windows-runtime-smoke.yml`：源码已创建且只有 `workflow_dispatch`；尚未运行。
+- 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；首轮已运行但内存聚合无效，正在修复后重跑。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
 - 产品构建状态：本机没有编译/测试；Actions 已验证并生成 5,722,112-byte release EXE。窗口启动/退出、默认进程树、内存和 IME 仍未做 runtime smoke。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
@@ -135,7 +136,7 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M0_RUNTIME_SMOKE_CI_PENDING`：脚本/workflow 已静态解析，但 release EXE 尚未实际启动，窗口生命周期、默认进程树和内存仍未知。
+- `M0_RUNTIME_SMOKE_METRICS_INVALID`：首轮证实三次窗口与退出，但内存聚合为 0；必须重跑取得非零内存证据后才能关闭 M0。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
 - `PRODUCT_METRICS_UNRUN`：42 MiB/113 ms 是 benchmark 壳，不是产品性能。
@@ -150,6 +151,7 @@
 - [Product validate #32034202488](https://github.com/oarw/cakify/actions/runs/32034202488)：`success`，commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`，job `95400694626`，artifact `product-validation-32034202488`（ID `9290400569`，archive digest `sha256:e9c4f5f0db1488d8f946acfcb2766d2d0ccd4f313fa4f7a476747639f9a8a7b5`）。fmt、workspace check、tests、Clippy、release build 与上传全部通过。
 - 最终 EXE：5,722,112 bytes，SHA-256 `4EB5AF9970EAFFC35850C599CD2A91685D6C1CC9FCB11B45526CA5B8D7DBF8DF`，`NotSigned`（M7 前预期状态）。artifact `Cargo.lock` 与仓库逐行一致，依赖树 SHA-256 `4F424A9412718C56907ECE687A2342E55F491C9C6F7E4B3BFE3712E3276E729A`，越界框架包与文本 secret 均 0 命中。
 - 恢复 private 前再次确认最终 run 为 completed/success，queued 与 in_progress 均为空；随后恢复 PRIVATE 并复核可见性。
+- [Windows runtime smoke #32037554962](https://github.com/oarw/cakify/actions/runs/32037554962)：GitHub `success`，commit `95b17b3e41d5b658a55d169615c32fb29dfcc51c`，job `95410897261`，artifact `windows-runtime-smoke-32037554962`（ID `9291266584`，digest `sha256:37933cd52977dcbd1a57b3412b53dd325845b98a2e35310ccb802cd793b20f15`）。三轮窗口 ready `157.141/131.985/133.119 ms`，均为 1 个进程，WM_CLOSE 后约 `33.577/35.500/35.465 ms` 以 code 0 退出；但顶层内存汇总错误为 0，不能作为 80 MiB 门通过证据。
 
 ### 公开前审计记录
 
@@ -216,6 +218,9 @@
 - 每轮通过 `CloseMainWindow()` 发送 WM_CLOSE，要求 10 秒内以 exit code 0 退出，再按 executable path 检查残留；失败路径强制清理但保留失败结论。
 - 新增仅手动触发、`contents: read` 的 `Windows runtime smoke` workflow，使用 locked release build，上传 JSON/JSONL、Markdown 摘要、日志、截图与 EXE。
 - 本机只完成 PowerShell AST、workflow trigger/permission、路径和 diff 静态检查；未启动应用、未编译、未运行 smoke，等待 Actions 实证。
+- 首轮 Actions 实际打开窗口三次并正常退出；artifact 明细每轮进程 Working Set 为 `39,505,920` bytes，但顶层聚合错误为 0，定位为 ordered dictionary 与 `Measure-Object -Property` 不兼容。
+- 改用显式数值累加，移除对 GPUI 无效的 `WaitForInputIdle`；依据固定 GPUI revision 的 `TitlebarOptions` 给窗口设置 `Cakify` 标题，并将标题纳入第二轮 ready 门。
+- 首轮截图真实捕获 Cakify 窗口，但 1120x720 默认尺寸超出 runner 的 1024x768 桌面并被左右/底部裁切；默认窗口调整为 960x680，等待第二轮截图复核完整框架。
 
 ## 12. 更新规则
 

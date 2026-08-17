@@ -4,12 +4,12 @@ use cakify_core::{
 use cakify_platform_windows::app_data_paths;
 use gpui::{
     div, prelude::*, px, rgb, size, App, Bounds, Context, MouseButton, MouseUpEvent, SharedString,
-    Window, WindowBounds, WindowOptions,
+    TitlebarOptions, Window, WindowBounds, WindowOptions,
 };
 use gpui_platform::application;
 
-const WINDOW_WIDTH: f32 = 1120.0;
-const WINDOW_HEIGHT: f32 = 720.0;
+const WINDOW_WIDTH: f32 = 960.0;
+const WINDOW_HEIGHT: f32 = 680.0;
 
 struct CakifyApp {
     core: CoreRuntime,
@@ -305,6 +305,10 @@ fn main() {
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some("Cakify".into()),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
             move |_, cx| {
