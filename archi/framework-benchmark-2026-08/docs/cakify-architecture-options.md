@@ -13,7 +13,7 @@
 
 **GPUI + Rust 主线，Avalonia + C# + Rust 回退。**
 
-2026-08-17 的 Windows Actions 四候选 benchmark 已完成。三轮中位数中，GPUI 的整树空闲 Working Set 为 42.016 MiB、ready 为 113.745 ms；Avalonia 为 125.102 MiB / 565.515 ms；Flutter 为 126.180 MiB / 1,642.973 ms；Tauri 为 326.496 MiB / 554.475 ms。完整方法、原始样本和限制见 [四候选最终报告](docs/FRAMEWORK-BENCHMARK-REPORT.md)。
+2026-08-17 的 Windows Actions 四候选 benchmark 已完成。三轮中位数中，GPUI 的整树空闲 Working Set 为 42.016 MiB、ready 为 113.745 ms；Avalonia 为 125.102 MiB / 565.515 ms；Flutter 为 126.180 MiB / 1,642.973 ms；Tauri 为 326.496 MiB / 554.475 ms。完整方法、原始样本和限制见 [四候选最终报告](FRAMEWORK-BENCHMARK-REPORT.md)。
 
 关键仍是把产品拆成可替换的桌面壳与稳定的 Rust 核心：
 

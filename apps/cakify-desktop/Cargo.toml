@@ -1,0 +1,15 @@
+[package]
+name = "cakify-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+cakify-core = { path = "../../crates/cakify-core" }
+cakify-platform-windows = { path = "../../crates/cakify-platform-windows" }
+gpui.workspace = true
+gpui_platform.workspace = true
