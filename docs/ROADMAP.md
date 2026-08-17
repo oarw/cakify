@@ -219,7 +219,7 @@ AI 可以完成全部源码、测试、CI、文档和修复。仍需要用户参
 
 计划恢复产品 workflow：
 
-- `validate.yml`：fmt、clippy `-D warnings`、unit/integration、migration、dependency/license policy。
+- `product-validate.yml`：fmt、clippy `-D warnings`、unit/integration、migration、dependency/license policy。
 - `windows-smoke.yml`：release build、窗口探针、fake provider、SQLite、CredMan/DPAPI、Job Object cleanup、截图。
 - `benchmark.yml`：启动、整树内存、10k 列表、streaming、cancel cleanup；只手动运行。
 - `package.yml`：portable ZIP/SBOM/checksum；只手动运行。

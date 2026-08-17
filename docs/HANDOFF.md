@@ -46,7 +46,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 根产品 Cargo workspace 已建立，首批成员为 desktop、core、platform-windows。
 - GPUI 空窗口和 fake Core bridge 已写入源码，但没有在本机或 Actions 编译。
 - 旧 benchmark 完整归档在 `archi/framework-benchmark-2026-08/`。
-- 根 `.github/workflows/validate.yml` 只有 `workflow_dispatch`；push 不会自动运行。
+- 根 `.github/workflows/product-validate.yml` 只有 `workflow_dispatch`；push 不会自动运行。
 - 最近实际成功 run：Validate `32017467536`、Benchmark `32017470781`，都在 commit `40209896dca0009b747efc51ac885bed32b81f25`。
 - 本轮创建产品源码、ADR 和手动 workflow；未运行 Actions、未切换 visibility、未本地编译/测试。
 - 首个产品 `Cargo.lock`、release EXE 和产品依赖树尚不存在；不能把 M0 源码写成已通过。
@@ -124,7 +124,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 接手后的顺序：
 
 1. 静态复核仓库公开风险，并取得用户针对这一次 visibility 切换的明确授权。
-2. 临时设为 public，只运行 `Validate product workspace`，记录 run URL/ID、SHA、artifact 和每个 step 结论。
+2. 临时设为 public，只运行 `Product validate`，记录 run URL/ID、SHA、artifact 和每个 step 结论。
 3. 下载并核对 `product-validation-<run_id>`，把生成的 `Cargo.lock` 提交；编译失败则按日志修复，不得宣称 M0 通过。
 4. 确认没有 queued/in_progress 后恢复 private，并再次复核可见性。
 5. 核对 release EXE 的窗口启动/退出和默认进程树；物理机 IME/无障碍保持独立人工门。
@@ -174,7 +174,7 @@ Benchmark 壳的 `113.745 ms / 42.016 MiB` 只是基线，不代表产品已达�
 - 当前正在做：GPUI 空窗口、Core bridge、Windows 数据目录边界和手动 workflow 已写入；编译状态未知
 - 最近成功 Actions：Validate `32017467536`；Benchmark `32017470781`
 - 本轮 Actions：未运行
-- 精确下一动作：按第 9 节取得新的 visibility 授权并运行 `Validate product workspace`
+- 精确下一动作：按第 9 节取得新的 visibility 授权并运行 `Product validate`
 - 需要用户决定：未来每次本月 Actions visibility 授权；项目许可证；M7 签名/发行渠道
 - 已知风险：M0 尚未编译、无 `Cargo.lock`、GPUI pre-1.0、直接 UI 组件工作量、真实 IME/accessibility、产品性能未跑
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控

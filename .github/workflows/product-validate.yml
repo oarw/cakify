@@ -1,4 +1,4 @@
-name: Validate product workspace
+name: Product validate
 
 on:
   workflow_dispatch:

@@ -15,7 +15,7 @@
 - 仓库可见性：`PRIVATE`，已通过 `gh repo view` 复核。
 - 最近成功 Actions：Validate `32017467536`、Benchmark `32017470781`，均针对 benchmark commit `40209896dca0009b747efc51ac885bed32b81f25`。
 - 本轮 Actions：**未运行**；没有修改仓库可见性，也没有复用旧授权。
-- 根 `.github/workflows/validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
+- 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
 - 产品构建状态：本机没有编译/测试；首个 `Cargo.lock`、release EXE 和依赖树 artifact 尚未由 Actions 生成。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
@@ -97,7 +97,7 @@
 下一位执行者先闭合 M0，不再做框架泛泛选型：
 
 1. 读取提交 `07643ab45f1eaabfa6e44d5a57116496ad1c25d2` 的 workspace、两个 ADR 和手动 validate workflow。
-2. 做当次公开前安全检查，取得用户对这一次 public -> Validate product workspace -> private 的明确授权；旧授权不可复用。
+2. 做当次公开前安全检查，取得用户对这一次 public -> Product validate -> private 的明确授权；旧授权不可复用。
 3. Actions 运行后记录 run URL/ID、commit、结论与 artifact，下载 `Cargo.lock` 并提交；若失败，按日志修源码后重复本次闭环所需的授权流程。
 4. 检查 release EXE、依赖树、默认进程树和窗口启动/退出；物理微软拼音/无障碍仍单独标记人工未验。
 5. M0 通过后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
@@ -133,7 +133,7 @@
 
 ## 10. Actions 事实记录
 
-- [Validate shared core #32017467536](https://github.com/oarw/cakify/actions/runs/32017467536)：`success`，commit `40209896dca0009b747efc51ac885bed32b81f25`，artifact `cargo-lock-32017467536`。
+- [历史 benchmark Validate #32017467536](https://github.com/oarw/cakify/actions/runs/32017467536)：`success`，commit `40209896dca0009b747efc51ac885bed32b81f25`，artifact `cargo-lock-32017467536`。GitHub 曾因短暂复用 workflow 路径而改变其显示名；它不是产品 M0 run。
 - [Benchmark candidates #32017470781](https://github.com/oarw/cakify/actions/runs/32017470781)：`success`，同一 commit，artifacts `benchmark-{gpui,avalonia,flutter,tauri}-32017470781`。
 - 当前仓库已恢复 PRIVATE；上述 visibility 授权闭环完成，不能用于下一次运行。
 - 本轮 M0 源码/ADR/工作流没有 Actions run 或 artifact，不能写成通过。
