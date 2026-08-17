@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Cakify 产品总计划</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f8;
+      --surface: #ffffff;
+      --surface-2: #eef1f3;
+      --text: #172026;
+      --muted: #5e6a72;
+      --line: #d9dee2;
+      --brand: #087f5b;
+      --brand-soft: #dff3ea;
+      --amber: #a65f00;
+      --amber-soft: #fff0d5;
+      --red: #b02a37;
+      --red-soft: #fde7e9;
+      --blue: #2367a8;
+      --blue-soft: #e5f0fa;
+      --code: #20292f;
+      --code-text: #eef3f5;
+      --shadow: 0 8px 24px rgba(24, 35, 42, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #111619;
+        --surface: #171d21;
+        --surface-2: #20282d;
+        --text: #edf1f3;
+        --muted: #aab4ba;
+        --line: #344047;
+        --brand: #56c79a;
+        --brand-soft: #173d31;
+        --amber: #f0b45f;
+        --amber-soft: #49351d;
+        --red: #ff8f98;
+        --red-soft: #47252a;
+        --blue: #83bced;
+        --blue-soft: #20394d;
+        --code: #0b0f11;
+        --code-text: #eef3f5;
+        --shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.72;
+      letter-spacing: 0;
+    }
+    a { color: var(--brand); text-underline-offset: 3px; }
+    code, pre { font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace; }
+    code {
+      padding: 0.12rem 0.32rem;
+      border-radius: 4px;
+      background: var(--surface-2);
+      overflow-wrap: anywhere;
+    }
+    pre {
+      overflow: auto;
+      margin: 1rem 0;
+      padding: 1rem;
+      border-radius: 6px;
+      background: var(--code);
+      color: var(--code-text);
+      line-height: 1.5;
+    }
+    pre code { padding: 0; background: transparent; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--surface) 94%, transparent);
+      backdrop-filter: blur(12px);
+    }
+    .topbar-inner {
+      width: min(1160px, calc(100% - 32px));
+      min-height: 54px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      min-width: 0;
+      font-weight: 700;
+    }
+    .brand small { color: var(--muted); font-weight: 500; }
+    .topnav { display: flex; gap: 16px; white-space: nowrap; overflow-x: auto; }
+    .topnav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+    .topnav a:hover { color: var(--text); }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+    }
+    .intro {
+      width: min(1160px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 56px 0 44px;
+    }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--brand);
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    h1, h2, h3 { line-height: 1.25; letter-spacing: 0; }
+    h1 { margin: 0; max-width: 900px; font-size: clamp(34px, 5vw, 58px); }
+    .lede { max-width: 850px; margin: 18px 0 0; color: var(--muted); font-size: 19px; }
+    .decision-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--line);
+      box-shadow: var(--shadow);
+    }
+    .decision {
+      min-width: 0;
+      padding: 16px;
+      background: var(--surface);
+    }
+    .decision b { display: block; margin-bottom: 4px; font-size: 14px; }
+    .decision span { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+
+    main { width: min(1160px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0 80px; }
+    section { scroll-margin-top: 74px; padding: 34px 0; border-bottom: 1px solid var(--line); }
+    section:last-child { border-bottom: 0; }
+    h2 { margin: 0 0 18px; font-size: 28px; }
+    h3 { margin: 24px 0 10px; font-size: 19px; }
+    p { max-width: 880px; }
+    ul, ol { max-width: 900px; padding-left: 1.35rem; }
+    li + li { margin-top: 7px; }
+
+    .callout {
+      max-width: 960px;
+      margin: 18px 0;
+      padding: 16px 18px;
+      border-left: 4px solid var(--brand);
+      border-radius: 0 6px 6px 0;
+      background: var(--brand-soft);
+    }
+    .callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout.info { border-color: var(--blue); background: var(--blue-soft); }
+    .callout p { margin: 0; }
+
+    .split {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 28px;
+      align-items: start;
+    }
+    .plain-panel {
+      min-width: 0;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    .plain-panel h3 { margin-top: 0; }
+    .plain-panel ul { margin-bottom: 0; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin: 24px 0;
+    }
+    .flow-step {
+      min-height: 94px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    .flow-step b { display: block; color: var(--brand); }
+    .flow-step span { display: block; margin-top: 6px; color: var(--muted); font-size: 14px; }
+
+    .milestones { border-top: 1px solid var(--line); }
+    .milestone {
+      display: grid;
+      grid-template-columns: 74px minmax(0, 1fr) 130px;
+      gap: 18px;
+      align-items: baseline;
+      padding: 17px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .milestone strong { color: var(--brand); font-size: 18px; }
+    .milestone span { color: var(--muted); text-align: right; }
+
+    .budget-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .budget {
+      min-width: 0;
+      padding: 14px 16px;
+      border-top: 3px solid var(--blue);
+      background: var(--surface);
+      box-shadow: 0 2px 9px rgba(20, 30, 36, 0.06);
+    }
+    .budget b { display: block; font-size: 20px; }
+    .budget span { color: var(--muted); font-size: 14px; }
+
+    footer {
+      padding: 26px 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      text-align: center;
+      font-size: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .decision-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .budget-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .topbar-inner { align-items: flex-start; flex-direction: column; padding: 10px 0; gap: 6px; }
+      .topnav { width: 100%; }
+      .intro { padding-top: 38px; }
+      h1 { font-size: 36px; }
+      .decision-strip, .split, .flow, .budget-list { grid-template-columns: 1fr; }
+      .milestone { grid-template-columns: 58px minmax(0, 1fr); }
+      .milestone span { grid-column: 2; text-align: left; }
+    }
+    @media print {
+      .topbar { position: static; }
+      body { background: white; color: black; font-size: 11pt; }
+      .intro, main { width: 100%; }
+      .plain-panel, .decision, .flow-step, .budget { break-inside: avoid; box-shadow: none; }
+      a { color: black; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="topbar" aria-label="页面导航">
+    <div class="topbar-inner">
+      <div class="brand">Cakify <small>产品总计划 v1</small></div>
+      <div class="topnav">
+        <a href="#scope">范围</a>
+        <a href="#architecture">架构</a>
+        <a href="#roadmap">路线图</a>
+        <a href="#gates">验收</a>
+        <a href="#next">下一步</a>
+      </div>
+    </div>
+  </nav>
+
+  <header>
+    <div class="intro">
+      <p class="eyebrow">Windows-first Native AI Chat</p>
+      <h1>Cakify</h1>
+      <p class="lede">用 GPUI + Rust 做一个启动快、内存低，但聊天功能不缩水的原生客户端。整体能力向 Cherry Studio 与 RikkaHub 看齐，工具交互参考 Zed；不做知识库/RAG、远程操控、云同步和重量常驻运行时。</p>
+      <div class="decision-strip" aria-label="已确定技术栈">
+        <div class="decision"><b>UI</b><span>GPUI + Rust<br>无 WebView2</span></div>
+        <div class="decision"><b>Core</b><span>同进程 Rust<br>typed command/event</span></div>
+        <div class="decision"><b>数据</b><span>SQLite actor<br>WAL + migration</span></div>
+        <div class="decision"><b>密钥</b><span>Credential Manager<br>DPAPI user scope</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="scope">
+      <h2>产品范围</h2>
+      <div class="split">
+        <div class="plain-panel">
+          <h3>必须做完整</h3>
+          <ul>
+            <li>多 Provider、多模型、自定义兼容 endpoint。</li>
+            <li>会话 CRUD、搜索、分支、归档与导入导出。</li>
+            <li>流式聊天、停止、重试、编辑重发、重新生成。</li>
+            <li>Markdown、代码块、图片/文件附件、提示词。</li>
+            <li>function/tool calling、审批、取消、错误恢复。</li>
+            <li>MCP stdio/Streamable HTTP、启停和会话绑定。</li>
+            <li>主题、快捷键、草稿、数据与隐私管理。</li>
+          </ul>
+        </div>
+        <div class="plain-panel">
+          <h3>明确不做</h3>
+          <ul>
+            <li>知识库、RAG、embedding、向量数据库。</li>
+            <li>远程操控、无人值守代理、远程桌面。</li>
+            <li>云账号、跨设备同步、团队后台。</li>
+            <li>内置下载与管理本地大模型。</li>
+            <li>自动安装第三方 Node/Python 插件。</li>
+            <li>默认任意 shell、多 Agent 自动编排。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <p><strong>范围判断：</strong>这是“轻量但完整的 AI Chat”，不是功能演示壳。RAG、远控和云服务不是普通待办，而是防止产品重新臃肿的硬边界。</p>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <h2>系统架构</h2>
+      <p>默认只有一个 <code>cakify.exe</code>。GPUI 在主线程处理输入和渲染，Rust Core 在独立服务线程处理网络、Provider、Agent 与 MCP；SQLite 由单独 actor 独占连接。只有用户启用的 MCP 或工具可以启动子进程。</p>
+      <pre><code>GPUI UI
+  │ bounded AppCommand
+  ▼
+Core Service ─── Provider adapters ─── HTTPS APIs
+  │    │
+  │    ├── Agent reducer / Tool permission
+  │    └── MCP client ─── stdio / Streamable HTTP
+  │
+  ├── SQLite actor
+  ├── Windows SecretStore
+  └── Job Object process supervisor
+
+AppEvent ▲  delta 按 16–33 ms 合并后返回 UI</code></pre>
+
+      <div class="flow" aria-label="Agent 状态流">
+        <div class="flow-step"><b>1. Preparing</b><span>固化消息、模型、工具与上下文快照</span></div>
+        <div class="flow-step"><b>2. Streaming</b><span>Provider 事件归一化并批量刷新</span></div>
+        <div class="flow-step"><b>3. Approval</b><span>展示工具来源、参数、范围与副作用</span></div>
+        <div class="flow-step"><b>4. Running</b><span>Job Object、超时、输出上限和取消</span></div>
+        <div class="flow-step"><b>5. Final</b><span>Completed / Failed / Cancelled / Interrupted</span></div>
+      </div>
+
+      <h3>Zed 的作用</h3>
+      <p>Zed 已证明 GPUI 可以承载成熟 Agent 对话，包括输入、消息队列、上下文、工具时间线与权限。但其 <code>agent</code>/<code>agent_ui</code> 是 GPL-3.0-or-later；Cakify 只参考公开行为和 GPUI API，用独立领域模型与实现。Apache-2.0 的 <code>gpui-component</code> 只在 M0 完成版本兼容、IME、Markdown 和体积 spike 后决定是否采用。</p>
+    </section>
+
+    <section id="data">
+      <h2>数据与安全</h2>
+      <div class="split">
+        <div>
+          <h3>本地数据</h3>
+          <ul>
+            <li>SQLite 保存会话、消息 parts、run、tool call、设置与引用。</li>
+            <li>附件按 SHA-256 放在 <code>%LOCALAPPDATA%\Cakify</code>。</li>
+            <li>WAL + foreign keys + migration；live backup 走 SQLite Backup API。</li>
+            <li>崩溃后 running 变为 interrupted，不自动重跑工具。</li>
+            <li>本地搜索只用 FTS5，不加入 embedding/RAG。</li>
+          </ul>
+        </div>
+        <div>
+          <h3>秘密与权限</h3>
+          <ul>
+            <li>API Key/OAuth token 进入 Credential Manager。</li>
+            <li>结构化 secret 必要时用 DPAPI current-user；禁止 machine scope。</li>
+            <li>SQLite 只保存 opaque credential reference。</li>
+            <li>工具默认 confirm，MCP 与内建工具共用权限模型。</li>
+            <li>日志、导出、artifact 默认排除 secret 和原始 payload。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout warning">
+        <p><strong>边界：</strong>Credential Manager/DPAPI 解决静态密钥保护，不抵抗已经控制同一 Windows 用户会话的恶意软件；权限弹窗也不等于进程 sandbox。</p>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <h2>路线图</h2>
+      <p>达到可日常聊天的 M0–M3 预计 10–15 个 AI 工作日；达到轻量 Cherry Studio/RikkaHub 基础功能的 alpha 预计 22–35 个 AI 工作日。</p>
+      <div class="milestones">
+        <div class="milestone"><strong>M0</strong><b>产品 workspace、command/event、GPUI component spike</b><span>1–2 AI 日</span></div>
+        <div class="milestone"><strong>M1</strong><b>SQLite、migration、Credential Manager/DPAPI</b><span>2–4 AI 日</span></div>
+        <div class="milestone"><strong>M2</strong><b>GPUI 会话 UI、真实 IME、虚拟列表、fake stream</b><span>4–6 AI 日</span></div>
+        <div class="milestone"><strong>M3</strong><b>OpenAI-compatible、附件、编辑/分支、导出</b><span>3–5 AI 日</span></div>
+        <div class="milestone"><strong>M4</strong><b>轻量 Agent、工具审批、Job Object</b><span>4–6 AI 日</span></div>
+        <div class="milestone"><strong>M5</strong><b>MCP stdio/HTTP、server lifecycle 与权限</b><span>4–7 AI 日</span></div>
+        <div class="milestone"><strong>M6</strong><b>FTS5 搜索、提示词、队列、压缩与产品细化</b><span>4–7 AI 日</span></div>
+        <div class="milestone"><strong>M7</strong><b>portable、SBOM、签名/安装器与发布硬化</b><span>3–6 AI 日</span></div>
+      </div>
+    </section>
+
+    <section id="gates">
+      <h2>验收硬门</h2>
+      <div class="budget-list">
+        <div class="budget"><b>≤ 400 ms</b><span>冷启动 P50 到可交互</span></div>
+        <div class="budget"><b>≤ 80 MiB</b><span>默认 idle 整树 Working Set</span></div>
+        <div class="budget"><b>0</b><span>默认子进程 / WebView / sidecar</span></div>
+        <div class="budget"><b>10,000</b><span>消息仍使用真正虚拟列表</span></div>
+        <div class="budget"><b>≤ 2 s</b><span>工具取消到整树退出 P95</span></div>
+        <div class="budget"><b>0 命中</b><span>DB、日志、导出、artifact 的明文密钥</span></div>
+      </div>
+      <p>数值是目标，必须由 release 构建和原始样本证明，当前不能写成已通过。真实中文 IME、候选窗、DPI、多显示器和 UI Automation 是 GPUI 的框架门；持续失败才启动 Avalonia 回退。</p>
+    </section>
+
+    <section id="actions">
+      <h2>构建与发布</h2>
+      <p>本机只编辑源码，编译、测试、基准、打包和发布都在 GitHub Actions。产品 workflow 分为 validate、Windows smoke、benchmark、package 与 release，默认使用假 Provider 和合成 secret。</p>
+      <div class="callout danger">
+        <p><strong>2026 年 8 月限制：</strong>私库 Actions 分钟已耗尽。源码可以自动 commit/push，但 workflow 只能手动触发；每次运行都要重新安全检查、取得该次 public/private 明确授权、临时公开、核对 artifact、确认无活动任务，再恢复私有。</p>
+      </div>
+    </section>
+
+    <section id="next">
+      <h2>下一次直接开始</h2>
+      <ol>
+        <li>创建产品 Cargo workspace、toolchain 与完整 SHA pin。</li>
+        <li>建立 <code>cakify-desktop</code>、<code>cakify-core</code>、<code>cakify-platform-windows</code> 骨架。</li>
+        <li>实现 bounded <code>AppCommand</code>/<code>AppEvent</code> 和 fake core loop。</li>
+        <li>建立 GPUI 原生窗口并连接 fake event。</li>
+        <li>隔离验证 <code>gpui-component</code> 的 textarea/IME、Markdown、virtual list 与体积，当轮定案。</li>
+        <li>写手动 validate workflow；未经新的临时公开授权不运行。</li>
+      </ol>
+      <div class="callout info">
+        <p>从 M0 开始，不再重做四框架选型，也不从知识库、营销首页或插件市场开始。完整技术细节请阅读同目录的 Markdown 文档。</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>研究与规划快照：2026-08-17 · Cakify · 离线 HTML，无外部脚本或字体依赖</footer>
+</body>
+</html>
