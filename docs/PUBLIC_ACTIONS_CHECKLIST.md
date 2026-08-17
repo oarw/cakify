@@ -41,7 +41,7 @@
 1. 完成上述远端检查并向用户展示结果。
 2. 获得用户对“本次 public → Actions → private”的明确授权。
 3. 改为 public。
-4. 首先只运行 `Validate scaffold`，记录 run URL/ID 和 artifact。
+4. 首先只运行 `Validate shared core`，记录 run URL/ID 和 artifact。
 5. 修复失败并取得 `Cargo.lock`、框架依赖锁文件和真实 benchmark artifact；未运行前不把 workflow 写成通过。
 6. 确认没有 queued/in_progress run，也没有需保留的 public artifact。
 7. 获得对应授权后恢复 private，并核实最终 visibility。

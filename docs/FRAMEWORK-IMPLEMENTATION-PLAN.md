@@ -73,7 +73,7 @@
 1. 先在私库完成源码实现和静态审阅。
 2. 向用户展示 public 前历史、Secrets、LFS、Release、Issue、缓存和许可证审计结果。
 3. 获得本次 `public -> Actions -> private` 的明确授权。
-4. 临时公开，先跑 `Validate scaffold`，再跑真实四候选 matrix。
+4. 临时公开，先跑 `Validate shared core`，再跑真实四候选 matrix。
 5. 确认没有 queued/in_progress run 后恢复 PRIVATE，并把 URL、run ID、commit、artifact 和结论写入 `docs/PROGRESS.md`。
 
 ## 明确禁止

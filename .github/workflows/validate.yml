@@ -1,4 +1,4 @@
-name: Validate scaffold
+name: Validate shared core
 
 on:
   workflow_dispatch:
