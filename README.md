@@ -18,6 +18,7 @@ Cakify 是一个 Windows-first 的高性能原生 AI Chat 客户端。当前产�
 - [数据与安全](docs/SECURITY-AND-DATA.md)
 - [路线图与验收门](docs/ROADMAP.md)
 - [架构决定记录](docs/decisions/README.md)
+- [Product validate 公开前安全审计](docs/PUBLIC-ACTIONS-AUDIT.md)
 - [调研来源与许可证边界](docs/RESEARCH-SOURCES.md)
 - [当前进度](docs/PROGRESS.md)
 - [跨供应商交接](docs/HANDOFF.md)

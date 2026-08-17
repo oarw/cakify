@@ -50,6 +50,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 最近实际成功 run：Validate `32017467536`、Benchmark `32017470781`，都在 commit `40209896dca0009b747efc51ac885bed32b81f25`。
 - 本轮创建产品源码、ADR 和手动 workflow；未运行 Actions、未切换 visibility、未本地编译/测试。
 - 首个产品 `Cargo.lock`、release EXE 和产品依赖树尚不存在；不能把 M0 源码写成已通过。
+- 针对 HEAD `b87789ce6c145cb8b1507ba077d8112d744dcdac` 的公开前安全审计已完成，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；尚未取得本次 visibility 授权。
 - 仓库没有 LICENSE。
 
 接手后先执行只读检查：`git status --short --branch`、`git rev-parse HEAD`、`git remote -v`、`gh repo view ... --json visibility,isPrivate`、`gh run list`。实际状态优先于本文。
@@ -123,7 +124,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 接手后的顺序：
 
-1. 静态复核仓库公开风险，并取得用户针对这一次 visibility 切换的明确授权。
+1. 阅读已完成的 `docs/PUBLIC-ACTIONS-AUDIT.md`，取得用户针对这一次 visibility 切换的明确授权。
 2. 临时设为 public，只运行 `Product validate`，记录 run URL/ID、SHA、artifact 和每个 step 结论。
 3. 下载并核对 `product-validation-<run_id>`，把生成的 `Cargo.lock` 提交；编译失败则按日志修复，不得宣称 M0 通过。
 4. 确认没有 queued/in_progress 后恢复 private，并再次复核可见性。
@@ -174,7 +175,7 @@ Benchmark 壳的 `113.745 ms / 42.016 MiB` 只是基线，不代表产品已达�
 - 当前正在做：GPUI 空窗口、Core bridge、Windows 数据目录边界和手动 workflow 已写入；编译状态未知
 - 最近成功 Actions：Validate `32017467536`；Benchmark `32017470781`
 - 本轮 Actions：未运行
-- 精确下一动作：按第 9 节取得新的 visibility 授权并运行 `Product validate`
+- 精确下一动作：基于已完成的公开前审计，取得新的 visibility 授权并运行 `Product validate`
 - 需要用户决定：未来每次本月 Actions visibility 授权；项目许可证；M7 签名/发行渠道
 - 已知风险：M0 尚未编译、无 `Cargo.lock`、GPUI pre-1.0、直接 UI 组件工作量、真实 IME/accessibility、产品性能未跑
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控

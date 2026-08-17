@@ -19,6 +19,7 @@
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
 - 产品构建状态：本机没有编译/测试；首个 `Cargo.lock`、release EXE 和依赖树 artifact 尚未由 Actions 生成。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
+- 本次公开前审计：已完成并写入 `docs/PUBLIC-ACTIONS-AUDIT.md`；目标 HEAD `b87789ce6c145cb8b1507ba077d8112d744dcdac`，等待明确授权。
 - 组件决定：M0 不引入 `gpui-component`；直接使用 GPUI primitives，见 ADR 0002。
 - 历史 benchmark：完整移入 `archi/framework-benchmark-2026-08/`。
 - 许可证：尚未选择，仓库仍没有 `LICENSE`。
@@ -79,6 +80,7 @@
 - [x] 创建只允许手动触发的 product validate workflow，计划输出 release EXE、`Cargo.lock` 与依赖树。
 - [x] 写 ADR 0001/0002，固定 runtime/thread/pin，并基于 revision 不兼容门拒绝 M0 引入 `gpui-component`。
 - [x] 对新增源码做静态结构、链接、敏感模式、workflow trigger、括号和 staged diff 检查；没有把它们写成编译通过。
+- [x] 完成本次公开前安全审计：Git 全历史、GitHub secrets/config、10 个 run 日志、20 个 artifact、cache 元数据、LFS、Release、Issue/PR、fork 与许可证均已检查。
 
 ## 6. 尚未完成
 
@@ -97,7 +99,7 @@
 下一位执行者先闭合 M0，不再做框架泛泛选型：
 
 1. 读取提交 `07643ab45f1eaabfa6e44d5a57116496ad1c25d2` 的 workspace、两个 ADR 和手动 validate workflow。
-2. 做当次公开前安全检查，取得用户对这一次 public -> Product validate -> private 的明确授权；旧授权不可复用。
+2. 阅读 `docs/PUBLIC-ACTIONS-AUDIT.md`，取得用户对这一次 public -> Product validate -> private 的明确授权；旧授权不可复用。
 3. Actions 运行后记录 run URL/ID、commit、结论与 artifact，下载 `Cargo.lock` 并提交；若失败，按日志修源码后重复本次闭环所需的授权流程。
 4. 检查 release EXE、依赖树、默认进程树和窗口启动/退出；物理微软拼音/无障碍仍单独标记人工未验。
 5. M0 通过后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
@@ -138,6 +140,17 @@
 - 当前仓库已恢复 PRIVATE；上述 visibility 授权闭环完成，不能用于下一次运行。
 - 本轮 M0 源码/ADR/工作流没有 Actions run 或 artifact，不能写成通过。
 
+### 公开前审计记录
+
+- 审计目标 HEAD：`b87789ce6c145cb8b1507ba077d8112d744dcdac`。
+- 18 个可达 commit、141 个历史路径，高置信 secret 与敏感文件名 0 命中。
+- Actions/Dependabot/Codespaces secrets、variables、environments 均为 0。
+- 10 个历史 run 的约 1,719,506 字符日志，高置信 secret 0 命中。
+- 20 个 artifact 实际解包为 221 个文件、410,466,234 bytes，高置信 secret 与敏感文件名 0 命中；本地临时目录已删除。
+- 两份旧 Flutter cache 只核对了 key、来源 workflow 和创建日志，未逐文件扫描；当前 workflow 不使用 cache。
+- LFS、Release、Issue、PR、tag、fork 均为 0；仓库无 `LICENSE`。
+- 结论：安全审计未发现阻止本次临时公开的问题，但仍需用户针对本次 visibility 切换明确授权。
+
 ## 11. 进度日志
 
 ### 2026-08-16 至 2026-08-17：框架筛选
@@ -165,6 +178,13 @@
 - 静态核对 `gpui-component` 调研 revision；其锁定 GPUI 比产品 pin 落后 88 个提交，M0 决定不引入并写 ADR。
 - 修正归档文档迁移后的相对链接；Markdown/HTML 本地链接与敏感值模式检查无异常。
 - 源码提交为 `07643ab45f1eaabfa6e44d5a57116496ad1c25d2`；本轮仍未运行 Actions、未生成 `Cargo.lock`、未切换 visibility。
+
+### 2026-08-17：Product validate 公开前审计
+
+- 按 2026 年 8 月规则完成 Git 历史、GitHub secrets/config、Actions 日志/artifact/cache、LFS、Release、Issue/PR、fork 与许可证检查。
+- 未发现 secret 或用户数据；artifact 临时下载已清理，仓库保持 PRIVATE，无 queued/in_progress run。
+- 记录旧 Flutter cache 未逐文件扫描、无 LICENSE 与公开副本不可收回等残余风险。
+- 本轮未切换 visibility、未 dispatch workflow，等待本次明确授权。
 
 ## 12. 更新规则
 
