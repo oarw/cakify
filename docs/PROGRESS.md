@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-18（Asia/Shanghai）
 > 当前阶段：M1 - 数据与秘密基础
-> 当前状态：M1_SECRET_STORE_IN_PROGRESS
+> 当前状态：M1_SECRET_STORE_SOURCE_READY
 
 ## 1. 当前快照
 
@@ -22,7 +22,7 @@
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- M1 源码：SQLite foundation、conversation/message/part/run repository、crash recovery，以及 Provider profile CRUD、原子 model cache、endpoint/JSON/credential reference contracts 均已通过 Product validate；当前进入 SecretStore 两阶段生命周期与 Windows CredMan/DPAPI。
+- M1 源码：SQLite foundation、conversation/message/part/run repository、crash recovery，以及 Provider profile CRUD、原子 model cache、endpoint/JSON/credential reference contracts 均已通过 Product validate；SecretStore 生命周期、Windows CredMan 与 DPAPI current-user adapter 和 synthetic contract 已写入但尚未执行 Actions。
 - M1 依赖：固定 `rusqlite 0.40.2`、`sha2 0.10.9`，并把锁文件中已有的 `url 2.5.8` 设为 storage 直接依赖做 endpoint 结构化解析；最终依赖树未发现 GPL AI 业务 crate、向量库或密钥库越界包。
 - 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行最终 M0 release EXE。三次窗口 ready 为 `145.450/129.692/118.279 ms`，空闲 Working Set 为 `37.121/35.480/35.477 MiB`，均完整可见、单进程并正常退出；IME 保持 M2 独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
@@ -105,7 +105,7 @@
 ## 6. 尚未完成
 
 - [x] 实现 SQLite initial schema/migration/storage actor。
-- [ ] 实现 Credential Manager/DPAPI SecretStore。
+- [ ] 实现 Credential Manager/DPAPI SecretStore；源码已完成，等待 Windows Actions 编译与 synthetic round-trip/tamper 实证。
 - [ ] 实现 fake provider 聊天纵向切片。
 - [ ] 实现真实 OpenAI-compatible provider。
 - [ ] 实现 Agent/tool approval/Job Object。
@@ -116,9 +116,9 @@
 
 下一位执行者直接实施 M1，不再做框架或 M0 runtime 泛泛选型：
 
-1. 定义 SecretStore trait 与 profile/secret 两阶段生命周期：先写 Windows secret，再提交 reference；失败补偿删除，profile 删除后清理 orphan reference。
-2. 实现 Windows Credential Manager 主路径与 DPAPI current-user 后备，仅在 Windows Actions 运行 synthetic secret round-trip。
-3. 再实现 live backup/restore、synthetic secret 扫描和 M1 完整验收。
+1. 静态核对 SecretStore、Win32 FFI、workflow 与密文文件格式，提交并推送当前源码。
+2. 临时公开后只运行 Product validate，验证生命周期 unit tests、Credential Manager put/get/update/delete、DPAPI current-user round-trip/密文/tamper、Clippy 和 release build；失败按同一闭环修复。
+3. SecretStore 通过后实现 live backup/restore、synthetic secret 扫描和 M1 完整验收。
 
 详细验收见 `docs/ROADMAP.md` 的 M1。
 
@@ -144,7 +144,7 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M1_SECRET_STORE_IN_PROGRESS`：Provider profile 与 model cache 已通过 Actions；SecretStore 与 backup 尚未实现，在 synthetic secret contract 通过前不接真实 Provider 或用户 secret。
+- `M1_SECRET_STORE_SOURCE_READY`：Provider profile 与 model cache 已通过 Actions；SecretStore 源码已写入但 Windows synthetic contract 尚未运行，backup 也未实现，在实证通过前不接真实 Provider 或用户 secret。
 - `M1_ARTIFACT_DOWNLOAD_PENDING`：storage foundation 与 repository 最终 artifacts 分别已由 runner 成功上传 5/6 个文件，ID/大小/digest 与上传日志一致；本机到两个 Azure Blob 主机持续连接超时，因此最终 ZIP 内容独立解包检查仍待网络恢复后补做。workflow 结论和仓库恢复不受影响，不能把尚未下载写成已核对。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
@@ -294,6 +294,15 @@
 - 修复提交 `9673349691062c80349f358d0ec8fc0a61364180` 的第二轮 Product validate `32119057930` 全部通过：workspace check、全量 tests、storage 5/5、repository 4/4、provider 4/4、Clippy、release build 和 artifact upload 均成功。
 - 最终 artifact 已实际下载并逐项核对：6 个文件、2,386,150 bytes；锁文件与 migrations 归一化后和仓库一致，dependency tree 越界 crate 与文本 secret 均为 0；release EXE 为 5,722,624 bytes、SHA-256 `D3F27A091CD16EC63726534B0FB6F5442D77FFC481806010FDEF523C00453892`、未签名。
 - 确认 queued/in_progress 为 0 后立即恢复 PRIVATE，并复核 run completed/success 与 `isPrivate=true`；M1 转入 SecretStore 两阶段生命周期与 Windows CredMan/DPAPI。
+
+### 2026-08-18：M1 SecretStore 源码
+
+- 在 Core 新增受限 `SecretId`、不实现明文调试/序列化/克隆的 `SecretInput`/`SecretValue`、同步 `SecretStore` port，以及 profile reference 提交和删除的补偿生命周期。
+- 生命周期写入前读取旧值：首次 reference 提交失败删除新 secret；同 ID 更新提交失败恢复旧 secret，避免数据库旧引用指向空凭据；删除流程先提交 reference 删除，再清理 secret 并保留可重试错误。
+- Windows 层实现 `CRED_TYPE_GENERIC` + `CRED_PERSIST_LOCAL_MACHINE` 的 Credential Manager adapter，限制 generic blob 为 2,560 bytes；读取后清零系统 blob，再用 `CredFree` 释放。
+- 实现 DPAPI current-user adapter：只设置 `CRYPTPROTECT_UI_FORBIDDEN`，不设置 machine scope；secret ID 派生 entropy，密文带版本头并写入哈希文件名，通过同目录临时文件、`sync_all` 与 `MoveFileExW` 原子替换。
+- 新增 Windows synthetic contract，覆盖 CredMan put/get/update/delete/idempotent cleanup，以及 DPAPI round-trip、磁盘不含测试明文、tamper failure 和删除；Product validate 增加两个显式 secret contract step。
+- 本机只完成源码、workflow、文档与差异静态检查；尚未执行 rustfmt、编译、测试、Clippy、Win32 round-trip 或 release build，不能写成 SecretStore 已通过。
 
 ## 12. 更新规则
 

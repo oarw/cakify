@@ -724,6 +724,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+ "zeroize",
 ]
 
 [[package]]
@@ -740,7 +741,11 @@ dependencies = [
 name = "cakify-platform-windows"
 version = "0.1.0"
 dependencies = [
+ "cakify-core",
+ "sha2",
  "thiserror 2.0.20",
+ "windows 0.62.2",
+ "zeroize",
 ]
 
 [[package]]

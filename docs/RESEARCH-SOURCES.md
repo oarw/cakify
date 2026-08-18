@@ -38,6 +38,8 @@ GPUI 仍是 pre-1.0，上游明确提示 API 可能频繁变化。因此不得�
 - [CredWriteW](https://learn.microsoft.com/windows/win32/api/wincred/nf-wincred-credwritew)、[CredReadW](https://learn.microsoft.com/windows/win32/api/wincred/nf-wincred-credreadw)、[CredDeleteW](https://learn.microsoft.com/windows/win32/api/wincred/nf-wincred-creddeletew)：在当前用户 credential set 中创建、读取和删除凭据。
 - [CREDENTIALW](https://learn.microsoft.com/windows/win32/api/wincred/ns-wincred-credentialw)：`CRED_TYPE_GENERIC` 允许应用保存自己的二进制 secret，并以 TargetName + Type 唯一定位。
 - [CryptProtectData](https://learn.microsoft.com/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata) 与 [CryptUnprotectData](https://learn.microsoft.com/windows/win32/api/dpapi/nf-dpapi-cryptunprotectdata)：默认绑定同一登录用户，提供完整性校验。
+- [CredFree](https://learn.microsoft.com/windows/win32/api/wincred/nf-wincred-credfree) 与 [LocalFree](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-localfree)：分别释放 Credential Manager 和 DPAPI 返回的系统分配块。
+- [MoveFileExW](https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-movefileexw)：同目录替换使用 `MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH`，避免正常更新过程中暴露半写密文文件。
 - [Microsoft 密码处理建议](https://learn.microsoft.com/windows/win32/secbp/handling-passwords)：建议使用 CredWrite/CredRead 保存操作系统凭据，并及时清除敏感内存。
 
 决定：API Key 和 OAuth refresh token 优先用 Credential Manager 的 generic credential；SQLite 只保存 opaque reference。DPAPI 只处理 Credential Manager 不适合的结构化 secret，使用用户范围、禁止交互 UI；绝不设置 `CRYPTPROTECT_LOCAL_MACHINE`，因为那会允许本机其他用户解密。

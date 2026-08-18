@@ -59,6 +59,14 @@ jobs:
         shell: pwsh
         run: cargo test --package cakify-storage --test provider_profile_contract
 
+      - name: Run secret lifecycle contract tests
+        shell: pwsh
+        run: cargo test --package cakify-core secret::tests
+
+      - name: Run Windows secret backend contract tests
+        shell: pwsh
+        run: cargo test --package cakify-platform-windows --test secret_contract
+
       - name: Run clippy
         shell: pwsh
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings

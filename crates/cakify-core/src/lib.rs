@@ -5,6 +5,13 @@
 //! GPUI shell and for headless tests, while the effects are added in later
 //! milestones.
 
+mod secret;
+
+pub use secret::{
+    delete_reference_then_secret, put_then_commit_reference, SecretError, SecretId, SecretInput,
+    SecretLifecycleError, SecretStore, SecretValue,
+};
+
 use std::thread::{self, JoinHandle};
 
 use async_channel::{Receiver, Sender, TrySendError};

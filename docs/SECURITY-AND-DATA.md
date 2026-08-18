@@ -47,14 +47,14 @@ Core 只依赖抽象：
 
 ~~~rust
 pub trait SecretStore: Send + Sync {
-    fn put(&self, id: &SecretId, value: SecretInput) -> Result<(), SecretError>;
+    fn put(&self, id: &SecretId, value: &SecretInput) -> Result<(), SecretError>;
     fn get(&self, id: &SecretId) -> Result<SecretValue, SecretError>;
     fn delete(&self, id: &SecretId) -> Result<(), SecretError>;
     fn contains(&self, id: &SecretId) -> Result<bool, SecretError>;
 }
 ~~~
 
-`SecretInput`/`SecretValue` 使用 `secrecy`/`zeroize` 类内存包装，不实现 `Debug`、`Display`、`Serialize` 或 `Clone`。Provider adapter 按请求短暂取得 secret；UI 只接收 `Missing / Configured / Error`。
+`SecretInput`/`SecretValue` 使用 `zeroize::Zeroizing` 内存包装，不实现 `Debug`、`Display`、`Serialize` 或 `Clone`；长度校验失败时也先进入清零包装。Provider adapter 按请求短暂取得 secret；UI 只接收 `Missing / Configured / Error`。
 
 ### Credential Manager 主路径
 
@@ -62,9 +62,9 @@ pub trait SecretStore: Send + Sync {
 - TargetName：`Cakify/provider/{provider_uuid}/api-key`、`Cakify/mcp/{server_uuid}/{name}`。
 - 持久级别：使用面向当前用户、跨登录会话但不漫游的 `CRED_PERSIST_LOCAL_MACHINE`；它仍属于当前用户 credential set，不能与 DPAPI 的 machine scope 混淆。
 - SQLite 只保存 TargetName/opaque `credential_ref`，不保存 blob。
-- 更新 Provider 时先写新 credential，再事务更新 reference；失败则回滚/清理孤儿。
+- 更新 Provider 时先暂存旧值、写新 credential，再事务更新 reference；失败时恢复旧值，首次创建失败时删除 orphan。
 - 删除 Provider 时删除 credential；删除失败显示可恢复警告并支持重试。
-- 读取结果使用 `CredFree`，释放前清零应用创建的临时 buffer。
+- 读取结果使用 `CredFree`；复制完成后先清零系统返回的 credential blob，再释放整个分配块。
 
 ### DPAPI 后备路径
 
@@ -73,11 +73,14 @@ pub trait SecretStore: Send + Sync {
 - `CryptProtectData`/`CryptUnprotectData` 默认用户范围。
 - 设置 `CRYPTPROTECT_UI_FORBIDDEN`，不使用 prompt UI。
 - 禁止 `CRYPTPROTECT_LOCAL_MACHINE`。
-- DPAPI ciphertext 可保存在单独 secret 文件；SQLite 仍只存 reference、版本和算法标识。
+- DPAPI ciphertext 保存在 `secrets/<secret-id-sha256>.dpapi`；版本在密文文件头中，SQLite 仍只存 opaque reference。
+- secret ID 派生的固定 entropy 将密文绑定到目标引用；entropy 不是额外密码，用户身份仍是实际保护边界。
+- 密文先写同目录临时文件并 `sync_all`，再用 `MoveFileExW(REPLACE_EXISTING | WRITE_THROUGH)` 原子替换。
 - `LocalFree` 释放系统输出；plaintext buffer 使用后清零。
 - 如果保护/解保护失败，不允许静默回退到明文文件。
 
 Credential Manager 可用时，不再额外用 DPAPI 包一层 API Key；多层加密并不会改善同用户恶意进程威胁，反而增加恢复失败面。
+Credential Manager 与 DPAPI 是显式选择的两个 adapter；任一保护操作失败都返回错误，不自动降级为另一后端，更不允许明文后备。
 
 ## 4. 本地文件布局
 
@@ -88,6 +91,7 @@ Credential Manager 可用时，不再额外用 DPAPI 包一层 API Key；多层�
   data\cakify.db
   data\cakify.db-wal
   data\cakify.db-shm
+  secrets\<secret-id-sha256>.dpapi
   attachments\<sha256>
   logs\cakify.log.*
   cache\models\...

@@ -1,8 +1,14 @@
 //! Windows-specific application boundaries.
 //!
-//! M0 only establishes the local data layout contract. Credential Manager,
-//! DPAPI, known-folder COM calls, and Job Objects land behind this crate in M1
-//! and M4 so the UI/core crates never depend on raw Win32 handles.
+//! The crate owns native Windows resources so the UI and core crates never
+//! depend on raw Win32 handles.
+
+#[cfg(windows)]
+#[allow(unsafe_code)]
+mod secrets;
+
+#[cfg(windows)]
+pub use secrets::{CredentialManagerSecretStore, DpapiSecretStore};
 
 use std::{
     env,
@@ -17,6 +23,7 @@ pub const APP_DIRECTORY_NAME: &str = "Cakify";
 pub struct AppDataPaths {
     pub root: PathBuf,
     pub data: PathBuf,
+    pub secrets: PathBuf,
     pub attachments: PathBuf,
     pub logs: PathBuf,
     pub cache: PathBuf,
@@ -27,6 +34,7 @@ impl AppDataPaths {
         let root = local_app_data.as_ref().join(APP_DIRECTORY_NAME);
         Self {
             data: root.join("data"),
+            secrets: root.join("secrets"),
             attachments: root.join("attachments"),
             logs: root.join("logs"),
             cache: root.join("cache"),
@@ -38,6 +46,7 @@ impl AppDataPaths {
         for path in [
             &self.root,
             &self.data,
+            &self.secrets,
             &self.attachments,
             &self.logs,
             &self.cache,
@@ -79,6 +88,7 @@ mod tests {
             PathBuf::from(r"C:\Users\test\AppData\Local\Cakify")
         );
         assert_eq!(paths.data, paths.root.join("data"));
+        assert_eq!(paths.secrets, paths.root.join("secrets"));
         assert_eq!(paths.attachments, paths.root.join("attachments"));
     }
 }
