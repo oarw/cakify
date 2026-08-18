@@ -38,7 +38,7 @@ jobs:
       - name: Record dependency tree and enforce license boundary
         shell: pwsh
         run: |
-          $tree = cargo tree --workspace --prefix none
+          $tree = cargo tree --workspace --locked --prefix none
           $tree | Set-Content -LiteralPath dependency-tree.txt -Encoding utf8
           $forbidden = $tree | Select-String -Pattern '^(agent|agent_ui|language_model|context_server) v[0-9]'
           if ($forbidden) {
@@ -58,39 +58,39 @@ jobs:
 
       - name: Check workspace
         shell: pwsh
-        run: cargo check --workspace --all-targets
+        run: cargo check --workspace --all-targets --locked
 
       - name: Run tests
         shell: pwsh
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
 
       - name: Run storage contract tests
         shell: pwsh
-        run: cargo test --package cakify-storage --test storage_contract
+        run: cargo test --package cakify-storage --test storage_contract --locked
 
       - name: Run repository contract tests
         shell: pwsh
-        run: cargo test --package cakify-storage --test repository_contract
+        run: cargo test --package cakify-storage --test repository_contract --locked
 
       - name: Run provider profile contract tests
         shell: pwsh
-        run: cargo test --package cakify-storage --test provider_profile_contract
+        run: cargo test --package cakify-storage --test provider_profile_contract --locked
 
       - name: Run secret lifecycle contract tests
         shell: pwsh
-        run: cargo test --package cakify-core secret::tests
+        run: cargo test --package cakify-core secret::tests --locked
 
       - name: Run Windows secret backend contract tests
         shell: pwsh
-        run: cargo test --package cakify-platform-windows --test secret_contract
+        run: cargo test --package cakify-platform-windows --test secret_contract --locked
 
       - name: Run clippy
         shell: pwsh
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
       - name: Build release desktop
         shell: pwsh
-        run: cargo build --release --package cakify-desktop
+        run: cargo build --release --package cakify-desktop --locked
 
       - name: Upload product validation artifacts
         if: always()
