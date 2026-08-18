@@ -47,6 +47,10 @@ jobs:
         shell: pwsh
         run: cargo test --workspace
 
+      - name: Run storage contract tests
+        shell: pwsh
+        run: cargo test --package cakify-storage --test storage_contract
+
       - name: Run clippy
         shell: pwsh
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
@@ -63,6 +67,7 @@ jobs:
           path: |
             Cargo.lock
             dependency-tree.txt
+            crates/cakify-storage/migrations/*.sql
             target/release/cakify-desktop.exe
             target/.rustc_info.json
           if-no-files-found: warn

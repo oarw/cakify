@@ -22,6 +22,8 @@
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
+- M1 源码：已新增独立 `cakify-storage` crate、两步 SQL migration、单 writer actor、连接/完整性硬门与 storage contract 测试源码；尚未运行 Actions，不能写成编译或测试通过。
+- M1 依赖：通过 crates.io 官方 API 与 rusqlite 官方仓库核对并固定 `rusqlite 0.40.2`（`default-features = false`、`bundled`）和锁中已有 `sha2 0.10.9`；`Cargo.lock` 尚待 Actions 生成增量。
 - 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行最终 M0 release EXE。三次窗口 ready 为 `145.450/129.692/118.279 ms`，空闲 Working Set 为 `37.121/35.480/35.477 MiB`，均完整可见、单进程并正常退出；IME 保持 M2 独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
 - 本次公开前审计与 visibility 闭环：已完成，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
@@ -110,11 +112,11 @@
 
 下一位执行者直接实施 M1，不再做框架或 M0 runtime 泛泛选型：
 
-1. 建立 SQLite storage actor、initial schema、migration runner 与连接配置硬门。
-2. 实现 conversation/message/part/run repository、crash recovery 与领域约束测试。
-3. 实现 Provider profile CRUD，SQLite 只保存 opaque credential reference。
-4. 实现 Windows Credential Manager 主路径与 DPAPI current-user 后备。
-5. 实现 live backup/restore 和 synthetic secret 扫描，再用 Product validate/Windows smoke 对应步骤验收。
+1. 对新增 storage crate 做静态检查并提交推送；不在本机运行 Cargo/SQLite。
+2. 按持续授权运行 Product validate，取回 runner 生成的 `Cargo.lock`，核对 migration SQL artifact 与真实 fmt/check/test/clippy 结论。
+3. 按 Actions 日志修复并提交锁文件；storage foundation 通过后实现 conversation/message/part/run repository 与 crash recovery。
+4. 实现 Provider profile CRUD，SQLite 只保存 opaque credential reference。
+5. 再实现 Credential Manager/DPAPI、live backup/restore 和 synthetic secret 扫描。
 
 详细验收见 `docs/ROADMAP.md` 的 M1。
 
@@ -140,7 +142,8 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M1_SCHEMA_IN_PROGRESS`：initial schema、migration 与 storage actor 尚未实现；在 crash/upgrade/backup 测试通过前不接真实 Provider 或用户 secret。
+- `M1_SCHEMA_IN_PROGRESS`：initial schema、migration 与 storage actor 已有源码但尚未通过 Actions；repository、crash recovery 与 backup 仍未实现，在对应测试通过前不接真实 Provider 或用户 secret。
+- `M1_LOCK_PENDING`：新增 `rusqlite` 依赖尚未由 runner 写入并核对 `Cargo.lock`；首次 Product validate 可能先暴露 rustfmt/API/SQL contract 错误，必须按真实结果闭环。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
 - `M0_METRICS_SCOPE`：最终 M0 指标只覆盖窗口壳层，不冒充真实 composer、长消息列表或 Provider 启动性能；M2/M3 必须重测。
@@ -238,6 +241,14 @@
 - 提交 `a1f10429a7f48b5a7ca5968976676d6e2594554d` 推送后完成最终公开前审计，只触发 Windows runtime smoke `32093988986`。
 - 最终三轮窗口完整可见、空闲整树 Working Set `35.477-37.121 MiB`、默认子进程 0、正常退出且无残留；artifact JSON/JSONL、日志、哈希与截图已独立核验。
 - 在 queued/in_progress 均为空时恢复仓库 PRIVATE；M0 正式关闭，当前进入 M1 SQLite/storage foundation。
+
+### 2026-08-18：M1 SQLite/storage foundation 源码
+
+- 依据架构与安全文档建立独立 `cakify-storage`，保持 Core 不依赖 SQLite；actor 使用容量 64 的 typed 同步队列，独占 writer connection。
+- 固定官方当前 `rusqlite 0.40.2`，关闭默认 features、只启用 bundled SQLite；使用现有 `sha2 0.10.9` 对不可变 migration SQL 计算 SHA-256。
+- 初始 schema 包含 migration history 与计划中的 12 张领域表，全部使用 STRICT、foreign key、JSON/状态/check 约束；只有 `provider_profiles.credential_ref` 与 credential 引用相关，不建立 FTS/embedding/vector 表。
+- 新增空库初始化、v1 -> v2、重复打开、外键、checksum 篡改、未来 schema 拒绝和连接 PRAGMA contract 测试源码；Product validate 增加显式 storage contract step 并上传 migration SQL。
+- 本机只做源码/SQL/workflow 静态审查；`Cargo.lock`、rustfmt、编译、测试、Clippy 和真实 SQLite 执行均待 Actions。
 
 ## 12. 更新规则
 
