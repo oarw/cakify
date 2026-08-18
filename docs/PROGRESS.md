@@ -22,7 +22,7 @@
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- M1 源码：独立 `cakify-storage` crate、两步 SQL migration、单 writer actor、连接/完整性硬门与 storage contract 已在 Product validate `32097907337` 通过；当前转入 conversation/message/part/run repository 与 crash recovery。
+- M1 源码：独立 `cakify-storage` crate、单 writer actor、连接/完整性硬门与初始 storage contract 已通过 Product validate；当前新增 conversation/message/part/run repository、v3 checkpoint revision、敏感 provider snapshot 拦截与启动 crash recovery，尚待 Actions 验证。
 - M1 依赖：已从 run `32097396883` artifact 取回 runner 生成的 `Cargo.lock`；固定 `rusqlite 0.40.2`、`sha2 0.10.9`，rusqlite registry checksum 与官方值一致，依赖树未发现网络栈、向量库或密钥库越界包。
 - 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行最终 M0 release EXE。三次窗口 ready 为 `145.450/129.692/118.279 ms`，空闲 Working Set 为 `37.121/35.480/35.477 MiB`，均完整可见、单进程并正常退出；IME 保持 M2 独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
@@ -114,9 +114,9 @@
 
 下一位执行者直接实施 M1，不再做框架或 M0 runtime 泛泛选型：
 
-1. 在 storage actor 上实现 typed conversation/message/part/run repository command，不让 Core 直接持有 SQLite connection。
-2. 增加事务级聚合写入、稳定排序/分页、级联删除与并发队列 contract；保持用户内容与状态字段受 schema 约束。
-3. 实现启动时把遗留 `running` run 原子转为 `interrupted`，不丢已 checkpoint 的 message/part 文本，并用 Actions 验证重复恢复幂等。
+1. 对新增 repository、v3 migration、checkpoint revision 与 crash recovery contract 做静态审查并提交推送；不在本机运行 Cargo/SQLite。
+2. 按持续授权运行 Product validate，核对真实 check/test/repository contract/Clippy/release 结果；失败按日志修复。
+3. 验证启动时把遗留 active run 原子转为 `interrupted`，不丢已 checkpoint 的 message/part 文本，并确认重复恢复幂等；通过后再实现 Provider profile CRUD。
 4. 实现 Provider profile CRUD，SQLite 只保存 opaque credential reference。
 5. 再实现 Credential Manager/DPAPI、live backup/restore 和 synthetic secret 扫描。
 
@@ -144,7 +144,7 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M1_REPOSITORIES_IN_PROGRESS`：SQLite foundation 已通过 Actions；repository、crash recovery 与 backup 仍未实现，在对应 contract 通过前不接真实 Provider 或用户 secret。
+- `M1_REPOSITORIES_IN_PROGRESS`：SQLite foundation 已通过 Actions；repository、v3 checkpoint revision 与 crash recovery 已有源码但尚未通过 Actions，backup 仍未实现，在对应 contract 通过前不接真实 Provider 或用户 secret。
 - `M1_ARTIFACT_DOWNLOAD_PENDING`：最终 artifact 已由 runner 成功上传 5 个文件、2,385,820 bytes，ID/digest 与上传日志一致；本机到 Azure Blob 的三种下载方式均连接超时，因此最终 ZIP 内容独立解包检查仍待网络恢复后补做。workflow 结论和仓库恢复不受影响，不能把尚未下载写成已核对。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
@@ -264,6 +264,14 @@
 - 修复提交 `785241720db087ce38121b095ea5f192063ab2b4` 的第二轮 Product validate `32097907337` 全部通过：workspace tests 中 storage contract 5/5，通过专门重复执行 5/5；Clippy、release build 和 artifact upload 均成功。
 - 上传日志确认 artifact 为 5 个文件、2,385,820 bytes，ID `9310763337`、digest `sha256:66b893168eadc5ead939c71c4059ca65f15cc6c9f2b2c38c2e3f49a2274ab118`；本机到 Azure Blob 连续三种客户端连接超时，完整解包核验明确留为待办。
 - 确认 queued/in_progress 为 0 后立即恢复 PRIVATE，并复核 run completed/success 与 `isPrivate=true`；M1 转入领域 repository 与 crash recovery。
+
+### 2026-08-18：M1 repository 与 crash recovery 源码
+
+- 在 actor 内新增 typed conversation/list/page、message+parts 聚合事务、thread 装载、soft delete/purge、run 创建/单调更新和文本 checkpoint 命令；Core 不接触 SQLite connection。
+- 新增 schema migration v3 `message_part_revisions`，以 revision 条件更新流式文本，拒绝乱序或同 revision 冲突增量；启动时在同一 writer transaction 将遗留 active run 原子标记为 `interrupted`，保留已有 part 文本并返回一次性恢复报告。
+- 新增 provider snapshot JSON 的递归 credential-bearing key 防线；只允许 opaque/non-secret snapshot，解析或敏感键均在入库前拒绝。
+- 新增 repository contract 源码：稳定 cursor 分页/软删除、消息与 parts 原子回滚、checkpoint 幂等与 stale 拒绝、run 单调状态/终态保护、重启恢复一次性与级联 purge。
+- Product validate workflow 增加显式 `Run repository contract tests`；本机只做源码、SQL、workflow、依赖与敏感模式静态检查，尚未编译或执行测试。
 
 ## 12. 更新规则
 

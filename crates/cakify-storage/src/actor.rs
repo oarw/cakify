@@ -7,7 +7,11 @@ use std::{
 
 use rusqlite::Connection;
 
-use crate::{migration, StorageError, LATEST_SCHEMA_VERSION};
+use crate::{
+    migration, repository, ConversationPage, ConversationQuery, ConversationRecord,
+    ConversationThread, CrashRecoveryReport, NewConversation, NewMessage, NewRun, RunRecord,
+    RunUpdate, StorageError, TextCheckpoint, LATEST_SCHEMA_VERSION,
+};
 
 const COMMAND_CAPACITY: usize = 64;
 const DEFAULT_BUSY_TIMEOUT: Duration = Duration::from_millis(2_500);
@@ -53,9 +57,92 @@ pub struct StorageHandle {
 
 impl StorageHandle {
     pub fn health(&self) -> Result<StorageHealth, StorageError> {
+        self.request(|reply| Command::Health { reply })
+    }
+
+    pub fn create_conversation(
+        &self,
+        input: NewConversation,
+    ) -> Result<ConversationRecord, StorageError> {
+        self.request(|reply| Command::CreateConversation { input, reply })
+    }
+
+    pub fn get_conversation(
+        &self,
+        id: &str,
+    ) -> Result<Option<ConversationRecord>, StorageError> {
+        self.request(|reply| Command::GetConversation {
+            id: id.to_owned(),
+            reply,
+        })
+    }
+
+    pub fn list_conversations(
+        &self,
+        query: ConversationQuery,
+    ) -> Result<ConversationPage, StorageError> {
+        self.request(|reply| Command::ListConversations { query, reply })
+    }
+
+    pub fn mark_conversation_deleted(
+        &self,
+        id: &str,
+        deleted_at: i64,
+    ) -> Result<ConversationRecord, StorageError> {
+        self.request(|reply| Command::MarkConversationDeleted {
+            id: id.to_owned(),
+            deleted_at,
+            reply,
+        })
+    }
+
+    pub fn purge_conversation(&self, id: &str) -> Result<bool, StorageError> {
+        self.request(|reply| Command::PurgeConversation {
+            id: id.to_owned(),
+            reply,
+        })
+    }
+
+    pub fn append_message(&self, input: NewMessage) -> Result<(), StorageError> {
+        self.request(|reply| Command::AppendMessage { input, reply })
+    }
+
+    pub fn load_thread(
+        &self,
+        conversation_id: &str,
+    ) -> Result<Option<ConversationThread>, StorageError> {
+        self.request(|reply| Command::LoadThread {
+            conversation_id: conversation_id.to_owned(),
+            reply,
+        })
+    }
+
+    pub fn create_run(&self, input: NewRun) -> Result<RunRecord, StorageError> {
+        self.request(|reply| Command::CreateRun { input, reply })
+    }
+
+    pub fn get_run(&self, id: &str) -> Result<Option<RunRecord>, StorageError> {
+        self.request(|reply| Command::GetRun {
+            id: id.to_owned(),
+            reply,
+        })
+    }
+
+    pub fn update_run(&self, input: RunUpdate) -> Result<RunRecord, StorageError> {
+        self.request(|reply| Command::UpdateRun { input, reply })
+    }
+
+    pub fn checkpoint_text(&self, input: TextCheckpoint) -> Result<(), StorageError> {
+        self.request(|reply| Command::CheckpointText { input, reply })
+    }
+
+    fn request<T: Send + 'static>(
+        &self,
+        command: impl FnOnce(SyncSender<Result<T, StorageError>>) -> Command,
+    ) -> Result<T, StorageError> {
         let (reply, receiver) = mpsc::sync_channel(1);
         self.commands
-            .send(Command::Health { reply })
+            .send(command(reply))
             .map_err(|_| StorageError::ActorClosed)?;
         receiver.recv().map_err(|_| StorageError::ActorClosed)?
     }
@@ -63,6 +150,7 @@ impl StorageHandle {
 
 pub struct StorageActor {
     handle: StorageHandle,
+    startup_recovery: CrashRecoveryReport,
     join: Option<JoinHandle<()>>,
 }
 
@@ -75,7 +163,7 @@ impl StorageActor {
             .spawn(move || start_actor(config, receiver, ready))
             .map_err(StorageError::ThreadStart)?;
 
-        let startup = match ready_receiver.recv() {
+        let startup_recovery = match ready_receiver.recv() {
             Ok(startup) => startup,
             Err(_) => {
                 return match join.join() {
@@ -85,15 +173,19 @@ impl StorageActor {
             }
         };
 
-        if let Err(error) = startup {
-            return match join.join() {
-                Ok(()) => Err(error),
-                Err(_) => Err(StorageError::ActorPanicked),
-            };
-        }
+        let startup_recovery = match startup_recovery {
+            Ok(report) => report,
+            Err(error) => {
+                return match join.join() {
+                    Ok(()) => Err(error),
+                    Err(_) => Err(StorageError::ActorPanicked),
+                };
+            }
+        };
 
         Ok(Self {
             handle: StorageHandle { commands },
+            startup_recovery,
             join: Some(join),
         })
     }
@@ -104,6 +196,10 @@ impl StorageActor {
 
     pub fn health(&self) -> Result<StorageHealth, StorageError> {
         self.handle.health()
+    }
+
+    pub fn startup_recovery(&self) -> &CrashRecoveryReport {
+        &self.startup_recovery
     }
 }
 
@@ -130,6 +226,51 @@ enum Command {
     Health {
         reply: SyncSender<Result<StorageHealth, StorageError>>,
     },
+    CreateConversation {
+        input: NewConversation,
+        reply: SyncSender<Result<ConversationRecord, StorageError>>,
+    },
+    GetConversation {
+        id: String,
+        reply: SyncSender<Result<Option<ConversationRecord>, StorageError>>,
+    },
+    ListConversations {
+        query: ConversationQuery,
+        reply: SyncSender<Result<ConversationPage, StorageError>>,
+    },
+    MarkConversationDeleted {
+        id: String,
+        deleted_at: i64,
+        reply: SyncSender<Result<ConversationRecord, StorageError>>,
+    },
+    PurgeConversation {
+        id: String,
+        reply: SyncSender<Result<bool, StorageError>>,
+    },
+    AppendMessage {
+        input: NewMessage,
+        reply: SyncSender<Result<(), StorageError>>,
+    },
+    LoadThread {
+        conversation_id: String,
+        reply: SyncSender<Result<Option<ConversationThread>, StorageError>>,
+    },
+    CreateRun {
+        input: NewRun,
+        reply: SyncSender<Result<RunRecord, StorageError>>,
+    },
+    GetRun {
+        id: String,
+        reply: SyncSender<Result<Option<RunRecord>, StorageError>>,
+    },
+    UpdateRun {
+        input: RunUpdate,
+        reply: SyncSender<Result<RunRecord, StorageError>>,
+    },
+    CheckpointText {
+        input: TextCheckpoint,
+        reply: SyncSender<Result<(), StorageError>>,
+    },
     Shutdown {
         acknowledge: SyncSender<()>,
     },
@@ -138,10 +279,10 @@ enum Command {
 fn start_actor(
     config: StorageConfig,
     receiver: Receiver<Command>,
-    ready: SyncSender<Result<StorageHealth, StorageError>>,
+    ready: SyncSender<Result<CrashRecoveryReport, StorageError>>,
 ) {
     let startup = initialize(config);
-    let (connection, health) = match startup {
+    let (connection, startup_recovery) = match startup {
         Ok(value) => value,
         Err(error) => {
             let _ = ready.send(Err(error));
@@ -149,28 +290,74 @@ fn start_actor(
         }
     };
 
-    if ready.send(Ok(health)).is_err() {
+    if ready.send(Ok(startup_recovery)).is_err() {
         return;
     }
 
     run_loop(connection, receiver);
 }
 
-fn initialize(config: StorageConfig) -> Result<(Connection, StorageHealth), StorageError> {
+fn initialize(config: StorageConfig) -> Result<(Connection, CrashRecoveryReport), StorageError> {
     let mut connection = Connection::open(config.database_path)?;
     configure_connection(&connection, config.busy_timeout)?;
     quick_check(&connection)?;
     migration::apply_migrations(&mut connection, unix_timestamp_ms()?)?;
+    let startup_recovery =
+        repository::recover_active_runs(&mut connection, unix_timestamp_ms()?)?;
     let health = read_health(&connection)?;
     validate_health(&health)?;
-    Ok((connection, health))
+    Ok((connection, startup_recovery))
 }
 
-fn run_loop(connection: Connection, receiver: Receiver<Command>) {
+fn run_loop(mut connection: Connection, receiver: Receiver<Command>) {
     while let Ok(command) = receiver.recv() {
         match command {
             Command::Health { reply } => {
                 let _ = reply.send(read_health(&connection));
+            }
+            Command::CreateConversation { input, reply } => {
+                let _ = reply.send(repository::create_conversation(&mut connection, input));
+            }
+            Command::GetConversation { id, reply } => {
+                let _ = reply.send(repository::get_conversation(&connection, &id));
+            }
+            Command::ListConversations { query, reply } => {
+                let _ = reply.send(repository::list_conversations(&connection, query));
+            }
+            Command::MarkConversationDeleted {
+                id,
+                deleted_at,
+                reply,
+            } => {
+                let _ = reply.send(repository::mark_conversation_deleted(
+                    &mut connection,
+                    &id,
+                    deleted_at,
+                ));
+            }
+            Command::PurgeConversation { id, reply } => {
+                let _ = reply.send(repository::purge_conversation(&mut connection, &id));
+            }
+            Command::AppendMessage { input, reply } => {
+                let _ = reply.send(repository::append_message(&mut connection, input));
+            }
+            Command::LoadThread {
+                conversation_id,
+                reply,
+            } => {
+                let _ = reply.send(repository::load_thread(&connection, &conversation_id));
+            }
+            Command::CreateRun { input, reply } => {
+                let _ = reply.send(repository::create_run(&mut connection, input));
+            }
+            Command::GetRun { id, reply } => {
+                let _ = reply.send(repository::get_run(&connection, &id));
+            }
+            Command::UpdateRun { input, reply } => {
+                let _ = reply.send(repository::update_run(&mut connection, input));
+            }
+            Command::CheckpointText { input, reply } => {
+                let _ = reply.send(repository::checkpoint_text(&mut connection, input));
             }
             Command::Shutdown { acknowledge } => {
                 let _ = acknowledge.send(());

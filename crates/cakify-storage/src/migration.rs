@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 
 use crate::StorageError;
 
-pub const LATEST_SCHEMA_VERSION: i64 = 2;
+pub const LATEST_SCHEMA_VERSION: i64 = 3;
 
 const MIGRATIONS: &[Migration] = &[
     Migration {
@@ -15,6 +15,11 @@ const MIGRATIONS: &[Migration] = &[
         version: 2,
         name: "initial_indexes",
         sql: include_str!("../migrations/0002_initial_indexes.sql"),
+    },
+    Migration {
+        version: 3,
+        name: "message_part_revisions",
+        sql: include_str!("../migrations/0003_message_part_revisions.sql"),
     },
 ];
 
@@ -206,7 +211,7 @@ mod tests {
             current_schema_version(&connection).expect("latest version"),
             LATEST_SCHEMA_VERSION
         );
-        assert_eq!(pragma_user_version(&connection).expect("user version"), 2);
+        assert_eq!(pragma_user_version(&connection).expect("user version"), 3);
     }
 
     #[test]

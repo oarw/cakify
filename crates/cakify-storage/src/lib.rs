@@ -6,11 +6,19 @@
 
 mod actor;
 mod migration;
+mod model;
+mod repository;
 
 use thiserror::Error;
 
 pub use actor::{StorageActor, StorageConfig, StorageHandle, StorageHealth};
 pub use migration::LATEST_SCHEMA_VERSION;
+pub use model::{
+    ConversationCursor, ConversationPage, ConversationQuery, ConversationRecord,
+    ConversationThread, CrashRecoveryReport, MessagePartKind, MessagePartRecord, MessageRecord,
+    MessageRole, NewConversation, NewMessage, NewMessagePart, NewRun, RunRecord, RunStatus,
+    RunUpdate, TextCheckpoint,
+};
 
 #[derive(Debug, Error)]
 pub enum StorageError {
@@ -61,4 +69,46 @@ pub enum StorageError {
         user_version: i64,
         history_version: i64,
     },
+    #[error("page limit {limit} is outside 1..={max}")]
+    InvalidPageLimit { limit: usize, max: usize },
+    #[error("{field} is outside the supported numeric range")]
+    ValueOutOfRange { field: &'static str },
+    #[error("invalid {field}: {reason}")]
+    InvalidInput {
+        field: &'static str,
+        reason: String,
+    },
+    #[error("{entity} {id} was not found")]
+    NotFound { entity: &'static str, id: String },
+    #[error("invalid relation {relation}: {details}")]
+    InvalidRelation {
+        relation: &'static str,
+        details: String,
+    },
+    #[error("stored {field} contains unsupported value {value}")]
+    InvalidStoredValue { field: &'static str, value: String },
+    #[error("stale write rejected for {entity} {id}")]
+    StaleWrite { entity: &'static str, id: String },
+    #[error("run transition from {from} to {to} is not allowed")]
+    InvalidRunTransition {
+        from: &'static str,
+        to: &'static str,
+    },
+    #[error(
+        "stale checkpoint for part {part_id}: current revision {current_revision}, attempted {attempted_revision}"
+    )]
+    StaleCheckpoint {
+        part_id: String,
+        current_revision: i64,
+        attempted_revision: i64,
+    },
+    #[error("crash recovery selected {selected} runs but updated {updated}")]
+    RecoveryCountMismatch { selected: usize, updated: usize },
+    #[error("{field} contains forbidden credential-bearing key {key}")]
+    SensitiveJsonKey {
+        field: &'static str,
+        key: String,
+    },
+    #[error("JSON parsing failed: {0}")]
+    Json(#[from] serde_json::Error),
 }
