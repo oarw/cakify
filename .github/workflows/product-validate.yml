@@ -37,7 +37,13 @@ jobs:
 
       - name: Check formatting
         shell: pwsh
-        run: cargo fmt --all -- --check
+        run: |
+          cargo fmt --all -- --check
+          if ($LASTEXITCODE -ne 0) {
+            cargo fmt --all
+            git diff --binary | Out-File -LiteralPath rustfmt.patch -Encoding utf8
+            throw 'Rust formatting differs; apply rustfmt.patch from the artifact.'
+          }
 
       - name: Check workspace
         shell: pwsh
@@ -83,6 +89,7 @@ jobs:
           path: |
             Cargo.lock
             dependency-tree.txt
+            rustfmt.patch
             crates/cakify-storage/migrations/*.sql
             target/release/cakify-desktop.exe
             target/.rustc_info.json
