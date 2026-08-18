@@ -1065,7 +1065,7 @@ impl CakifyApp {
                 div()
                     .id((
                         gpui::ElementId::from(("tool-arguments", call.run_id.value())),
-                        call.index,
+                        call.index.to_string(),
                     ))
                     .max_h(px(140.0))
                     .overflow_y_scroll()
@@ -1091,7 +1091,7 @@ impl CakifyApp {
                         div()
                             .id((
                                 gpui::ElementId::from(("deny-tool", call.run_id.value())),
-                                call.index,
+                                call.index.to_string(),
                             ))
                             .px_3()
                             .py_1()
@@ -1110,7 +1110,7 @@ impl CakifyApp {
                         div()
                             .id((
                                 gpui::ElementId::from(("approve-tool", call.run_id.value())),
-                                call.index,
+                                call.index.to_string(),
                             ))
                             .rounded(px(5.0))
                             .bg(accent)
