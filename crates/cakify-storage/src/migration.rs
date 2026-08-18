@@ -80,18 +80,12 @@ fn apply_available_migrations(
 
     for migration in &available[applied.len()..] {
         let checksum = checksum(migration.sql);
-        let transaction =
-            connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         transaction.execute_batch(migration.sql)?;
         transaction.execute(
             "INSERT INTO schema_migrations(version, name, checksum, applied_at) \
              VALUES (?1, ?2, ?3, ?4)",
-            params![
-                migration.version,
-                migration.name,
-                checksum,
-                applied_at_ms
-            ],
+            params![migration.version, migration.name, checksum, applied_at_ms],
         )?;
         transaction.pragma_update(None, "user_version", migration.version)?;
         transaction.commit()?;
@@ -121,9 +115,8 @@ fn bootstrap_history(connection: &Connection) -> Result<(), StorageError> {
 }
 
 fn read_history(connection: &Connection) -> Result<Vec<AppliedMigration>, StorageError> {
-    let mut statement = connection.prepare(
-        "SELECT version, name, checksum FROM schema_migrations ORDER BY version ASC",
-    )?;
+    let mut statement = connection
+        .prepare("SELECT version, name, checksum FROM schema_migrations ORDER BY version ASC")?;
     let rows = statement.query_map([], |row| {
         Ok(AppliedMigration {
             version: row.get(0)?,
@@ -174,11 +167,9 @@ fn validate_history(
 
 pub(crate) fn current_schema_version(connection: &Connection) -> Result<i64, StorageError> {
     let version = connection
-        .query_row(
-            "SELECT MAX(version) FROM schema_migrations",
-            [],
-            |row| row.get::<_, Option<i64>>(0),
-        )?
+        .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+            row.get::<_, Option<i64>>(0)
+        })?
         .unwrap_or(0);
     Ok(version)
 }
@@ -208,10 +199,7 @@ mod tests {
         let mut connection = Connection::open_in_memory().expect("in-memory database");
         apply_available_migrations(&mut connection, 1_700_000_000_000, &MIGRATIONS[..1])
             .expect("first migration");
-        assert_eq!(
-            current_schema_version(&connection).expect("version one"),
-            1
-        );
+        assert_eq!(current_schema_version(&connection).expect("version one"), 1);
 
         apply_migrations(&mut connection, 1_700_000_000_001).expect("remaining migrations");
         assert_eq!(

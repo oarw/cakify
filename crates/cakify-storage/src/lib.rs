@@ -40,9 +40,7 @@ pub enum StorageError {
     UnsupportedSchema { found: i64, supported: i64 },
     #[error("migration sequence expected version {expected}, found {found}")]
     MigrationSequence { expected: i64, found: i64 },
-    #[error(
-        "migration {version} name mismatch: expected {expected}, database contains {actual}"
-    )]
+    #[error("migration {version} name mismatch: expected {expected}, database contains {actual}")]
     MigrationName {
         version: i64,
         expected: &'static str,
@@ -56,7 +54,9 @@ pub enum StorageError {
         expected: String,
         actual: String,
     },
-    #[error("PRAGMA user_version is {user_version}, but migration history ends at {history_version}")]
+    #[error(
+        "PRAGMA user_version is {user_version}, but migration history ends at {history_version}"
+    )]
     SchemaVersionMismatch {
         user_version: i64,
         history_version: i64,

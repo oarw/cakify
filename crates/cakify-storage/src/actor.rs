@@ -184,8 +184,8 @@ fn configure_connection(
     connection: &Connection,
     busy_timeout: Duration,
 ) -> Result<(), StorageError> {
-    let busy_timeout_ms = i64::try_from(busy_timeout.as_millis())
-        .map_err(|_| StorageError::BusyTimeoutOutOfRange)?;
+    let busy_timeout_ms =
+        i64::try_from(busy_timeout.as_millis()).map_err(|_| StorageError::BusyTimeoutOutOfRange)?;
     connection.pragma_update(None, "foreign_keys", "ON")?;
     connection.pragma_update(None, "busy_timeout", busy_timeout_ms)?;
     connection.pragma_update(None, "temp_store", "MEMORY")?;
@@ -208,12 +208,10 @@ fn read_health(connection: &Connection) -> Result<StorageHealth, StorageError> {
         connection.pragma_query_value(None, "foreign_keys", |row| row.get(0))?;
     let journal_mode: String =
         connection.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
-    let synchronous: i64 =
-        connection.pragma_query_value(None, "synchronous", |row| row.get(0))?;
+    let synchronous: i64 = connection.pragma_query_value(None, "synchronous", |row| row.get(0))?;
     let busy_timeout_ms: i64 =
         connection.pragma_query_value(None, "busy_timeout", |row| row.get(0))?;
-    let temp_store: i64 =
-        connection.pragma_query_value(None, "temp_store", |row| row.get(0))?;
+    let temp_store: i64 = connection.pragma_query_value(None, "temp_store", |row| row.get(0))?;
     let quick_check = quick_check(connection)?;
 
     Ok(StorageHealth {
@@ -243,7 +241,11 @@ fn validate_health(health: &StorageHealth) -> Result<(), StorageError> {
         "wal".to_owned(),
         health.journal_mode.clone(),
     )?;
-    expect_setting("synchronous", "1".to_owned(), health.synchronous.to_string())?;
+    expect_setting(
+        "synchronous",
+        "1".to_owned(),
+        health.synchronous.to_string(),
+    )?;
     expect_setting(
         "busy_timeout",
         "2500".to_owned(),

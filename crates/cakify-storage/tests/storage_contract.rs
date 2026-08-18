@@ -113,7 +113,10 @@ fn actor_initializes_required_schema_and_connection_pragmas() {
         for name in names {
             let normalized = name.to_ascii_lowercase();
             assert!(!normalized.contains("api_key"), "unexpected {table}.{name}");
-            assert!(!normalized.contains("password"), "unexpected {table}.{name}");
+            assert!(
+                !normalized.contains("password"),
+                "unexpected {table}.{name}"
+            );
             assert!(!normalized.contains("token"), "unexpected {table}.{name}");
             assert!(!normalized.contains("secret"), "unexpected {table}.{name}");
             if normalized == "credential_ref" {
