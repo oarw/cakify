@@ -7,6 +7,8 @@
 > 最近 M1 repository 基线：commit `621097cdc08a9ac5129eef2200c2b8c7628504e2`
 > 当前结论：Product validate、M0 runtime smoke、M1 storage foundation、repository/crash recovery、Provider profile 与 SecretStore 的受控 public -> Actions -> private 均已完成；仓库已恢复 PRIVATE。
 
+> 2026-08-18 更新：聊天切片 Product validate `32153002500` 与 Windows runtime smoke `32154636851` 也已完成同一受控闭环；恢复前无 queued/in_progress，当前仓库已复核为 PRIVATE。
+
 本文件及同步进度文档是审计完成后的记录增量，提交前同样执行敏感模式和 staged diff 检查。真正切换 public 前还必须对当时的实际 HEAD 做一次增量复核。
 
 ## 1. 审计边界

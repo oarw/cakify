@@ -2,7 +2,7 @@
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
 > 最后更新：2026-08-18（Asia/Shanghai）
-> 交接状态：M0 与 M1 SQLite/repository/Provider/SecretStore Product validate 已闭合，当前正在推进 M2/M3 聊天垂直切片；源码待 Actions 验证。
+> 交接状态：首个 M2/M3 聊天预览已通过 Product validate 与 Windows runtime smoke；下一步接消息持久化、会话操作和 MCP 执行。
 
 ## 1. 五分钟上下文
 
@@ -39,22 +39,22 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 - 路径：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`
-- 当前 HEAD：以 `git rev-parse HEAD` 为准；本轮聊天切片源码尚未提交。
+- 当前 HEAD：聊天切片已验证源码提交为 `cf822f00f9958111973dc7e93903a1515f9726db`；文档提交后以 `git rev-parse HEAD` 为准。
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
-- Product validate 已验证源码提交：`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`
+- Product validate 已验证源码提交：`cf822f00f9958111973dc7e93903a1515f9726db`
 - M0 runtime 最终验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
-- 最近 Product validate：`32127969715`，目标 HEAD `054aaf6b0ea939d41f455921ced714e4461ed5fa`，全量验证与 release artifact 已通过并核对。
-- 根产品 Cargo workspace 已建立，成员为 desktop、core、platform-windows、provider、storage；聊天切片尚未通过 Actions。
+- 最近 Product validate：`32153002500`，目标 HEAD `cf822f00f9958111973dc7e93903a1515f9726db`，全量验证与 release artifact 已通过并核对。
+- 根产品 Cargo workspace 已建立，成员为 desktop、core、platform-windows、provider、storage；聊天切片已通过 Actions 与真实窗口 smoke。
 - GPUI 空窗口和 fake Core bridge 已通过 Actions 的 fmt/check/tests/Clippy/release build 与最终 runtime smoke；三轮窗口完整可见，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留。
 - 旧 benchmark 完整归档在 `archi/framework-benchmark-2026-08/`。
 - 根 `.github/workflows/product-validate.yml` 只有 `workflow_dispatch`；push 不会自动运行。
-- 最近实际成功 run：Product validate `32127969715`；M0 最终 runtime smoke 仍为 `32093988986`。
+- 最近实际成功 run：Product validate `32153002500`；聊天 UI runtime smoke `32154636851`。
 - Runtime smoke 前两轮分别暴露无效内存聚合与任务栏遮挡；第三轮全部硬门通过。本机始终未编译/测试/运行产品。
-- 产品 `Cargo.lock` 已提交；SecretStore 最终 artifact 含 release EXE、依赖树和三份 migration，详见第 12 节。
-- Product validate 与 M0 runtime smoke 的公开前安全审计及 public -> Actions -> private 均已闭环，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
+- 产品 `Cargo.lock` 已提交；聊天预览 artifact 含 release EXE、依赖树和三份 migration，详见第 12 节。
+- 本轮 Product validate 与 runtime smoke 的 public -> Actions -> private 已闭环，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
 - 仓库没有 LICENSE。
 
 接手后先执行只读检查：`git status --short --branch`、`git rev-parse HEAD`、`git remote -v`、`gh repo view ... --json visibility,isPrivate`、`gh run list`。实际状态优先于本文。
@@ -174,6 +174,8 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 最终 artifact `product-validation-32034202488` digest `sha256:e9c4f5f0db1488d8f946acfcb2766d2d0ccd4f313fa4f7a476747639f9a8a7b5`；EXE 5,722,112 bytes，SHA-256 `4EB5AF9970EAFFC35850C599CD2A91685D6C1CC9FCB11B45526CA5B8D7DBF8DF`，未签名。
 - 最终锁文件与仓库逐行一致，越界框架包与 artifact 文本 secret 0 命中。恢复 private 前已确认 queued/in_progress 为空；当前仓库 PRIVATE。
 - Product validate：<https://github.com/oarw/cakify/actions/runs/32127969715>，success，commit `054aaf6b0ea939d41f455921ced714e4461ed5fa`，job `95682647629`，artifact `product-validation-32127969715`（ID `9321446137`，digest `sha256:1b4f6f03c4a6d0883f5c11d94b87a061d2d38db1e660d8401433d5d6fb6c795d`）。fmt/check/全量 tests、storage/repository/provider/secret contracts、Clippy、release build 与上传全部成功；6 files、2,386,299 bytes，release EXE 5,722,624 bytes，SHA-256 `9C63E9A44A8C7AC78D03FDCDAC4B3F9922E9A2388A9122B97F75B226982F3E0D`，`NotSigned`。锁文件归一化匹配仓库，越界 GPL AI crate 与文本 secret 0 命中；恢复前 queued/in_progress 为空，随后复核仓库 PRIVATE。
+- Product validate：<https://github.com/oarw/cakify/actions/runs/32153002500>，success，commit `cf822f00f9958111973dc7e93903a1515f9726db`，job `95763320261`，artifact `product-validation-32153002500`（ID `9331090742`，digest `sha256:157d7597834867e13e08b9026c90a5335aa0e7c2dd03d6dcf9f6926f1ab98413`）。全门通过；release EXE 9,249,280 bytes，SHA-256 `8EC4399E668667142752B8E6380AFA06D034841B9ED0072FFC69FB30D58EDFE1`，`NotSigned`；artifact 内容独立核对无异常。
+- Windows runtime smoke：<https://github.com/oarw/cakify/actions/runs/32154636851>，success，同一 commit，job `95768769663`，artifact `windows-runtime-smoke-32154636851`（ID `9331473360`，digest `sha256:0084053b94a7468c9fb6ba25c4ee0b2875312f0eefbb46c7feb0b87f353e3413`）。三轮真实聊天窗口完整可见，idle Working Set `36.164-38.863 MiB`、0 子进程、正常退出且无残留；截图已独立核对。
 - Windows runtime smoke：<https://github.com/oarw/cakify/actions/runs/32037554962>，success 但内存顶层聚合无效，不能作为最终证据。
 - Windows runtime smoke：<https://github.com/oarw/cakify/actions/runs/32038434473>，success，性能/生命周期证据有效，但截图显示任务栏遮挡，未接受为最终 M0 验收。
 - Windows runtime smoke：<https://github.com/oarw/cakify/actions/runs/32093988986>，success，commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`，job `95581655025`，artifact `windows-runtime-smoke-32093988986`（ID `9309416529`，digest `sha256:8a09c0785d1cc77257c798f26247a5bec16ae8e63b95ab129faa04a18430a6c3`）。三轮完整可见、空闲 Working Set `35.477-37.121 MiB`、0 子进程、正常退出且无残留；JSONL/日志/截图独立核验通过。
@@ -184,17 +186,17 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 当前分支：`main`
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
-- Product validate 已验证提交：`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`
+- Product validate 已验证提交：`cf822f00f9958111973dc7e93903a1515f9726db`
 - M0 runtime 最终验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
 - 当前 milestone：M2/M3 聊天垂直切片；M0 与 M1 SecretStore 已闭合
 - 当前正在做：GPUI composer/消息列表、OpenAI-compatible SSE、Markdown、工具审批/MCP UI
-- 最近成功 Actions：Product validate `32127969715`
-- 本轮 Actions：Product validate 首轮 `32127609188` 只因 rustfmt 失败；第二轮 `32127969715` 全部通过并核对 artifact，仓库已恢复 PRIVATE
-- 精确下一动作：提交并推送聊天切片；按 8 月公开闭环只运行 Product validate，先修复 fmt/check/test/Clippy，再运行 Windows runtime smoke；不要把未运行写成通过
+- 最近成功 Actions：Product validate `32153002500`、Windows runtime smoke `32154636851`
+- 本轮 Actions：聊天切片全量验证与三轮原生窗口 smoke 均通过，artifact/截图已核对，仓库已恢复 PRIVATE
+- 精确下一动作：先把消息/会话接入现有 storage actor，再补编辑、重新生成、分支和虚拟长列表；之后接 `rmcp` 与 Job Object
 - 需要用户决定：项目许可证；M7 签名/发行渠道。8 月受控 visibility 闭环已有持续授权，不再逐次询问
-- 已知风险：聊天切片尚未 Actions 验证；MCP `rmcp`/Job Object 和消息持久化尚未接入；真实中文/日文 IME、selection/clipboard/accessibility 尚未人工验收；GPUI pre-1.0；M0 指标只覆盖窗口壳层；EXE 未签名
+- 已知风险：未使用真实用户 Key 做在线 Provider smoke；MCP `rmcp`/Job Object 和消息持久化尚未接入；真实中文/日文 IME、selection/clipboard/accessibility 尚未人工验收；GPUI pre-1.0；EXE 未签名
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
 
 交接时用实际 `git rev-parse HEAD` 更新或解释 HEAD；不要让文档中的工作前基线冒充最新提交。
