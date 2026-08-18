@@ -489,9 +489,10 @@ fn execute_run(input: RunWorker) {
     let mut usage = None;
     let mut finish_reason = None;
 
-    let result = input
-        .provider
-        .stream(input.request.clone(), input.cancellation.clone(), &mut |event| {
+    let result = input.provider.stream(
+        input.request.clone(),
+        input.cancellation.clone(),
+        &mut |event| {
             if input.cancellation.load(Ordering::Acquire) {
                 return false;
             }
@@ -534,7 +535,8 @@ fn execute_run(input: RunWorker) {
                 ProviderStreamEvent::Finished { reason } => finish_reason = reason,
             }
             true
-        });
+        },
+    );
     flush_text(&input, &mut pending_text);
 
     if input.cancellation.load(Ordering::Acquire)
