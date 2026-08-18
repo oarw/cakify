@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-18（Asia/Shanghai）
 > 当前阶段：M1 - 数据与秘密基础
-> 当前状态：M1_PROVIDER_PROFILES_VALIDATION_PENDING
+> 当前状态：M1_SECRET_STORE_IN_PROGRESS
 
 ## 1. 当前快照
 
@@ -13,8 +13,8 @@
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
 - M0 最终 runtime 验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：`PRIVATE`；repository Product validate `32100910742` 完成后确认活动任务为 0，已恢复并复核。
-- 最近成功 Actions：Product validate `32100910742`，目标 commit `621097cdc08a9ac5129eef2200c2b8c7628504e2`；fmt/check/全量 tests/storage+repository contract/Clippy/release build/artifact upload 全部通过。
+- 仓库可见性：`PRIVATE`；Provider Product validate `32119057930` 完成后确认 queued/in_progress 均为 0，已恢复并复核。
+- 最近成功 Actions：Product validate `32119057930`，目标 commit `9673349691062c80349f358d0ec8fc0a61364180`；fmt/check/全量 tests、storage/repository/provider contracts、Clippy、release build 与 artifact upload 全部通过。
 - 本轮 Actions：runtime smoke 首轮 `32037554962` 的内存汇总证据无效；第二轮 `32038434473` 的性能/生命周期证据有效但截图暴露任务栏遮挡；第三轮 `32093988986` 全部硬门和 artifact 独立核验通过。
 - Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0，因此内存证据无效。
 - Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；但截图显示窗口底部约 27 px 被任务栏遮挡，因此当时没有作为最终 M0 验收。
@@ -22,8 +22,8 @@
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- M1 源码：SQLite foundation、conversation/message/part/run repository、v3 checkpoint revision、敏感 provider snapshot 拦截与启动 crash recovery 均已通过 Product validate；Provider profile CRUD、原子 model cache 与 credential reference contract 源码已完成，等待本轮 Actions 验证。
-- M1 依赖：已从 run `32097396883` artifact 取回 runner 生成的 `Cargo.lock`；固定 `rusqlite 0.40.2`、`sha2 0.10.9`，rusqlite registry checksum 与官方值一致，依赖树未发现网络栈、向量库或密钥库越界包。
+- M1 源码：SQLite foundation、conversation/message/part/run repository、crash recovery，以及 Provider profile CRUD、原子 model cache、endpoint/JSON/credential reference contracts 均已通过 Product validate；当前进入 SecretStore 两阶段生命周期与 Windows CredMan/DPAPI。
+- M1 依赖：固定 `rusqlite 0.40.2`、`sha2 0.10.9`，并把锁文件中已有的 `url 2.5.8` 设为 storage 直接依赖做 endpoint 结构化解析；最终依赖树未发现 GPL AI 业务 crate、向量库或密钥库越界包。
 - 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行最终 M0 release EXE。三次窗口 ready 为 `145.450/129.692/118.279 ms`，空闲 Working Set 为 `37.121/35.480/35.477 MiB`，均完整可见、单进程并正常退出；IME 保持 M2 独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
 - 本次公开前审计与 visibility 闭环：已完成，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
@@ -100,7 +100,7 @@
 - [x] Windows runtime smoke `32093988986` 通过三轮窗口完整可见、80 MiB idle、0 子进程、WM_CLOSE/无残留硬门；artifact JSONL、日志、哈希和截图已独立核对，仓库已恢复 PRIVATE。
 - [x] Product validate `32097907337` 在含 runner 锁文件的 commit 上通过 SQLite actor、migration、schema/外键/checksum/重开/未来版本 contract、Clippy 与 release build；仓库已恢复 PRIVATE。
 - [x] Product validate `32100910742` 通过 conversation/message/part/run repository、v3 migration、稳定分页、聚合事务、checkpoint revision、run 终态和一次性 crash recovery contract；仓库已恢复 PRIVATE。
-- [ ] Provider profile create/get/list/update/disable/delete、原子 model cache、endpoint/metadata/capability JSON 与 opaque credential reference contract 源码已完成；尚待 Product validate，不提前记为通过。
+- [x] Product validate `32119057930` 通过 Provider profile create/get/list/update/disable/delete、stale write、原子 model cache、endpoint/metadata/capability JSON、opaque credential reference 与删除级联 contract；release EXE 和 artifact 已独立核对，仓库已恢复 PRIVATE。
 
 ## 6. 尚未完成
 
@@ -116,10 +116,9 @@
 
 下一位执行者直接实施 M1，不再做框架或 M0 runtime 泛泛选型：
 
-1. 对当前 Provider profile 源码完成静态复核、提交推送，并自动执行受控 Product validate public -> Actions -> private 闭环；准确记录 run、artifact 与结论。
-2. 定义 SecretStore trait 与 profile/secret 两阶段生命周期：先写 Windows secret，再提交 reference；失败补偿删除，profile 删除后清理 orphan reference。
-3. 实现 Windows Credential Manager 主路径与 DPAPI current-user 后备，仅在 Windows Actions 运行 synthetic secret round-trip。
-4. 再实现 live backup/restore、synthetic secret 扫描和 M1 完整验收。
+1. 定义 SecretStore trait 与 profile/secret 两阶段生命周期：先写 Windows secret，再提交 reference；失败补偿删除，profile 删除后清理 orphan reference。
+2. 实现 Windows Credential Manager 主路径与 DPAPI current-user 后备，仅在 Windows Actions 运行 synthetic secret round-trip。
+3. 再实现 live backup/restore、synthetic secret 扫描和 M1 完整验收。
 
 详细验收见 `docs/ROADMAP.md` 的 M1。
 
@@ -145,7 +144,7 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M1_PROVIDER_PROFILES_VALIDATION_PENDING`：Provider profile 与 model cache 源码已写入，但尚未通过 Actions；SecretStore 与 backup 未实现，在对应 contract 通过前不接真实 Provider 或用户 secret。
+- `M1_SECRET_STORE_IN_PROGRESS`：Provider profile 与 model cache 已通过 Actions；SecretStore 与 backup 尚未实现，在 synthetic secret contract 通过前不接真实 Provider 或用户 secret。
 - `M1_ARTIFACT_DOWNLOAD_PENDING`：storage foundation 与 repository 最终 artifacts 分别已由 runner 成功上传 5/6 个文件，ID/大小/digest 与上传日志一致；本机到两个 Azure Blob 主机持续连接超时，因此最终 ZIP 内容独立解包检查仍待网络恢复后补做。workflow 结论和仓库恢复不受影响，不能把尚未下载写成已核对。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
@@ -169,6 +168,10 @@
 - [Product validate #32097907337](https://github.com/oarw/cakify/actions/runs/32097907337)：`success`，commit `785241720db087ce38121b095ea5f192063ab2b4`，job `95592703383`，artifact `product-validation-32097907337`（ID `9310763337`，digest `sha256:66b893168eadc5ead939c71c4059ca65f15cc6c9f2b2c38c2e3f49a2274ab118`，5 files，2,385,820 bytes）。fmt、workspace check、全量 tests、5 项 storage contract、Clippy、release build 与上传全部成功；release 优化构建用时 3m51s。artifact ZIP 因本机连接 `productionresultssa8.blob.core.windows.net:443` 持续超时尚未解包，不能写成内容已独立核对。
 - [Product validate #32100633458](https://github.com/oarw/cakify/actions/runs/32100633458)：`failure`，commit `2f4b8688fc71ae727781baa7ac9306db48f9e2aa`，job `95600298727`，artifact `product-validation-32100633458`（ID `9311450847`，digest `sha256:b15cb49d2ab6970c9de214e8a215c0856a8c00fd8bfc0663223da0401e8de9a2`）。依赖树/许可证边界成功，格式检查失败；check/tests/storage/repository contract/Clippy/release 均跳过，不能写成 repository 通过。
 - [Product validate #32100910742](https://github.com/oarw/cakify/actions/runs/32100910742)：`success`，commit `621097cdc08a9ac5129eef2200c2b8c7628504e2`，job `95601074839`，artifact `product-validation-32100910742`（ID `9311722769`，digest `sha256:51d059c6089178c9afb56c858d594d744892071da2a1b28cd6edf24e96f144af`，6 files，2,386,139 bytes）。fmt/check/全量 tests、storage contract 5/5、repository contract 4/4、Clippy、release build 与上传全部成功；release 优化构建用时 3m43s。artifact ZIP 因本机连接 Azure Blob 超时尚未解包，不能写成内容已独立核对。
+- [Product validate #32118633092](https://github.com/oarw/cakify/actions/runs/32118633092)：`failure`，commit `0cca0725f23ff73118cb03bdb45de311d7634800`，job `95653757929`，artifact `product-validation-32118633092`（ID `9317717492`，digest `sha256:8e3feac94207dafbbcd120e6c4e301ccb30366403969e6d5a78bbd44bec9aebc`，47,139 bytes）。依赖树/许可证边界通过，格式检查失败；workspace check、tests、三个 contract、Clippy 与 release build 均跳过，不能记为 Provider 通过。
+- [Product validate #32119057930](https://github.com/oarw/cakify/actions/runs/32119057930)：`success`，commit `9673349691062c80349f358d0ec8fc0a61364180`，job `95655067997`，artifact `product-validation-32119057930`（ID `9318178539`，digest `sha256:e1e5a95bdf6d5b726ed98c14481a1c6dbee765189cc9f947d8f0ae524492fa9b`，6 files，2,386,150 bytes）。fmt/check/全量 tests、storage contract 5/5、repository contract 4/4、provider profile contract 4/4、Clippy、release build 与上传全部成功；release 优化构建用时 4m14s。
+- 最终 Provider artifact 已实际下载解包：`Cargo.lock` 与三份 migration 在 CRLF -> LF 归一化后和仓库逐字一致；dependency tree 的 GPL AI 业务 crate 命中 0，文本 secret 命中 0。EXE 为 5,722,624 bytes，SHA-256 `D3F27A091CD16EC63726534B0FB6F5442D77FFC481806010FDEF523C00453892`，`NotSigned`（M7 前预期状态）；依赖树 SHA-256 `F6A1ECD32544E40B5427B805BEF2CE782BBE2EA871C982F9B80A33ED029C384A`。
+- Provider 临时公开前复核覆盖 34 个可达 commit、487 个 objects，高置信 secret 0 命中；Actions secrets/variables/environments、Release、Issue、PR、fork、LFS 文件均为 0，仓库仍无 LICENSE。本轮只运行 Product validate；恢复前 queued/in_progress 均为 0，随后已复核仓库为 PRIVATE。
 
 ### 公开前审计记录
 
@@ -287,7 +290,10 @@
 - endpoint 通过锁文件已有的 `url 2.5.8` 解析，限制为无内嵌认证、query 或 fragment 的绝对 HTTP(S) URL；metadata/capabilities 必须为有大小上限的 JSON object，并递归拒绝 credential-bearing key。
 - `credential_ref` 只接受 `Cakify/provider/<opaque>/api-key` target 形式；SQLite schema 仍无 API key/token/blob 列，也没有向 storage API 增加 secret plaintext 参数。
 - 新增四组 Provider contract 源码，覆盖 CRUD/禁用、stale write、敏感配置拒绝且不落盘、profile+cache 回滚、重复 model/reference、删除返回 reference 与外键级联；Product validate 新增显式 contract step。
-- 本机仅编辑源码并完成 `git diff --check` 等静态检查；尚未编译或执行测试，等待本轮 GitHub Actions 实证。
+- 本机仅编辑源码并完成 `git diff --check` 等静态检查；首轮 Product validate `32118633092` 在 rustfmt 门失败，编译与测试均未执行，已按 runner 精确差异修复。
+- 修复提交 `9673349691062c80349f358d0ec8fc0a61364180` 的第二轮 Product validate `32119057930` 全部通过：workspace check、全量 tests、storage 5/5、repository 4/4、provider 4/4、Clippy、release build 和 artifact upload 均成功。
+- 最终 artifact 已实际下载并逐项核对：6 个文件、2,386,150 bytes；锁文件与 migrations 归一化后和仓库一致，dependency tree 越界 crate 与文本 secret 均为 0；release EXE 为 5,722,624 bytes、SHA-256 `D3F27A091CD16EC63726534B0FB6F5442D77FFC481806010FDEF523C00453892`、未签名。
+- 确认 queued/in_progress 为 0 后立即恢复 PRIVATE，并复核 run completed/success 与 `isPrivate=true`；M1 转入 SecretStore 两阶段生命周期与 Windows CredMan/DPAPI。
 
 ## 12. 更新规则
 
