@@ -58,8 +58,7 @@ fn model(id: &str, fetched_at: i64) -> NewProviderModel {
 }
 
 fn profile(id: &str, display_name: &str, created_at: i64) -> NewProviderProfile {
-    let mut profile =
-        NewProviderProfile::new(id, "openai-compatible", display_name, created_at);
+    let mut profile = NewProviderProfile::new(id, "openai-compatible", display_name, created_at);
     profile.endpoint = Some("https://api.example.invalid/v1".to_owned());
     profile.credential_ref = Some(format!("Cakify/provider/{id}/api-key"));
     profile.default_model = Some("model-b".to_owned());
@@ -293,10 +292,7 @@ fn profile_and_model_cache_changes_commit_or_roll_back_together() {
     let mut valid_update = update_from(&original, 12);
     valid_update.display_name = "Updated".to_owned();
     valid_update.default_model = Some("replacement-b".to_owned());
-    valid_update.models = Some(vec![
-        model("replacement-b", 12),
-        model("replacement-a", 12),
-    ]);
+    valid_update.models = Some(vec![model("replacement-b", 12), model("replacement-a", 12)]);
     let updated = handle
         .update_provider_profile(valid_update)
         .expect("replace profile and models");

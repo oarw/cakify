@@ -36,12 +36,11 @@ pub(crate) fn create_provider_profile(
         ],
     )?;
     replace_provider_models_in_transaction(&transaction, &input.id, &input.models)?;
-    let profile = get_provider_profile(&transaction, &input.id)?.ok_or_else(|| {
-        StorageError::NotFound {
+    let profile =
+        get_provider_profile(&transaction, &input.id)?.ok_or_else(|| StorageError::NotFound {
             entity: "provider profile",
             id: input.id.clone(),
-        }
-    })?;
+        })?;
     transaction.commit()?;
     Ok(profile)
 }
@@ -121,12 +120,11 @@ pub(crate) fn update_provider_profile(
     if let Some(models) = &input.models {
         replace_provider_models_in_transaction(&transaction, &input.id, models)?;
     }
-    let profile = get_provider_profile(&transaction, &input.id)?.ok_or_else(|| {
-        StorageError::NotFound {
+    let profile =
+        get_provider_profile(&transaction, &input.id)?.ok_or_else(|| StorageError::NotFound {
             entity: "provider profile",
             id: input.id.clone(),
-        }
-    })?;
+        })?;
     transaction.commit()?;
     Ok(profile)
 }
@@ -135,18 +133,13 @@ pub(crate) fn set_provider_profile_disabled(
     connection: &mut Connection,
     input: ProviderProfileStatusUpdate,
 ) -> Result<ProviderProfileRecord, StorageError> {
-    validate_monotonic_profile_update(
-        &input.id,
-        input.expected_updated_at,
-        input.updated_at,
-    )?;
+    validate_monotonic_profile_update(&input.id, input.expected_updated_at, input.updated_at)?;
     let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    let current = get_provider_profile(&transaction, &input.id)?.ok_or_else(|| {
-        StorageError::NotFound {
+    let current =
+        get_provider_profile(&transaction, &input.id)?.ok_or_else(|| StorageError::NotFound {
             entity: "provider profile",
             id: input.id.clone(),
-        }
-    })?;
+        })?;
     if current.updated_at != input.expected_updated_at {
         return Err(StorageError::StaleWrite {
             entity: "provider profile",
@@ -172,12 +165,11 @@ pub(crate) fn set_provider_profile_disabled(
             input.expected_updated_at,
         ],
     )?;
-    let profile = get_provider_profile(&transaction, &current.id)?.ok_or_else(|| {
-        StorageError::NotFound {
+    let profile =
+        get_provider_profile(&transaction, &current.id)?.ok_or_else(|| StorageError::NotFound {
             entity: "provider profile",
             id: current.id.clone(),
-        }
-    })?;
+        })?;
     transaction.commit()?;
     Ok(profile)
 }
@@ -920,8 +912,7 @@ fn load_provider_models(
                 fetched_at: row.get(4)?,
             })
         })?
-        .collect::<Result<Vec<_>, _>>()
-        ?;
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(models)
 }
 
@@ -951,10 +942,7 @@ fn replace_provider_models_in_transaction(
     Ok(())
 }
 
-fn provider_write_failure<T>(
-    connection: &Connection,
-    id: &str,
-) -> Result<T, StorageError> {
+fn provider_write_failure<T>(connection: &Connection, id: &str) -> Result<T, StorageError> {
     let exists = connection.query_row(
         "SELECT EXISTS(SELECT 1 FROM provider_profiles WHERE id = ?1)",
         params![id],
@@ -1064,11 +1052,7 @@ fn validate_provider_profile_update(input: &ProviderProfileUpdate) -> Result<(),
         input.default_model.as_deref(),
         &input.metadata_json,
     )?;
-    validate_monotonic_profile_update(
-        &input.id,
-        input.expected_updated_at,
-        input.updated_at,
-    )?;
+    validate_monotonic_profile_update(&input.id, input.expected_updated_at, input.updated_at)?;
     if let Some(models) = &input.models {
         validate_provider_models(models)?;
     }
@@ -1219,10 +1203,7 @@ fn validate_required_text(
     Ok(())
 }
 
-fn validate_non_secret_json_object(
-    field: &'static str,
-    json: &str,
-) -> Result<(), StorageError> {
+fn validate_non_secret_json_object(field: &'static str, json: &str) -> Result<(), StorageError> {
     if json.len() > 65_536 {
         return Err(StorageError::InvalidInput {
             field,
@@ -1244,10 +1225,7 @@ fn validate_provider_snapshot(field: &'static str, json: &str) -> Result<(), Sto
     validate_non_secret_json_value(field, &root)
 }
 
-fn validate_non_secret_json_value(
-    field: &'static str,
-    root: &Value,
-) -> Result<(), StorageError> {
+fn validate_non_secret_json_value(field: &'static str, root: &Value) -> Result<(), StorageError> {
     let mut pending = vec![root];
     while let Some(value) = pending.pop() {
         match value {
