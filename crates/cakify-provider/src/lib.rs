@@ -349,10 +349,8 @@ fn consume_sse<R: BufRead>(
             ProviderError::new(ProviderErrorKind::Transport, "读取 Provider 流式响应失败")
         })?;
         if read == 0 {
-            if !data.is_empty() {
-                if data != "[DONE]" {
-                    dispatch_sse_data(&data, sink)?;
-                }
+            if !data.is_empty() && data != "[DONE]" {
+                dispatch_sse_data(&data, sink)?;
             }
             return Ok(());
         }
@@ -455,15 +453,14 @@ fn dispatch_sse_data(data: &str, sink: &mut StreamSink<'_>) -> Result<(), Provid
     if choice
         .get("finish_reason")
         .is_some_and(|value| !value.is_null())
-    {
-        if !sink(ProviderStreamEvent::Finished {
+        && !sink(ProviderStreamEvent::Finished {
             reason: choice
                 .get("finish_reason")
                 .and_then(Value::as_str)
                 .map(str::to_owned),
-        }) {
-            return Err(cancelled());
-        }
+        })
+    {
+        return Err(cancelled());
     }
     Ok(())
 }
