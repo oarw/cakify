@@ -9,8 +9,10 @@ use rusqlite::Connection;
 
 use crate::{
     migration, repository, ConversationPage, ConversationQuery, ConversationRecord,
-    ConversationThread, CrashRecoveryReport, NewConversation, NewMessage, NewRun, RunRecord,
-    RunUpdate, StorageError, TextCheckpoint, LATEST_SCHEMA_VERSION,
+    ConversationThread, CrashRecoveryReport, DeletedProviderProfile, NewConversation, NewMessage,
+    NewProviderModel, NewProviderProfile, NewRun, ProviderModelRecord, ProviderProfileRecord,
+    ProviderProfileStatusUpdate, ProviderProfileUpdate, RunRecord, RunUpdate, StorageError,
+    TextCheckpoint, LATEST_SCHEMA_VERSION,
 };
 
 const COMMAND_CAPACITY: usize = 64;
@@ -58,6 +60,69 @@ pub struct StorageHandle {
 impl StorageHandle {
     pub fn health(&self) -> Result<StorageHealth, StorageError> {
         self.request(|reply| Command::Health { reply })
+    }
+
+    pub fn create_provider_profile(
+        &self,
+        input: NewProviderProfile,
+    ) -> Result<ProviderProfileRecord, StorageError> {
+        self.request(|reply| Command::CreateProviderProfile { input, reply })
+    }
+
+    pub fn get_provider_profile(
+        &self,
+        id: &str,
+    ) -> Result<Option<ProviderProfileRecord>, StorageError> {
+        self.request(|reply| Command::GetProviderProfile {
+            id: id.to_owned(),
+            reply,
+        })
+    }
+
+    pub fn list_provider_profiles(
+        &self,
+        include_disabled: bool,
+    ) -> Result<Vec<ProviderProfileRecord>, StorageError> {
+        self.request(|reply| Command::ListProviderProfiles {
+            include_disabled,
+            reply,
+        })
+    }
+
+    pub fn update_provider_profile(
+        &self,
+        input: ProviderProfileUpdate,
+    ) -> Result<ProviderProfileRecord, StorageError> {
+        self.request(|reply| Command::UpdateProviderProfile { input, reply })
+    }
+
+    pub fn set_provider_profile_disabled(
+        &self,
+        input: ProviderProfileStatusUpdate,
+    ) -> Result<ProviderProfileRecord, StorageError> {
+        self.request(|reply| Command::SetProviderProfileDisabled { input, reply })
+    }
+
+    pub fn replace_provider_models(
+        &self,
+        provider_id: &str,
+        models: Vec<NewProviderModel>,
+    ) -> Result<Vec<ProviderModelRecord>, StorageError> {
+        self.request(|reply| Command::ReplaceProviderModels {
+            provider_id: provider_id.to_owned(),
+            models,
+            reply,
+        })
+    }
+
+    pub fn delete_provider_profile(
+        &self,
+        id: &str,
+    ) -> Result<DeletedProviderProfile, StorageError> {
+        self.request(|reply| Command::DeleteProviderProfile {
+            id: id.to_owned(),
+            reply,
+        })
     }
 
     pub fn create_conversation(
@@ -223,6 +288,35 @@ enum Command {
     Health {
         reply: SyncSender<Result<StorageHealth, StorageError>>,
     },
+    CreateProviderProfile {
+        input: NewProviderProfile,
+        reply: SyncSender<Result<ProviderProfileRecord, StorageError>>,
+    },
+    GetProviderProfile {
+        id: String,
+        reply: SyncSender<Result<Option<ProviderProfileRecord>, StorageError>>,
+    },
+    ListProviderProfiles {
+        include_disabled: bool,
+        reply: SyncSender<Result<Vec<ProviderProfileRecord>, StorageError>>,
+    },
+    UpdateProviderProfile {
+        input: ProviderProfileUpdate,
+        reply: SyncSender<Result<ProviderProfileRecord, StorageError>>,
+    },
+    SetProviderProfileDisabled {
+        input: ProviderProfileStatusUpdate,
+        reply: SyncSender<Result<ProviderProfileRecord, StorageError>>,
+    },
+    ReplaceProviderModels {
+        provider_id: String,
+        models: Vec<NewProviderModel>,
+        reply: SyncSender<Result<Vec<ProviderModelRecord>, StorageError>>,
+    },
+    DeleteProviderProfile {
+        id: String,
+        reply: SyncSender<Result<DeletedProviderProfile, StorageError>>,
+    },
     CreateConversation {
         input: NewConversation,
         reply: SyncSender<Result<ConversationRecord, StorageError>>,
@@ -310,6 +404,44 @@ fn run_loop(mut connection: Connection, receiver: Receiver<Command>) {
         match command {
             Command::Health { reply } => {
                 let _ = reply.send(read_health(&connection));
+            }
+            Command::CreateProviderProfile { input, reply } => {
+                let _ = reply.send(repository::create_provider_profile(&mut connection, input));
+            }
+            Command::GetProviderProfile { id, reply } => {
+                let _ = reply.send(repository::get_provider_profile(&connection, &id));
+            }
+            Command::ListProviderProfiles {
+                include_disabled,
+                reply,
+            } => {
+                let _ = reply.send(repository::list_provider_profiles(
+                    &connection,
+                    include_disabled,
+                ));
+            }
+            Command::UpdateProviderProfile { input, reply } => {
+                let _ = reply.send(repository::update_provider_profile(&mut connection, input));
+            }
+            Command::SetProviderProfileDisabled { input, reply } => {
+                let _ = reply.send(repository::set_provider_profile_disabled(
+                    &mut connection,
+                    input,
+                ));
+            }
+            Command::ReplaceProviderModels {
+                provider_id,
+                models,
+                reply,
+            } => {
+                let _ = reply.send(repository::replace_provider_models(
+                    &mut connection,
+                    &provider_id,
+                    models,
+                ));
+            }
+            Command::DeleteProviderProfile { id, reply } => {
+                let _ = reply.send(repository::delete_provider_profile(&mut connection, &id));
             }
             Command::CreateConversation { input, reply } => {
                 let _ = reply.send(repository::create_conversation(&mut connection, input));

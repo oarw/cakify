@@ -146,6 +146,112 @@ impl RunStatus {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewProviderModel {
+    pub model_id: String,
+    pub display_name: Option<String>,
+    pub capabilities_json: String,
+    pub fetched_at: i64,
+}
+
+impl NewProviderModel {
+    pub fn new(model_id: impl Into<String>, fetched_at: i64) -> Self {
+        Self {
+            model_id: model_id.into(),
+            display_name: None,
+            capabilities_json: "{}".to_owned(),
+            fetched_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProviderModelRecord {
+    pub provider_id: String,
+    pub model_id: String,
+    pub display_name: Option<String>,
+    pub capabilities_json: String,
+    pub fetched_at: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewProviderProfile {
+    pub id: String,
+    pub kind: String,
+    pub endpoint: Option<String>,
+    pub display_name: String,
+    pub credential_ref: Option<String>,
+    pub default_model: Option<String>,
+    pub metadata_json: String,
+    pub created_at: i64,
+    pub models: Vec<NewProviderModel>,
+}
+
+impl NewProviderProfile {
+    pub fn new(
+        id: impl Into<String>,
+        kind: impl Into<String>,
+        display_name: impl Into<String>,
+        created_at: i64,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            kind: kind.into(),
+            endpoint: None,
+            display_name: display_name.into(),
+            credential_ref: None,
+            default_model: None,
+            metadata_json: "{}".to_owned(),
+            created_at,
+            models: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProviderProfileRecord {
+    pub id: String,
+    pub kind: String,
+    pub endpoint: Option<String>,
+    pub display_name: String,
+    pub credential_ref: Option<String>,
+    pub default_model: Option<String>,
+    pub metadata_json: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub disabled_at: Option<i64>,
+    pub models: Vec<ProviderModelRecord>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProviderProfileUpdate {
+    pub id: String,
+    pub kind: String,
+    pub endpoint: Option<String>,
+    pub display_name: String,
+    pub credential_ref: Option<String>,
+    pub default_model: Option<String>,
+    pub metadata_json: String,
+    pub expected_updated_at: i64,
+    pub updated_at: i64,
+    /// `None` preserves the cache; `Some` atomically replaces it with this list.
+    pub models: Option<Vec<NewProviderModel>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProviderProfileStatusUpdate {
+    pub id: String,
+    pub disabled_at: Option<i64>,
+    pub expected_updated_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DeletedProviderProfile {
+    pub id: String,
+    pub credential_ref: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewConversation {
     pub id: String,
     pub title: String,

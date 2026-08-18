@@ -55,6 +55,10 @@ jobs:
         shell: pwsh
         run: cargo test --package cakify-storage --test repository_contract
 
+      - name: Run provider profile contract tests
+        shell: pwsh
+        run: cargo test --package cakify-storage --test provider_profile_contract
+
       - name: Run clippy
         shell: pwsh
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings

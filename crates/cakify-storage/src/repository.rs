@@ -1,14 +1,234 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use rusqlite::{params, Connection, OptionalExtension, Row, TransactionBehavior};
 use serde_json::Value;
+use url::Url;
 
 use crate::{
     ConversationCursor, ConversationPage, ConversationQuery, ConversationRecord,
-    ConversationThread, CrashRecoveryReport, MessagePartKind, MessagePartRecord, MessageRecord,
-    MessageRole, NewConversation, NewMessage, NewRun, RunRecord, RunStatus, RunUpdate,
+    ConversationThread, CrashRecoveryReport, DeletedProviderProfile, MessagePartKind,
+    MessagePartRecord, MessageRecord, MessageRole, NewConversation, NewMessage, NewProviderModel,
+    NewProviderProfile, NewRun, ProviderModelRecord, ProviderProfileRecord,
+    ProviderProfileStatusUpdate, ProviderProfileUpdate, RunRecord, RunStatus, RunUpdate,
     StorageError, TextCheckpoint,
 };
+
+pub(crate) fn create_provider_profile(
+    connection: &mut Connection,
+    input: NewProviderProfile,
+) -> Result<ProviderProfileRecord, StorageError> {
+    validate_new_provider_profile(&input)?;
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    transaction.execute(
+        "INSERT INTO provider_profiles(
+            id, kind, endpoint, display_name, credential_ref, default_model,
+            metadata_json, created_at, updated_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
+        params![
+            &input.id,
+            &input.kind,
+            &input.endpoint,
+            &input.display_name,
+            &input.credential_ref,
+            &input.default_model,
+            &input.metadata_json,
+            input.created_at,
+        ],
+    )?;
+    replace_provider_models_in_transaction(&transaction, &input.id, &input.models)?;
+    let profile = get_provider_profile(&transaction, &input.id)?.ok_or_else(|| {
+        StorageError::NotFound {
+            entity: "provider profile",
+            id: input.id.clone(),
+        }
+    })?;
+    transaction.commit()?;
+    Ok(profile)
+}
+
+pub(crate) fn get_provider_profile(
+    connection: &Connection,
+    id: &str,
+) -> Result<Option<ProviderProfileRecord>, StorageError> {
+    let profile = connection
+        .query_row(
+            "SELECT id, kind, endpoint, display_name, credential_ref, default_model,
+                    metadata_json, created_at, updated_at, disabled_at
+             FROM provider_profiles WHERE id = ?1",
+            params![id],
+            map_provider_profile,
+        )
+        .optional()?;
+    let Some(mut profile) = profile else {
+        return Ok(None);
+    };
+    profile.models = load_provider_models(connection, &profile.id)?;
+    Ok(Some(profile))
+}
+
+pub(crate) fn list_provider_profiles(
+    connection: &Connection,
+    include_disabled: bool,
+) -> Result<Vec<ProviderProfileRecord>, StorageError> {
+    let include_disabled = if include_disabled { 1_i64 } else { 0_i64 };
+    let mut statement = connection.prepare(
+        "SELECT id, kind, endpoint, display_name, credential_ref, default_model,
+                metadata_json, created_at, updated_at, disabled_at
+         FROM provider_profiles
+         WHERE ?1 = 1 OR disabled_at IS NULL
+         ORDER BY disabled_at IS NOT NULL, display_name COLLATE NOCASE, id",
+    )?;
+    let mut profiles = statement
+        .query_map(params![include_disabled], map_provider_profile)?
+        .collect::<Result<Vec<_>, _>>()?;
+    for profile in &mut profiles {
+        profile.models = load_provider_models(connection, &profile.id)?;
+    }
+    Ok(profiles)
+}
+
+pub(crate) fn update_provider_profile(
+    connection: &mut Connection,
+    input: ProviderProfileUpdate,
+) -> Result<ProviderProfileRecord, StorageError> {
+    validate_provider_profile_update(&input)?;
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let changed = transaction.execute(
+        "UPDATE provider_profiles
+         SET kind = ?2,
+             endpoint = ?3,
+             display_name = ?4,
+             credential_ref = ?5,
+             default_model = ?6,
+             metadata_json = ?7,
+             updated_at = ?8
+         WHERE id = ?1 AND updated_at = ?9",
+        params![
+            &input.id,
+            &input.kind,
+            &input.endpoint,
+            &input.display_name,
+            &input.credential_ref,
+            &input.default_model,
+            &input.metadata_json,
+            input.updated_at,
+            input.expected_updated_at,
+        ],
+    )?;
+    if changed == 0 {
+        return provider_write_failure(&transaction, &input.id);
+    }
+    if let Some(models) = &input.models {
+        replace_provider_models_in_transaction(&transaction, &input.id, models)?;
+    }
+    let profile = get_provider_profile(&transaction, &input.id)?.ok_or_else(|| {
+        StorageError::NotFound {
+            entity: "provider profile",
+            id: input.id.clone(),
+        }
+    })?;
+    transaction.commit()?;
+    Ok(profile)
+}
+
+pub(crate) fn set_provider_profile_disabled(
+    connection: &mut Connection,
+    input: ProviderProfileStatusUpdate,
+) -> Result<ProviderProfileRecord, StorageError> {
+    validate_monotonic_profile_update(
+        &input.id,
+        input.expected_updated_at,
+        input.updated_at,
+    )?;
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let current = get_provider_profile(&transaction, &input.id)?.ok_or_else(|| {
+        StorageError::NotFound {
+            entity: "provider profile",
+            id: input.id.clone(),
+        }
+    })?;
+    if current.updated_at != input.expected_updated_at {
+        return Err(StorageError::StaleWrite {
+            entity: "provider profile",
+            id: input.id,
+        });
+    }
+    if let Some(disabled_at) = input.disabled_at {
+        if disabled_at < current.created_at || disabled_at > input.updated_at {
+            return Err(StorageError::InvalidInput {
+                field: "provider.disabled_at",
+                reason: "must be between created_at and updated_at".to_owned(),
+            });
+        }
+    }
+    transaction.execute(
+        "UPDATE provider_profiles
+         SET disabled_at = ?2, updated_at = ?3
+         WHERE id = ?1 AND updated_at = ?4",
+        params![
+            &current.id,
+            input.disabled_at,
+            input.updated_at,
+            input.expected_updated_at,
+        ],
+    )?;
+    let profile = get_provider_profile(&transaction, &current.id)?.ok_or_else(|| {
+        StorageError::NotFound {
+            entity: "provider profile",
+            id: current.id.clone(),
+        }
+    })?;
+    transaction.commit()?;
+    Ok(profile)
+}
+
+pub(crate) fn replace_provider_models(
+    connection: &mut Connection,
+    provider_id: &str,
+    models: Vec<NewProviderModel>,
+) -> Result<Vec<ProviderModelRecord>, StorageError> {
+    validate_provider_models(&models)?;
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let exists = transaction.query_row(
+        "SELECT EXISTS(SELECT 1 FROM provider_profiles WHERE id = ?1)",
+        params![provider_id],
+        |row| row.get::<_, bool>(0),
+    )?;
+    if !exists {
+        return Err(StorageError::NotFound {
+            entity: "provider profile",
+            id: provider_id.to_owned(),
+        });
+    }
+    replace_provider_models_in_transaction(&transaction, provider_id, &models)?;
+    let stored = load_provider_models(&transaction, provider_id)?;
+    transaction.commit()?;
+    Ok(stored)
+}
+
+pub(crate) fn delete_provider_profile(
+    connection: &mut Connection,
+    id: &str,
+) -> Result<DeletedProviderProfile, StorageError> {
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let credential_ref = transaction
+        .query_row(
+            "SELECT credential_ref FROM provider_profiles WHERE id = ?1",
+            params![id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .optional()?
+        .ok_or_else(|| StorageError::NotFound {
+            entity: "provider profile",
+            id: id.to_owned(),
+        })?;
+    transaction.execute("DELETE FROM provider_profiles WHERE id = ?1", params![id])?;
+    transaction.commit()?;
+    Ok(DeletedProviderProfile {
+        id: id.to_owned(),
+        credential_ref,
+    })
+}
 
 pub(crate) fn create_conversation(
     connection: &mut Connection,
@@ -664,6 +884,95 @@ pub(crate) fn recover_active_runs(
     })
 }
 
+fn map_provider_profile(row: &Row<'_>) -> rusqlite::Result<ProviderProfileRecord> {
+    Ok(ProviderProfileRecord {
+        id: row.get(0)?,
+        kind: row.get(1)?,
+        endpoint: row.get(2)?,
+        display_name: row.get(3)?,
+        credential_ref: row.get(4)?,
+        default_model: row.get(5)?,
+        metadata_json: row.get(6)?,
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
+        disabled_at: row.get(9)?,
+        models: Vec::new(),
+    })
+}
+
+fn load_provider_models(
+    connection: &Connection,
+    provider_id: &str,
+) -> Result<Vec<ProviderModelRecord>, StorageError> {
+    let mut statement = connection.prepare(
+        "SELECT provider_id, model_id, display_name, capabilities_json, fetched_at
+         FROM provider_models
+         WHERE provider_id = ?1
+         ORDER BY model_id",
+    )?;
+    let models = statement
+        .query_map(params![provider_id], |row| {
+            Ok(ProviderModelRecord {
+                provider_id: row.get(0)?,
+                model_id: row.get(1)?,
+                display_name: row.get(2)?,
+                capabilities_json: row.get(3)?,
+                fetched_at: row.get(4)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()
+        ?;
+    Ok(models)
+}
+
+fn replace_provider_models_in_transaction(
+    connection: &Connection,
+    provider_id: &str,
+    models: &[NewProviderModel],
+) -> Result<(), StorageError> {
+    connection.execute(
+        "DELETE FROM provider_models WHERE provider_id = ?1",
+        params![provider_id],
+    )?;
+    let mut statement = connection.prepare(
+        "INSERT INTO provider_models(
+            provider_id, model_id, display_name, capabilities_json, fetched_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5)",
+    )?;
+    for model in models {
+        statement.execute(params![
+            provider_id,
+            &model.model_id,
+            &model.display_name,
+            &model.capabilities_json,
+            model.fetched_at,
+        ])?;
+    }
+    Ok(())
+}
+
+fn provider_write_failure<T>(
+    connection: &Connection,
+    id: &str,
+) -> Result<T, StorageError> {
+    let exists = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM provider_profiles WHERE id = ?1)",
+        params![id],
+        |row| row.get::<_, bool>(0),
+    )?;
+    if exists {
+        Err(StorageError::StaleWrite {
+            entity: "provider profile",
+            id: id.to_owned(),
+        })
+    } else {
+        Err(StorageError::NotFound {
+            entity: "provider profile",
+            id: id.to_owned(),
+        })
+    }
+}
+
 fn map_conversation(row: &Row<'_>) -> rusqlite::Result<ConversationRecord> {
     Ok(ConversationRecord {
         id: row.get(0)?,
@@ -726,9 +1035,220 @@ fn validate_run_update(input: &RunUpdate) -> Result<(), StorageError> {
     Ok(())
 }
 
+fn validate_new_provider_profile(input: &NewProviderProfile) -> Result<(), StorageError> {
+    validate_provider_profile_fields(
+        &input.id,
+        &input.kind,
+        input.endpoint.as_deref(),
+        &input.display_name,
+        input.credential_ref.as_deref(),
+        input.default_model.as_deref(),
+        &input.metadata_json,
+    )?;
+    if input.created_at < 0 {
+        return Err(StorageError::InvalidInput {
+            field: "provider.created_at",
+            reason: "must be a non-negative Unix millisecond timestamp".to_owned(),
+        });
+    }
+    validate_provider_models(&input.models)
+}
+
+fn validate_provider_profile_update(input: &ProviderProfileUpdate) -> Result<(), StorageError> {
+    validate_provider_profile_fields(
+        &input.id,
+        &input.kind,
+        input.endpoint.as_deref(),
+        &input.display_name,
+        input.credential_ref.as_deref(),
+        input.default_model.as_deref(),
+        &input.metadata_json,
+    )?;
+    validate_monotonic_profile_update(
+        &input.id,
+        input.expected_updated_at,
+        input.updated_at,
+    )?;
+    if let Some(models) = &input.models {
+        validate_provider_models(models)?;
+    }
+    Ok(())
+}
+
+fn validate_provider_profile_fields(
+    id: &str,
+    kind: &str,
+    endpoint: Option<&str>,
+    display_name: &str,
+    credential_ref: Option<&str>,
+    default_model: Option<&str>,
+    metadata_json: &str,
+) -> Result<(), StorageError> {
+    validate_required_text("provider.id", id, 128)?;
+    validate_required_text("provider.kind", kind, 64)?;
+    validate_required_text("provider.display_name", display_name, 200)?;
+    if let Some(default_model) = default_model {
+        validate_required_text("provider.default_model", default_model, 255)?;
+    }
+    validate_provider_endpoint(endpoint)?;
+    validate_credential_reference(credential_ref)?;
+    validate_non_secret_json_object("provider.metadata_json", metadata_json)
+}
+
+fn validate_monotonic_profile_update(
+    id: &str,
+    expected_updated_at: i64,
+    updated_at: i64,
+) -> Result<(), StorageError> {
+    validate_required_text("provider.id", id, 128)?;
+    if expected_updated_at < 0 || updated_at <= expected_updated_at {
+        return Err(StorageError::InvalidInput {
+            field: "provider.updated_at",
+            reason: "must be greater than the non-negative expected_updated_at".to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_provider_endpoint(endpoint: Option<&str>) -> Result<(), StorageError> {
+    let Some(endpoint) = endpoint else {
+        return Ok(());
+    };
+    validate_required_text("provider.endpoint", endpoint, 2_048)?;
+    let parsed = Url::parse(endpoint).map_err(|_| StorageError::InvalidInput {
+        field: "provider.endpoint",
+        reason: "must be an absolute HTTP or HTTPS URL".to_owned(),
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https") || !parsed.has_host() {
+        return Err(StorageError::InvalidInput {
+            field: "provider.endpoint",
+            reason: "must be an absolute HTTP or HTTPS URL with a host".to_owned(),
+        });
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(StorageError::InvalidInput {
+            field: "provider.endpoint",
+            reason: "must not contain embedded credentials".to_owned(),
+        });
+    }
+    if parsed.query().is_some() || parsed.fragment().is_some() {
+        return Err(StorageError::InvalidInput {
+            field: "provider.endpoint",
+            reason: "must not contain a query string or fragment".to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_credential_reference(credential_ref: Option<&str>) -> Result<(), StorageError> {
+    let Some(credential_ref) = credential_ref else {
+        return Ok(());
+    };
+    if credential_ref.len() > 512 || credential_ref.trim() != credential_ref {
+        return Err(StorageError::InvalidInput {
+            field: "provider.credential_ref",
+            reason: "must be a bounded canonical Cakify credential target".to_owned(),
+        });
+    }
+    let segments = credential_ref.split('/').collect::<Vec<_>>();
+    let opaque_is_valid = segments.get(2).is_some_and(|opaque| {
+        !opaque.is_empty()
+            && opaque.len() <= 128
+            && opaque
+                .chars()
+                .all(|value| value.is_ascii_alphanumeric() || matches!(value, '-' | '_'))
+    });
+    if segments.len() != 4
+        || segments[0] != "Cakify"
+        || segments[1] != "provider"
+        || !opaque_is_valid
+        || segments[3] != "api-key"
+    {
+        return Err(StorageError::InvalidInput {
+            field: "provider.credential_ref",
+            reason: "must match Cakify/provider/<opaque>/api-key".to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_provider_models(models: &[NewProviderModel]) -> Result<(), StorageError> {
+    let mut model_ids = HashSet::with_capacity(models.len());
+    for model in models {
+        validate_required_text("provider_model.model_id", &model.model_id, 255)?;
+        if !model_ids.insert(model.model_id.as_str()) {
+            return Err(StorageError::InvalidInput {
+                field: "provider.models",
+                reason: "model_id values must be unique".to_owned(),
+            });
+        }
+        if let Some(display_name) = &model.display_name {
+            validate_required_text("provider_model.display_name", display_name, 200)?;
+        }
+        if model.fetched_at < 0 {
+            return Err(StorageError::InvalidInput {
+                field: "provider_model.fetched_at",
+                reason: "must be a non-negative Unix millisecond timestamp".to_owned(),
+            });
+        }
+        validate_non_secret_json_object(
+            "provider_model.capabilities_json",
+            &model.capabilities_json,
+        )?;
+    }
+    Ok(())
+}
+
+fn validate_required_text(
+    field: &'static str,
+    value: &str,
+    max_bytes: usize,
+) -> Result<(), StorageError> {
+    if value.is_empty() || value.trim() != value {
+        return Err(StorageError::InvalidInput {
+            field,
+            reason: "must be non-empty and have no surrounding whitespace".to_owned(),
+        });
+    }
+    if value.len() > max_bytes || value.chars().any(char::is_control) {
+        return Err(StorageError::InvalidInput {
+            field,
+            reason: format!("must be at most {max_bytes} bytes and contain no control characters"),
+        });
+    }
+    Ok(())
+}
+
+fn validate_non_secret_json_object(
+    field: &'static str,
+    json: &str,
+) -> Result<(), StorageError> {
+    if json.len() > 65_536 {
+        return Err(StorageError::InvalidInput {
+            field,
+            reason: "must be at most 65536 bytes".to_owned(),
+        });
+    }
+    let root = serde_json::from_str::<Value>(json)?;
+    if !root.is_object() {
+        return Err(StorageError::InvalidInput {
+            field,
+            reason: "must be a JSON object".to_owned(),
+        });
+    }
+    validate_non_secret_json_value(field, &root)
+}
+
 fn validate_provider_snapshot(field: &'static str, json: &str) -> Result<(), StorageError> {
     let root = serde_json::from_str::<Value>(json)?;
-    let mut pending = vec![&root];
+    validate_non_secret_json_value(field, &root)
+}
+
+fn validate_non_secret_json_value(
+    field: &'static str,
+    root: &Value,
+) -> Result<(), StorageError> {
+    let mut pending = vec![root];
     while let Some(value) = pending.pop() {
         match value {
             Value::Object(entries) => {
@@ -744,16 +1264,24 @@ fn validate_provider_snapshot(field: &'static str, json: &str) -> Result<(), Sto
                         normalized.as_str(),
                         "api_key"
                             | "apikey"
+                            | "x_api_key"
                             | "password"
                             | "secret"
                             | "client_secret"
+                            | "clientsecret"
                             | "token"
                             | "access_token"
+                            | "accesstoken"
                             | "refresh_token"
+                            | "refreshtoken"
                             | "bearer_token"
                             | "authorization"
+                            | "proxy_authorization"
+                            | "cookie"
+                            | "set_cookie"
                             | "credential"
                             | "credential_ref"
+                            | "credential_reference"
                     ) {
                         return Err(StorageError::SensitiveJsonKey {
                             field,

@@ -15,9 +15,11 @@ pub use actor::{StorageActor, StorageConfig, StorageHandle, StorageHealth};
 pub use migration::LATEST_SCHEMA_VERSION;
 pub use model::{
     ConversationCursor, ConversationPage, ConversationQuery, ConversationRecord,
-    ConversationThread, CrashRecoveryReport, MessagePartKind, MessagePartRecord, MessageRecord,
-    MessageRole, NewConversation, NewMessage, NewMessagePart, NewRun, RunRecord, RunStatus,
-    RunUpdate, TextCheckpoint,
+    ConversationThread, CrashRecoveryReport, DeletedProviderProfile, MessagePartKind,
+    MessagePartRecord, MessageRecord, MessageRole, NewConversation, NewMessage, NewMessagePart,
+    NewProviderModel, NewProviderProfile, NewRun, ProviderModelRecord, ProviderProfileRecord,
+    ProviderProfileStatusUpdate, ProviderProfileUpdate, RunRecord, RunStatus, RunUpdate,
+    TextCheckpoint,
 };
 
 #[derive(Debug, Error)]

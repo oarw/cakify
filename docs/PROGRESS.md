@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-18（Asia/Shanghai）
 > 当前阶段：M1 - 数据与秘密基础
-> 当前状态：M1_PROVIDER_PROFILES_IN_PROGRESS
+> 当前状态：M1_PROVIDER_PROFILES_VALIDATION_PENDING
 
 ## 1. 当前快照
 
@@ -22,7 +22,7 @@
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- M1 源码：SQLite foundation、conversation/message/part/run repository、v3 checkpoint revision、敏感 provider snapshot 拦截与启动 crash recovery 均已通过 Product validate；当前转入 Provider profile CRUD 与 credential reference 生命周期。
+- M1 源码：SQLite foundation、conversation/message/part/run repository、v3 checkpoint revision、敏感 provider snapshot 拦截与启动 crash recovery 均已通过 Product validate；Provider profile CRUD、原子 model cache 与 credential reference contract 源码已完成，等待本轮 Actions 验证。
 - M1 依赖：已从 run `32097396883` artifact 取回 runner 生成的 `Cargo.lock`；固定 `rusqlite 0.40.2`、`sha2 0.10.9`，rusqlite registry checksum 与官方值一致，依赖树未发现网络栈、向量库或密钥库越界包。
 - 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行最终 M0 release EXE。三次窗口 ready 为 `145.450/129.692/118.279 ms`，空闲 Working Set 为 `37.121/35.480/35.477 MiB`，均完整可见、单进程并正常退出；IME 保持 M2 独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
@@ -100,6 +100,7 @@
 - [x] Windows runtime smoke `32093988986` 通过三轮窗口完整可见、80 MiB idle、0 子进程、WM_CLOSE/无残留硬门；artifact JSONL、日志、哈希和截图已独立核对，仓库已恢复 PRIVATE。
 - [x] Product validate `32097907337` 在含 runner 锁文件的 commit 上通过 SQLite actor、migration、schema/外键/checksum/重开/未来版本 contract、Clippy 与 release build；仓库已恢复 PRIVATE。
 - [x] Product validate `32100910742` 通过 conversation/message/part/run repository、v3 migration、稳定分页、聚合事务、checkpoint revision、run 终态和一次性 crash recovery contract；仓库已恢复 PRIVATE。
+- [ ] Provider profile create/get/list/update/disable/delete、原子 model cache、endpoint/metadata/capability JSON 与 opaque credential reference contract 源码已完成；尚待 Product validate，不提前记为通过。
 
 ## 6. 尚未完成
 
@@ -115,11 +116,10 @@
 
 下一位执行者直接实施 M1，不再做框架或 M0 runtime 泛泛选型：
 
-1. 实现 Provider profile create/get/list/update/disable/delete，SQLite 只保存 opaque credential reference，不接收 secret plaintext。
-2. 把 profile 与 model cache 更新放在 actor transaction，增加 endpoint/model/metadata JSON 与 credential reference contract。
-3. 定义 SecretStore trait 与 profile/secret 两阶段生命周期：先写 Windows secret，再提交 reference；失败补偿删除，profile 删除后清理 orphan reference。
-4. 实现 Windows Credential Manager 主路径与 DPAPI current-user 后备，仅在 Windows Actions 运行 synthetic secret round-trip。
-5. 再实现 live backup/restore、synthetic secret 扫描和 M1 完整验收。
+1. 对当前 Provider profile 源码完成静态复核、提交推送，并自动执行受控 Product validate public -> Actions -> private 闭环；准确记录 run、artifact 与结论。
+2. 定义 SecretStore trait 与 profile/secret 两阶段生命周期：先写 Windows secret，再提交 reference；失败补偿删除，profile 删除后清理 orphan reference。
+3. 实现 Windows Credential Manager 主路径与 DPAPI current-user 后备，仅在 Windows Actions 运行 synthetic secret round-trip。
+4. 再实现 live backup/restore、synthetic secret 扫描和 M1 完整验收。
 
 详细验收见 `docs/ROADMAP.md` 的 M1。
 
@@ -145,7 +145,7 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M1_PROVIDER_PROFILES_IN_PROGRESS`：repository/crash recovery 已通过 Actions；Provider profile、SecretStore 与 backup 尚未实现，在对应 contract 通过前不接真实 Provider 或用户 secret。
+- `M1_PROVIDER_PROFILES_VALIDATION_PENDING`：Provider profile 与 model cache 源码已写入，但尚未通过 Actions；SecretStore 与 backup 未实现，在对应 contract 通过前不接真实 Provider 或用户 secret。
 - `M1_ARTIFACT_DOWNLOAD_PENDING`：storage foundation 与 repository 最终 artifacts 分别已由 runner 成功上传 5/6 个文件，ID/大小/digest 与上传日志一致；本机到两个 Azure Blob 主机持续连接超时，因此最终 ZIP 内容独立解包检查仍待网络恢复后补做。workflow 结论和仓库恢复不受影响，不能把尚未下载写成已核对。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
@@ -279,6 +279,15 @@
 - 格式修复提交 `621097cdc08a9ac5129eef2200c2b8c7628504e2` 的第二轮 Product validate `32100910742` 全部通过：repository contract 4/4 覆盖稳定分页/软删除、消息聚合回滚与顺序、checkpoint+一次性恢复、run 单调/终态；storage contract 5/5、Clippy 与 release build 同样通过。
 - 上传日志确认 artifact 为 6 个文件、2,386,139 bytes，ID `9311722769`、digest `sha256:51d059c6089178c9afb56c858d594d744892071da2a1b28cd6edf24e96f144af`；新旧 artifact 均因本机到 Azure Blob 网段连接超时而未解包，待网络恢复补查。
 - 确认 queued/in_progress 为 0 后立即恢复 PRIVATE，并复核 run completed/success 与 `isPrivate=true`；M1 转入 Provider profile 与 SecretStore 生命周期。
+
+### 2026-08-18：M1 Provider profile 源码
+
+- 新增 Provider profile create/get/list/update/disable/enable/delete typed actor API；更新使用 expected/next timestamp 做乐观并发保护，删除返回 opaque credential reference，供后续 SecretStore 在数据库提交后清理。
+- profile create/update 可与 model cache 在同一 SQLite immediate transaction 提交；另提供独立原子 model cache replace，读取按 model ID 稳定排序，profile 列表按启用状态、显示名与 ID 稳定排序。
+- endpoint 通过锁文件已有的 `url 2.5.8` 解析，限制为无内嵌认证、query 或 fragment 的绝对 HTTP(S) URL；metadata/capabilities 必须为有大小上限的 JSON object，并递归拒绝 credential-bearing key。
+- `credential_ref` 只接受 `Cakify/provider/<opaque>/api-key` target 形式；SQLite schema 仍无 API key/token/blob 列，也没有向 storage API 增加 secret plaintext 参数。
+- 新增四组 Provider contract 源码，覆盖 CRUD/禁用、stale write、敏感配置拒绝且不落盘、profile+cache 回滚、重复 model/reference、删除返回 reference 与外键级联；Product validate 新增显式 contract step。
+- 本机仅编辑源码并完成 `git diff --check` 等静态检查；尚未编译或执行测试，等待本轮 GitHub Actions 实证。
 
 ## 12. 更新规则
 
