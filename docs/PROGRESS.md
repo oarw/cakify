@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-18（Asia/Shanghai）
 > 当前阶段：M1 - 数据与秘密基础
-> 当前状态：M1_REPOSITORIES_IN_PROGRESS
+> 当前状态：M1_PROVIDER_PROFILES_IN_PROGRESS
 
 ## 1. 当前快照
 
@@ -13,8 +13,8 @@
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
 - M0 最终 runtime 验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：`PUBLIC`（仅为修复当前 repository Product validate 的临时状态）；run `32100633458` 已结束且无活动任务，同一 workflow 修复完成前不得闲置，最终必须恢复 `PRIVATE`。
-- 最近成功 Actions：Product validate `32097907337`；最新 repository Product validate `32100633458` 仅依赖边界成功、格式失败，不能记为 repository 编译或测试通过。
+- 仓库可见性：`PRIVATE`；repository Product validate `32100910742` 完成后确认活动任务为 0，已恢复并复核。
+- 最近成功 Actions：Product validate `32100910742`，目标 commit `621097cdc08a9ac5129eef2200c2b8c7628504e2`；fmt/check/全量 tests/storage+repository contract/Clippy/release build/artifact upload 全部通过。
 - 本轮 Actions：runtime smoke 首轮 `32037554962` 的内存汇总证据无效；第二轮 `32038434473` 的性能/生命周期证据有效但截图暴露任务栏遮挡；第三轮 `32093988986` 全部硬门和 artifact 独立核验通过。
 - Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0，因此内存证据无效。
 - Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；但截图显示窗口底部约 27 px 被任务栏遮挡，因此当时没有作为最终 M0 验收。
@@ -22,7 +22,7 @@
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- M1 源码：独立 `cakify-storage` crate、单 writer actor、连接/完整性硬门与初始 storage contract 已通过 Product validate；当前新增 conversation/message/part/run repository、v3 checkpoint revision、敏感 provider snapshot 拦截与启动 crash recovery，尚待 Actions 验证。
+- M1 源码：SQLite foundation、conversation/message/part/run repository、v3 checkpoint revision、敏感 provider snapshot 拦截与启动 crash recovery 均已通过 Product validate；当前转入 Provider profile CRUD 与 credential reference 生命周期。
 - M1 依赖：已从 run `32097396883` artifact 取回 runner 生成的 `Cargo.lock`；固定 `rusqlite 0.40.2`、`sha2 0.10.9`，rusqlite registry checksum 与官方值一致，依赖树未发现网络栈、向量库或密钥库越界包。
 - 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行最终 M0 release EXE。三次窗口 ready 为 `145.450/129.692/118.279 ms`，空闲 Working Set 为 `37.121/35.480/35.477 MiB`，均完整可见、单进程并正常退出；IME 保持 M2 独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
@@ -99,6 +99,7 @@
 - [x] 对 runtime smoke 做本机静态核验：PowerShell AST 解析错误 0，workflow 只有手动触发与 `contents: read`，不在本机执行 EXE 或 Cargo。
 - [x] Windows runtime smoke `32093988986` 通过三轮窗口完整可见、80 MiB idle、0 子进程、WM_CLOSE/无残留硬门；artifact JSONL、日志、哈希和截图已独立核对，仓库已恢复 PRIVATE。
 - [x] Product validate `32097907337` 在含 runner 锁文件的 commit 上通过 SQLite actor、migration、schema/外键/checksum/重开/未来版本 contract、Clippy 与 release build；仓库已恢复 PRIVATE。
+- [x] Product validate `32100910742` 通过 conversation/message/part/run repository、v3 migration、稳定分页、聚合事务、checkpoint revision、run 终态和一次性 crash recovery contract；仓库已恢复 PRIVATE。
 
 ## 6. 尚未完成
 
@@ -114,11 +115,11 @@
 
 下一位执行者直接实施 M1，不再做框架或 M0 runtime 泛泛选型：
 
-1. 提交 Product validate `32100633458` 给出的精确 rustfmt 修复；不在本机运行 Cargo/SQLite。
-2. 重跑 Product validate，核对真实 check/test/repository contract/Clippy/release 结果；失败继续按日志修复。
-3. 验证启动时把遗留 active run 原子转为 `interrupted`，不丢已 checkpoint 的 message/part 文本，并确认重复恢复幂等；通过后再实现 Provider profile CRUD。
-4. 实现 Provider profile CRUD，SQLite 只保存 opaque credential reference。
-5. 再实现 Credential Manager/DPAPI、live backup/restore 和 synthetic secret 扫描。
+1. 实现 Provider profile create/get/list/update/disable/delete，SQLite 只保存 opaque credential reference，不接收 secret plaintext。
+2. 把 profile 与 model cache 更新放在 actor transaction，增加 endpoint/model/metadata JSON 与 credential reference contract。
+3. 定义 SecretStore trait 与 profile/secret 两阶段生命周期：先写 Windows secret，再提交 reference；失败补偿删除，profile 删除后清理 orphan reference。
+4. 实现 Windows Credential Manager 主路径与 DPAPI current-user 后备，仅在 Windows Actions 运行 synthetic secret round-trip。
+5. 再实现 live backup/restore、synthetic secret 扫描和 M1 完整验收。
 
 详细验收见 `docs/ROADMAP.md` 的 M1。
 
@@ -144,8 +145,8 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M1_REPOSITORIES_IN_PROGRESS`：SQLite foundation 已通过 Actions；repository、v3 checkpoint revision 与 crash recovery 已有源码但尚未通过 Actions，backup 仍未实现，在对应 contract 通过前不接真实 Provider 或用户 secret。
-- `M1_ARTIFACT_DOWNLOAD_PENDING`：最终 artifact 已由 runner 成功上传 5 个文件、2,385,820 bytes，ID/digest 与上传日志一致；本机到 Azure Blob 的三种下载方式均连接超时，因此最终 ZIP 内容独立解包检查仍待网络恢复后补做。workflow 结论和仓库恢复不受影响，不能把尚未下载写成已核对。
+- `M1_PROVIDER_PROFILES_IN_PROGRESS`：repository/crash recovery 已通过 Actions；Provider profile、SecretStore 与 backup 尚未实现，在对应 contract 通过前不接真实 Provider 或用户 secret。
+- `M1_ARTIFACT_DOWNLOAD_PENDING`：storage foundation 与 repository 最终 artifacts 分别已由 runner 成功上传 5/6 个文件，ID/大小/digest 与上传日志一致；本机到两个 Azure Blob 主机持续连接超时，因此最终 ZIP 内容独立解包检查仍待网络恢复后补做。workflow 结论和仓库恢复不受影响，不能把尚未下载写成已核对。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
 - `M0_METRICS_SCOPE`：最终 M0 指标只覆盖窗口壳层，不冒充真实 composer、长消息列表或 Provider 启动性能；M2/M3 必须重测。
@@ -167,6 +168,7 @@
 - [Product validate #32097396883](https://github.com/oarw/cakify/actions/runs/32097396883)：`failure`，commit `900bcde26847fc9910d50823469262bb4295ee9c`，job `95591302608`，artifact `product-validation-32097396883`（ID `9310434562`，digest `sha256:f1c82871e39b1e5ac87188fa1c9608211a52826d5f8b3ae470a7bb75ca2add34`）。依赖树/许可证边界成功，格式检查失败，后续 check/test/storage contract/Clippy/release 均被跳过；不能记为 M1 通过。artifact `Cargo.lock` SHA-256 `731531574FD1B25AA23F8B0476BF60365D2529B894F50FE5A0AC020B34441E30`，dependency tree SHA-256 `8F85318D7203E7DE9B5BC223EF741F979C4EC5A1A3831CB3B000AF552F4C2684`；两份 migration 与目标提交内容一致，仅 runner checkout 使用 CRLF。
 - [Product validate #32097907337](https://github.com/oarw/cakify/actions/runs/32097907337)：`success`，commit `785241720db087ce38121b095ea5f192063ab2b4`，job `95592703383`，artifact `product-validation-32097907337`（ID `9310763337`，digest `sha256:66b893168eadc5ead939c71c4059ca65f15cc6c9f2b2c38c2e3f49a2274ab118`，5 files，2,385,820 bytes）。fmt、workspace check、全量 tests、5 项 storage contract、Clippy、release build 与上传全部成功；release 优化构建用时 3m51s。artifact ZIP 因本机连接 `productionresultssa8.blob.core.windows.net:443` 持续超时尚未解包，不能写成内容已独立核对。
 - [Product validate #32100633458](https://github.com/oarw/cakify/actions/runs/32100633458)：`failure`，commit `2f4b8688fc71ae727781baa7ac9306db48f9e2aa`，job `95600298727`，artifact `product-validation-32100633458`（ID `9311450847`，digest `sha256:b15cb49d2ab6970c9de214e8a215c0856a8c00fd8bfc0663223da0401e8de9a2`）。依赖树/许可证边界成功，格式检查失败；check/tests/storage/repository contract/Clippy/release 均跳过，不能写成 repository 通过。
+- [Product validate #32100910742](https://github.com/oarw/cakify/actions/runs/32100910742)：`success`，commit `621097cdc08a9ac5129eef2200c2b8c7628504e2`，job `95601074839`，artifact `product-validation-32100910742`（ID `9311722769`，digest `sha256:51d059c6089178c9afb56c858d594d744892071da2a1b28cd6edf24e96f144af`，6 files，2,386,139 bytes）。fmt/check/全量 tests、storage contract 5/5、repository contract 4/4、Clippy、release build 与上传全部成功；release 优化构建用时 3m43s。artifact ZIP 因本机连接 Azure Blob 超时尚未解包，不能写成内容已独立核对。
 
 ### 公开前审计记录
 
@@ -274,6 +276,9 @@
 - 新增 repository contract 源码：稳定 cursor 分页/软删除、消息与 parts 原子回滚、checkpoint 幂等与 stale 拒绝、run 单调状态/终态保护、重启恢复一次性与级联 purge。
 - Product validate workflow 增加显式 `Run repository contract tests`；本机只做源码、SQL、workflow、依赖与敏感模式静态检查，尚未编译或执行测试。
 - 对 commit `2f4b8688fc71ae727781baa7ac9306db48f9e2aa` 临时公开后只触发 Product validate `32100633458`；首轮在 rustfmt 门失败，后续步骤未运行，已按 runner 的完整差异修复 actor/lib/repository/test 纯格式。
+- 格式修复提交 `621097cdc08a9ac5129eef2200c2b8c7628504e2` 的第二轮 Product validate `32100910742` 全部通过：repository contract 4/4 覆盖稳定分页/软删除、消息聚合回滚与顺序、checkpoint+一次性恢复、run 单调/终态；storage contract 5/5、Clippy 与 release build 同样通过。
+- 上传日志确认 artifact 为 6 个文件、2,386,139 bytes，ID `9311722769`、digest `sha256:51d059c6089178c9afb56c858d594d744892071da2a1b28cd6edf24e96f144af`；新旧 artifact 均因本机到 Azure Blob 网段连接超时而未解包，待网络恢复补查。
+- 确认 queued/in_progress 为 0 后立即恢复 PRIVATE，并复核 run completed/success 与 `isPrivate=true`；M1 转入 Provider profile 与 SecretStore 生命周期。
 
 ## 12. 更新规则
 

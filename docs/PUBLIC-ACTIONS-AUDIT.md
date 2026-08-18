@@ -4,7 +4,8 @@
 > 原 Product validate 审计基线：commit `b87789ce6c145cb8b1507ba077d8112d744dcdac`
 > 最近 runtime 审计基线：commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`
 > 最近 M1 Product validate 基线：commit `785241720db087ce38121b095ea5f192063ab2b4`
-> 当前结论：Product validate、M0 runtime smoke 与 M1 storage foundation 的受控 public -> Actions -> private 均已完成；仓库已恢复 PRIVATE。
+> 最近 M1 repository 基线：commit `621097cdc08a9ac5129eef2200c2b8c7628504e2`
+> 当前结论：Product validate、M0 runtime smoke、M1 storage foundation 与 repository/crash recovery 的受控 public -> Actions -> private 均已完成；仓库已恢复 PRIVATE。
 
 本文件及同步进度文档是审计完成后的记录增量，提交前同样执行敏感模式和 staged diff 检查。真正切换 public 前还必须对当时的实际 HEAD 做一次增量复核。
 
@@ -127,3 +128,15 @@ artifact 内 EXE 为 5,722,624 bytes，SHA-256 `CE54D290BD0F0A19F1CDDE0322C4A7C2
 最终 artifact `product-validation-32097907337` 的 ID 为 `9310763337`，上传日志和 API 均记录 5 个文件、2,385,820 bytes、archive digest `sha256:66b893168eadc5ead939c71c4059ca65f15cc6c9f2b2c38c2e3f49a2274ab118`。本机随后通过 GitHub CLI、GitHub API/curl 三种路径下载时，均在 Azure Blob `productionresultssa8.blob.core.windows.net:443` 连接超时；因此最终 ZIP 的锁文件/EXE/SQL/secret 独立解包检查仍明确为待办，不能伪造为已经完成。
 
 下载超时后没有让仓库继续公开等待：再次确认 queued/in_progress 为 0，立即恢复 PRIVATE，并复核 `isPrivate=true` 与最终 run `completed/success`。本循环只运行 Product validate，没有运行 benchmark、runtime smoke、package、release 或任何无关 workflow。
+
+## 11. M1 repository/crash recovery Product validate 闭环
+
+2026-08-18 对 repository/crash recovery 源码执行下一次持续授权范围内的受控循环。公开前目标 commit `2f4b8688fc71ae727781baa7ac9306db48f9e2aa`：30 个可达 commit、156 个历史路径，高置信 secret、敏感文件名与 LFS pointer 0 命中；Actions/Dependabot/Codespaces secrets、variables、environments 均为 0；18 个历史 run 无活动任务，Release、Issue、PR、tag、fork 均为 0。两份旧 Flutter cache 共 1,946,280,557 bytes，未变化且当前 workflow 不使用；仓库仍无 `LICENSE`。
+
+首轮 [Product validate `32100633458`](https://github.com/oarw/cakify/actions/runs/32100633458) 为 `failure`：依赖树与许可证边界成功，`cargo fmt --check` 失败，其余编译/测试步骤未运行。artifact `product-validation-32100633458`（ID `9311450847`，digest `sha256:b15cb49d2ab6970c9de214e8a215c0856a8c00fd8bfc0663223da0401e8de9a2`）上传成功；按 runner 完整差异修复纯格式后提交 `621097cdc08a9ac5129eef2200c2b8c7628504e2`。
+
+最终 [Product validate `32100910742`](https://github.com/oarw/cakify/actions/runs/32100910742) 为 `success`，job `95601074839`。fmt、workspace check、全量 tests、storage contract 5/5、repository contract 4/4、Clippy、release build 与 artifact upload 全部成功。repository contract 实际覆盖稳定 cursor 分页与软删除、message+parts 聚合事务回滚/顺序、checkpoint revision 幂等/stale 拒绝、active run 一次性 interrupted 恢复与文本保留、run 单调/终态保护、级联 purge。
+
+最终 artifact `product-validation-32100910742` 的 ID 为 `9311722769`，上传日志与 API 均记录 6 个文件、2,386,139 bytes、archive digest `sha256:51d059c6089178c9afb56c858d594d744892071da2a1b28cd6edf24e96f144af`。本机下载时在另一 Azure Blob 主机 `productionresultssa2.blob.core.windows.net:443` 同样连接超时，因此 ZIP 内容独立解包仍明确待办；未将其伪造为已检查。
+
+下载超时后再次确认 queued/in_progress 为 0，立即恢复 PRIVATE，并复核 `isPrivate=true` 与最终 run `completed/success`。本循环只运行 Product validate，没有运行 benchmark、runtime smoke、package、release 或无关 workflow。

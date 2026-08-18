@@ -94,7 +94,7 @@ AI 可以完成全部源码、测试、CI、文档和修复。2026 年 8 月受�
 当前实施顺序：
 
 1. [x] 建立 SQLite actor、initial schema、migration runner 与数据库配置硬门；Product validate `32097907337` 的 fmt/check/tests/storage contract/Clippy/release build 全部通过。
-2. [ ] 实现 Conversation/message/part/run repository 和 crash recovery。
+2. [x] 实现 Conversation/message/part/run repository 和 crash recovery；Product validate `32100910742` 的 repository contract 4/4、全量 tests、Clippy 与 release build 全部通过。
 3. [ ] 实现 Provider profile CRUD，数据库只保存 credential reference。
 4. [ ] 实现 Windows Credential Manager SecretStore 与 DPAPI current-user 后备。
 5. [ ] 实现 live backup/restore、synthetic secret 扫描与对应 Actions 验收。
