@@ -2,7 +2,7 @@
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
 > 最后更新：2026-08-18（Asia/Shanghai）
-> 交接状态：首个 M2/M3 聊天预览已通过 Product validate 与 Windows runtime smoke；下一步接消息持久化、会话操作和 MCP 执行。
+> 交接状态：首个聊天预览已验证；统一 Release/安装器流水线源码已推送，但 `v0.1.0-pre.1` 尚未发布，下一步先闭合 Release run。
 
 ## 1. 五分钟上下文
 
@@ -39,7 +39,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 - 路径：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`
-- 当前 HEAD：聊天切片已验证源码提交为 `cf822f00f9958111973dc7e93903a1515f9726db`；文档提交后以 `git rev-parse HEAD` 为准。
+- 当前 HEAD：Release tag 检查修复提交为 `52d122a76e0dd29dee97c64d2f99aa868de23a10`；文档提交后以 `git rev-parse HEAD` 为准。
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
 - Product validate 已验证源码提交：`cf822f00f9958111973dc7e93903a1515f9726db`
@@ -194,9 +194,9 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 当前正在做：GPUI composer/消息列表、OpenAI-compatible SSE、Markdown、工具审批/MCP UI
 - 最近成功 Actions：Product validate `32153002500`、Windows runtime smoke `32154636851`
 - 本轮 Actions：聊天切片全量验证与三轮原生窗口 smoke 均通过，artifact/截图已核对，仓库已恢复 PRIVATE
-- 精确下一动作：先把消息/会话接入现有 storage actor，再补编辑、重新生成、分支和虚拟长列表；之后接 `rmcp` 与 Job Object
+- 精确下一动作：检查取消的 Release `32160832215` 为什么长期停在 workspace check，再从最新 main 重新 dispatch `Release`/`v0.1.0-pre.1`；成功后核对安装版、便携版、独立 EXE、checksums、tag 和 Pre-release
 - 需要用户决定：项目许可证；M7 签名/发行渠道。8 月受控 visibility 闭环已有持续授权，不再逐次询问
-- 已知风险：未使用真实用户 Key 做在线 Provider smoke；MCP `rmcp`/Job Object 和消息持久化尚未接入；真实中文/日文 IME、selection/clipboard/accessibility 尚未人工验收；GPUI pre-1.0；EXE 未签名
+- 已知风险：`v0.1.0-pre.1` 尚未发布；安装器/发布 job 尚未实际跑到；未使用真实用户 Key 做在线 Provider smoke；MCP/消息持久化/IME 尚未闭合；EXE 与安装器未签名
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
 
 交接时用实际 `git rev-parse HEAD` 更新或解释 HEAD；不要让文档中的工作前基线冒充最新提交。

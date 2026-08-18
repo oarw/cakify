@@ -9,6 +9,8 @@
 
 > 2026-08-18 更新：聊天切片 Product validate `32153002500` 与 Windows runtime smoke `32154636851` 也已完成同一受控闭环；恢复前无 queued/in_progress，当前仓库已复核为 PRIVATE。
 
+> 2026-08-19 更新：Release `32159139587` 早期失败；修复后的 `32160832215` 长时间停在 workspace check，睡前主动取消。未创建 tag/Release。确认无活动任务后已恢复并复核 PRIVATE。
+
 本文件及同步进度文档是审计完成后的记录增量，提交前同样执行敏感模式和 staged diff 检查。真正切换 public 前还必须对当时的实际 HEAD 做一次增量复核。
 
 ## 1. 审计边界

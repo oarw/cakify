@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-18（Asia/Shanghai）
 > 当前阶段：M2/M3 - 聊天垂直切片
-> 当前状态：M2_CHAT_SLICE_FIRST_PREVIEW_VERIFIED
+> 当前状态：RELEASE_PIPELINE_PENDING_VALIDATION
 
 ## 1. 当前快照
 
@@ -112,6 +112,8 @@
 - [x] Product validate `32127969715` 通过 SecretStore lifecycle、Credential Manager put/get/update/delete、DPAPI current-user round-trip/tamper、workspace tests、Clippy 和 release build；artifact 已独立核对，仓库已恢复 PRIVATE。
 - [x] Product validate `32153002500` 通过聊天切片的 workspace 编译、全量测试、全部契约测试、Clippy 和 release build；候选 EXE、锁文件、迁移、依赖边界和文本 secret 已独立核对。
 - [x] Windows runtime smoke `32154636851` 三轮打开真实聊天窗口，完整可见、空闲 Working Set `36.164-38.863 MiB`、默认子进程 0、正常退出且无残留；截图已独立核对。
+- [x] 新增 tag/手动触发的统一 Release workflow、Inno Setup 当前用户安装器与安装/运行/卸载 smoke；源码提交 `25e4b5e`，tag 检查修复提交 `52d122a`。
+- [ ] 发布 `v0.1.0-pre.1`：首轮 Release `32159139587` 因预期的 tag 不存在退出码被 PowerShell 提前终止；修复后第二轮 `32160832215` 通过元数据、缓存、工具链、依赖和格式门，但 runner 长时间停在 workspace check，睡前主动取消。尚无 tag、Release 或发布资产。
 
 ## 6. 尚未完成
 
@@ -127,10 +129,9 @@
 
 下一位执行者不要重做选型，直接把已验证预览推进到日常可用：
 
-1. 将会话、消息和流式 checkpoint 接入现有 storage actor，重启后可恢复聊天历史。
-2. 补齐消息编辑/重新生成/分支与会话 CRUD，再做真实长列表虚拟化。
-3. 接入 `rmcp` 与 Job Object；工具仍保持逐次审批、可取消和输出上限。
-4. 在用户自行配置测试 Key 后做真实 OpenAI-compatible 在线 smoke；物理 Windows 机单独验收中文/日文 IME。
+1. 先检查 GitHub Actions/runner 状态和 `32160832215` 日志；不要重跑已取消的旧 commit。
+2. 在 PRIVATE 下修复或确认后，按 8 月闭环重新 dispatch `Release`，输入 `v0.1.0-pre.1`；成功应生成安装版、便携 ZIP、独立 EXE 与 SHA256SUMS，并自动创建 Pre-release/tag。
+3. Release 和资产独立核对、无活动任务并恢复 PRIVATE 后，再继续消息持久化、会话 CRUD、`rmcp` 与 Job Object。
 
 ## 8. 性能与质量门
 
