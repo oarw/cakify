@@ -7,9 +7,7 @@ use std::{
     mem::size_of,
     os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
-    process,
-    ptr,
-    slice,
+    process, ptr, slice,
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -18,20 +16,17 @@ use sha2::{Digest, Sha256};
 use windows::{
     core::{Error as WindowsError, PCWSTR, PWSTR},
     Win32::{
-        Foundation::{LocalFree, HLOCAL, ERROR_NOT_FOUND},
+        Foundation::{LocalFree, ERROR_NOT_FOUND, HLOCAL},
         Security::{
             Credentials::{
                 CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW,
                 CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
             },
             Cryptography::{
-                CryptProtectData, CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN,
-                CRYPT_INTEGER_BLOB,
+                CryptProtectData, CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
             },
         },
-        Storage::FileSystem::{
-            MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
-        },
+        Storage::FileSystem::{MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH},
     },
 };
 use zeroize::Zeroize;
@@ -180,8 +175,8 @@ impl DpapiSecretStore {
     }
 
     fn protect(&self, id: &SecretId, value: &SecretInput) -> Result<Vec<u8>, SecretError> {
-        let input_len = u32::try_from(value.expose_secret().len())
-            .map_err(|_| SecretError::InvalidValue)?;
+        let input_len =
+            u32::try_from(value.expose_secret().len()).map_err(|_| SecretError::InvalidValue)?;
         let mut entropy = entropy_for(id);
         let input = CRYPT_INTEGER_BLOB {
             cbData: input_len,
@@ -337,13 +332,11 @@ fn parse_dpapi_file(payload: &[u8]) -> Result<&[u8], SecretError> {
             operation: "dpapi_read",
         });
     }
-    let length = u32::from_le_bytes(
-        payload[length_offset..data_offset]
-            .try_into()
-            .map_err(|_| SecretError::Corrupt {
-                operation: "dpapi_read",
-            })?,
-    ) as usize;
+    let length = u32::from_le_bytes(payload[length_offset..data_offset].try_into().map_err(
+        |_| SecretError::Corrupt {
+            operation: "dpapi_read",
+        },
+    )?) as usize;
     if length == 0 || length > MAX_DPAPI_CIPHERTEXT_BYTES || data_offset + length != payload.len() {
         return Err(SecretError::Corrupt {
             operation: "dpapi_read",
@@ -414,7 +407,10 @@ fn wide_string(value: &str) -> Vec<u16> {
 }
 
 fn wide_path(path: &Path) -> Vec<u16> {
-    path.as_os_str().encode_wide().chain(iter::once(0)).collect()
+    path.as_os_str()
+        .encode_wide()
+        .chain(iter::once(0))
+        .collect()
 }
 
 fn is_not_found(error: &WindowsError) -> bool {

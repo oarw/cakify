@@ -141,9 +141,7 @@ where
         Err(SecretError::NotFound { .. }) => None,
         Err(error) => return Err(SecretLifecycleError::Store(error)),
     };
-    store
-        .put(id, value)
-        .map_err(SecretLifecycleError::Store)?;
+    store.put(id, value).map_err(SecretLifecycleError::Store)?;
     if let Err(source) = commit_reference(id) {
         let cleanup = if let Some(previous) = previous {
             SecretInput::from_bytes(previous.expose_secret().to_vec())
@@ -213,10 +211,7 @@ mod tests {
                     code: 1,
                 });
             }
-            self.values
-                .lock()
-                .expect("fake store lock")
-                .remove(id);
+            self.values.lock().expect("fake store lock").remove(id);
             Ok(())
         }
 
@@ -258,18 +253,13 @@ mod tests {
         let store = FakeStore::default();
         let id = test_id();
         let value = SecretInput::from_utf8("synthetic-value").expect("secret input");
-        let result = put_then_commit_reference::<SyntheticReferenceError, _>(
-            &store,
-            &id,
-            &value,
-            |_| Err(SyntheticReferenceError),
-        );
+        let result =
+            put_then_commit_reference::<SyntheticReferenceError, _>(&store, &id, &value, |_| {
+                Err(SyntheticReferenceError)
+            });
         assert!(matches!(
             result,
-            Err(SecretLifecycleError::ReferenceCommit {
-                cleanup: None,
-                ..
-            })
+            Err(SecretLifecycleError::ReferenceCommit { cleanup: None, .. })
         ));
         assert!(!store.contains(&id).expect("contains after compensation"));
     }
@@ -280,12 +270,10 @@ mod tests {
         *store.fail_delete.lock().expect("fake store lock") = true;
         let id = test_id();
         let value = SecretInput::from_utf8("synthetic-value").expect("secret input");
-        let result = put_then_commit_reference::<SyntheticReferenceError, _>(
-            &store,
-            &id,
-            &value,
-            |_| Err(SyntheticReferenceError),
-        );
+        let result =
+            put_then_commit_reference::<SyntheticReferenceError, _>(&store, &id, &value, |_| {
+                Err(SyntheticReferenceError)
+            });
         assert!(matches!(
             result,
             Err(SecretLifecycleError::ReferenceCommit {
@@ -314,10 +302,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Err(SecretLifecycleError::ReferenceCommit {
-                cleanup: None,
-                ..
-            })
+            Err(SecretLifecycleError::ReferenceCommit { cleanup: None, .. })
         ));
         let restored = store.get(&id).expect("restored previous secret");
         assert!(restored.expose_secret() == previous.expose_secret());
@@ -329,21 +314,15 @@ mod tests {
         let id = test_id();
         let value = SecretInput::from_utf8("synthetic-value").expect("secret input");
         store.put(&id, &value).expect("seed secret");
-        let result = delete_reference_then_secret::<SyntheticReferenceError, _>(
-            &store,
-            &id,
-            || Ok(()),
-        );
+        let result =
+            delete_reference_then_secret::<SyntheticReferenceError, _>(&store, &id, || Ok(()));
         assert!(result.is_ok());
         assert!(!store.contains(&id).expect("contains after delete"));
 
         *store.fail_delete.lock().expect("fake store lock") = true;
         store.put(&id, &value).expect("reseed secret");
-        let result = delete_reference_then_secret::<SyntheticReferenceError, _>(
-            &store,
-            &id,
-            || Ok(()),
-        );
+        let result =
+            delete_reference_then_secret::<SyntheticReferenceError, _>(&store, &id, || Ok(()));
         assert!(matches!(result, Err(SecretLifecycleError::Cleanup(_))));
     }
 
@@ -353,15 +332,16 @@ mod tests {
         let id = test_id();
         let value = SecretInput::from_utf8("synthetic-value").expect("secret input");
         store.put(&id, &value).expect("seed secret");
-        let result = delete_reference_then_secret::<SyntheticReferenceError, _>(
-            &store,
-            &id,
-            || Err(SyntheticReferenceError),
-        );
+        let result =
+            delete_reference_then_secret::<SyntheticReferenceError, _>(&store, &id, || {
+                Err(SyntheticReferenceError)
+            });
         assert!(matches!(
             result,
             Err(SecretLifecycleError::ReferenceDelete(_))
         ));
-        assert!(store.contains(&id).expect("secret remains after db failure"));
+        assert!(store
+            .contains(&id)
+            .expect("secret remains after db failure"));
     }
 }

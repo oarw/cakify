@@ -49,7 +49,9 @@ fn credential_manager_put_get_update_delete_round_trip() {
         store,
         id: id.clone(),
     };
-    store.delete(&id).expect("remove stale synthetic credential");
+    store
+        .delete(&id)
+        .expect("remove stale synthetic credential");
     assert!(!store.contains(&id).expect("initial contains"));
 
     let first = SecretInput::from_utf8("cakify-ci-synthetic-value-v1").expect("first value");
@@ -111,10 +113,16 @@ fn secret_files(root: &Path) -> Vec<PathBuf> {
     fs::read_dir(root)
         .expect("read secret directory")
         .map(|entry| entry.expect("secret directory entry").path())
-        .filter(|path| path.extension().is_some_and(|extension| extension == "dpapi"))
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "dpapi")
+        })
         .collect()
 }
 
 fn contains_subslice(haystack: &[u8], needle: &[u8]) -> bool {
-    !needle.is_empty() && haystack.windows(needle.len()).any(|window| window == needle)
+    !needle.is_empty()
+        && haystack
+            .windows(needle.len())
+            .any(|window| window == needle)
 }
