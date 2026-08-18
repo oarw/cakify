@@ -11,5 +11,9 @@ workspace = true
 [dependencies]
 cakify-core = { path = "../../crates/cakify-core" }
 cakify-platform-windows = { path = "../../crates/cakify-platform-windows" }
+cakify-provider = { path = "../../crates/cakify-provider" }
+cakify-storage = { path = "../../crates/cakify-storage" }
 gpui.workspace = true
 gpui_platform.workspace = true
+pulldown-cmark.workspace = true
+unicode-segmentation.workspace = true

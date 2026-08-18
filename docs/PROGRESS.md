@@ -2,8 +2,8 @@
 
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-18（Asia/Shanghai）
-> 当前阶段：M1 - 数据与秘密基础
-> 当前状态：M1_BACKUP_PENDING
+> 当前阶段：M2/M3 - 聊天垂直切片
+> 当前状态：M2_CHAT_SLICE_IN_PROGRESS
 
 ## 1. 当前快照
 
@@ -21,8 +21,8 @@
 - Runtime smoke 第三轮 `32093988986` 三轮窗口都完整位于工作区，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留；M0 已关闭。
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
-- 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- M1 源码：SQLite foundation、conversation/message/part/run repository、crash recovery、Provider profile CRUD 和 SecretStore 生命周期均已通过 Product validate；Windows CredMan、DPAPI current-user adapter、密文文件和 synthetic contracts 已闭合，下一项是 live backup/restore。
+- 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows、provider 和 storage；聊天垂直切片源码正在接入，尚未经过 Actions 编译验证。
+- M1 源码：SQLite foundation、conversation/message/part/run repository、crash recovery、Provider profile CRUD 和 SecretStore 生命周期均已通过 Product validate；Windows CredMan、DPAPI current-user adapter、密文文件和 synthetic contracts 已闭合。live backup/restore 暂缓，先完成用户明确要求的聊天垂直切片。
 - M1 依赖：固定 `rusqlite 0.40.2`、`sha2 0.10.9`，并把锁文件中已有的 `url 2.5.8` 设为 storage 直接依赖做 endpoint 结构化解析；最终依赖树未发现 GPL AI 业务 crate、向量库或密钥库越界包。
 - 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际生成 M0 与 M1 release EXE。M0 三次窗口 ready 为 `145.450/129.692/118.279 ms`，空闲 Working Set 为 `37.121/35.480/35.477 MiB`，均完整可见、单进程并正常退出；IME 保持 M2 独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
@@ -30,6 +30,14 @@
 - 组件决定：M0 不引入 `gpui-component`；直接使用 GPUI primitives，见 ADR 0002。
 - 历史 benchmark：完整移入 `archi/framework-benchmark-2026-08/`。
 - 许可证：尚未选择，仓库仍没有 `LICENSE`。
+
+## 2.1 当前聊天垂直切片（未验证）
+
+- Core 已从 fake draft 状态回执升级为带对话历史的 `ChatProvider` 边界，支持文本 delta 合并、usage/finish、取消、失败、工具调用 delta 和审批事件。
+- 新增 `crates/cakify-provider`：OpenAI-compatible SSE adapter、HTTPS/loopback endpoint 校验、禁用重定向、SecretStore 按请求读取 API Key、脱敏 HTTP 错误和 parser 契约测试源码。
+- GPUI desktop 已接入官方 GPUI editor 示例改造的多行 composer、Enter 发送/Shift+Enter 换行、消息时间线、流式 assistant 更新、停止/重试、CommonMark 基础 block/code rendering。
+- Provider 面板可以保存 endpoint/model/API Key；API Key 走 Windows Credential Manager，profile 走 SQLite。MCP 面板可以维护 stdio/HTTP server 草稿，工具审批行可以显示允许/拒绝状态。
+- 当前明确未声称完成：本轮源码尚未在 Actions 运行；中文/日文物理 IME selection/clipboard 尚未验收；MCP `rmcp` 连接/进程 Job Object 尚未接入；消息尚未接 storage actor 做持久化；MCP 草稿尚未持久化。
 
 ## 2. 当前产品决定
 
@@ -308,6 +316,14 @@
 - 实现 DPAPI current-user adapter：只设置 `CRYPTPROTECT_UI_FORBIDDEN`，不设置 machine scope；secret ID 派生 entropy，密文带版本头并写入哈希文件名，通过同目录临时文件、`sync_all` 与 `MoveFileExW` 原子替换。
 - 新增 Windows synthetic contract，覆盖 CredMan put/get/update/delete/idempotent cleanup，以及 DPAPI round-trip、磁盘不含测试明文、tamper failure 和删除；Product validate 增加两个显式 secret contract step。
 - 首轮 Product validate `32127609188` 的依赖/许可证门通过但 rustfmt 失败；按 runner 完整差异修复后，第二轮 `32127969715` 实际执行并通过 workspace 编译、全量测试、CredMan/DPAPI synthetic contract、Clippy 和 release build。
+
+### 2026-08-18：聊天垂直切片源码（待 Actions）
+
+- 用户明确将下一步优先级改为聊天输入框、消息列表、真实模型请求、流式输出、Markdown、工具/MCP UI；live backup/restore 暂缓，不删除 M1 数据边界。
+- 新增 Core provider trait、bounded run worker、24 ms/1 KiB delta 合并、取消和工具审批事件；失败/取消会撤销未完成的用户 turn，避免重试重复上下文。
+- 新增 OpenAI-compatible blocking SSE adapter，先限制在请求线程内阻塞，避免 UI 线程网络等待；远程 HTTPS、loopback HTTP、无重定向和 Header 敏感标记作为代码契约。
+- GPUI 界面从 M0 placeholder 改为多行输入、消息列表、assistant Markdown/code block、Provider 设置、停止/重试、MCP server 草稿与工具审批 UI。
+- 本机没有 Rust/Cargo，未执行编译、测试、格式化或运行；下一步必须推送后仅运行 Product validate，按 CI 日志修复，再运行 Windows runtime smoke 做真实窗口/输入可见性核对。
 
 ## 12. 更新规则
 

@@ -4,6 +4,7 @@ members = [
     "apps/cakify-desktop",
     "crates/cakify-core",
     "crates/cakify-platform-windows",
+    "crates/cakify-provider",
     "crates/cakify-storage",
 ]
 
@@ -17,11 +18,14 @@ publish = false
 async-channel = "=2.5.0"
 gpui = { version = "0.2.2", git = "https://github.com/zed-industries/zed", rev = "b2d9c2e122fbc408d42276b4456243ba4f90f181", package = "gpui" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "b2d9c2e122fbc408d42276b4456243ba4f90f181", package = "gpui_platform" }
+pulldown-cmark = { version = "=0.13.4", default-features = false }
+reqwest = { version = "=0.13.4", default-features = false, features = ["blocking", "json", "rustls"] }
 rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
 sha2 = "=0.10.9"
 thiserror = "=2.0.20"
+unicode-segmentation = "=1.13.3"
 url = "=2.5.8"
 windows = { version = "=0.62.2", features = [
     "Win32_Foundation",

@@ -2,7 +2,7 @@
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
 > 最后更新：2026-08-18（Asia/Shanghai）
-> 交接状态：M0 与 M1 SQLite/repository/Provider/SecretStore Product validate 已闭合，当前进入 M1 live backup/restore。
+> 交接状态：M0 与 M1 SQLite/repository/Provider/SecretStore Product validate 已闭合，当前正在推进 M2/M3 聊天垂直切片；源码待 Actions 验证。
 
 ## 1. 五分钟上下文
 
@@ -39,7 +39,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 - 路径：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`
-- 当前 HEAD：`054aaf6b0ea939d41f455921ced714e4461ed5fa`（`fix: apply secret store formatting`）
+- 当前 HEAD：以 `git rev-parse HEAD` 为准；本轮聊天切片源码尚未提交。
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
 - Product validate 已验证源码提交：`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`
@@ -47,7 +47,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
 - 最近 Product validate：`32127969715`，目标 HEAD `054aaf6b0ea939d41f455921ced714e4461ed5fa`，全量验证与 release artifact 已通过并核对。
-- 根产品 Cargo workspace 已建立，首批成员为 desktop、core、platform-windows。
+- 根产品 Cargo workspace 已建立，成员为 desktop、core、platform-windows、provider、storage；聊天切片尚未通过 Actions。
 - GPUI 空窗口和 fake Core bridge 已通过 Actions 的 fmt/check/tests/Clippy/release build 与最终 runtime smoke；三轮窗口完整可见，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留。
 - 旧 benchmark 完整归档在 `archi/framework-benchmark-2026-08/`。
 - 根 `.github/workflows/product-validate.yml` 只有 `workflow_dispatch`；push 不会自动运行。
@@ -188,13 +188,13 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - M0 runtime 最终验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
-- 当前 milestone：M1 数据与秘密基础；M0 与 SecretStore 已闭合
-- 当前正在做：SQLite live backup/restore、`integrity_check` 和导出 secret 扫描
+- 当前 milestone：M2/M3 聊天垂直切片；M0 与 M1 SecretStore 已闭合
+- 当前正在做：GPUI composer/消息列表、OpenAI-compatible SSE、Markdown、工具审批/MCP UI
 - 最近成功 Actions：Product validate `32127969715`
 - 本轮 Actions：Product validate 首轮 `32127609188` 只因 rustfmt 失败；第二轮 `32127969715` 全部通过并核对 artifact，仓库已恢复 PRIVATE
-- 精确下一动作：实现 live backup/restore，使用 SQLite Backup API 或 `VACUUM INTO`，再在 Actions 验证恢复完整性和领域计数
+- 精确下一动作：提交并推送聊天切片；按 8 月公开闭环只运行 Product validate，先修复 fmt/check/test/Clippy，再运行 Windows runtime smoke；不要把未运行写成通过
 - 需要用户决定：项目许可证；M7 签名/发行渠道。8 月受控 visibility 闭环已有持续授权，不再逐次询问
-- 已知风险：backup/restore 尚未验证、真实聊天 UI/Provider/Agent/MCP 尚未开始、GPUI pre-1.0、直接 UI 组件工作量、真实 IME/accessibility、M0 指标只覆盖窗口壳层、EXE 未签名
+- 已知风险：聊天切片尚未 Actions 验证；MCP `rmcp`/Job Object 和消息持久化尚未接入；真实中文/日文 IME、selection/clipboard/accessibility 尚未人工验收；GPUI pre-1.0；M0 指标只覆盖窗口壳层；EXE 未签名
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
 
 交接时用实际 `git rev-parse HEAD` 更新或解释 HEAD；不要让文档中的工作前基线冒充最新提交。
