@@ -3,9 +3,9 @@
 > 最近审计日期：2026-08-18（Asia/Shanghai）
 > 原 Product validate 审计基线：commit `b87789ce6c145cb8b1507ba077d8112d744dcdac`
 > 最近 runtime 审计基线：commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`
-> 最近 M1 Product validate 基线：commit `785241720db087ce38121b095ea5f192063ab2b4`
+> 最近 M1 Product validate 基线：commit `054aaf6b0ea939d41f455921ced714e4461ed5fa`
 > 最近 M1 repository 基线：commit `621097cdc08a9ac5129eef2200c2b8c7628504e2`
-> 当前结论：Product validate、M0 runtime smoke、M1 storage foundation 与 repository/crash recovery 的受控 public -> Actions -> private 均已完成；仓库已恢复 PRIVATE。
+> 当前结论：Product validate、M0 runtime smoke、M1 storage foundation、repository/crash recovery、Provider profile 与 SecretStore 的受控 public -> Actions -> private 均已完成；仓库已恢复 PRIVATE。
 
 本文件及同步进度文档是审计完成后的记录增量，提交前同样执行敏感模式和 staged diff 检查。真正切换 public 前还必须对当时的实际 HEAD 做一次增量复核。
 
@@ -140,3 +140,15 @@ artifact 内 EXE 为 5,722,624 bytes，SHA-256 `CE54D290BD0F0A19F1CDDE0322C4A7C2
 最终 artifact `product-validation-32100910742` 的 ID 为 `9311722769`，上传日志与 API 均记录 6 个文件、2,386,139 bytes、archive digest `sha256:51d059c6089178c9afb56c858d594d744892071da2a1b28cd6edf24e96f144af`。本机下载时在另一 Azure Blob 主机 `productionresultssa2.blob.core.windows.net:443` 同样连接超时，因此 ZIP 内容独立解包仍明确待办；未将其伪造为已检查。
 
 下载超时后再次确认 queued/in_progress 为 0，立即恢复 PRIVATE，并复核 `isPrivate=true` 与最终 run `completed/success`。本循环只运行 Product validate，没有运行 benchmark、runtime smoke、package、release 或无关 workflow。
+
+## 12. M1 SecretStore Product validate 审计与闭环
+
+2026-08-18 对 SecretStore 源码执行一次持续授权范围内的受控循环。目标 HEAD 为 `c6e109b5bbc741e37486913fda1ed94e4829d8f0`，公开前复核覆盖 37 个可达 commit、524 个 Git objects、160 个历史路径；高置信 token/私钥/凭据 URL 0 命中，敏感文件名 0 命中，当前 LFS pointer 0 命中。Actions/Dependabot/Codespaces secrets、variables、environments 均为 0，Release、Issue、PR、fork、tag 均为 0，仓库没有 `LICENSE`。两份旧 Flutter cache 未变化，当前 workflow 不读取 cache；本轮只增加 CredMan/DPAPI 源码和 synthetic tests，没有真实用户 secret 或外部输入。
+
+首轮 [Product validate `32127609188`](https://github.com/oarw/cakify/actions/runs/32127609188) 为 `failure`：依赖树/许可证边界通过，rustfmt 发现三个新 Rust 文件的纯格式差异；workspace check、tests、secret contracts、Clippy、release build 未执行。artifact `product-validation-32127609188`（ID `9321000183`，digest `sha256:4f89b37f5f4b44bda62d80eee926732446fe7e4b2adf500dfa903dcf1681c07`）只包含 runner 生成的锁文件和依赖树，不能记作 SecretStore 通过。
+
+按 runner 完整格式差异修复并推送 commit `054aaf6b0ea939d41f455921ced714e4461ed5fa` 后，最终 [Product validate `32127969715`](https://github.com/oarw/cakify/actions/runs/32127969715) 为 `success`，job `95682647629`。fmt、workspace check、全量 tests、storage/repository/provider/secret contracts、Clippy、release build 与 artifact upload 全部成功；secret contract 实际覆盖 Core 两阶段生命周期、Credential Manager put/get/update/delete/idempotent cleanup，以及 DPAPI current-user round-trip、密文不含测试明文、tamper failure 和删除。
+
+最终 artifact `product-validation-32127969715` 的 ID 为 `9321446137`，大小 2,386,299 bytes，archive digest `sha256:1b4f6f03c4a6d0883f5c11d94b87a061d2d38db1e660d8401433d5d6fb6c795d`。实际下载解包得到 6 个文件：`Cargo.lock`、dependency tree、三份 migration 和 release EXE。锁文件 CRLF -> LF 归一化后与仓库一致；依赖树越界 GPL AI crate 0，artifact 文本高置信 secret 0。EXE 为 5,722,624 bytes，SHA-256 `9C63E9A44A8C7AC78D03FDCDAC4B3F9922E9A2388A9122B97F75B226982F3E0D`，`NotSigned`（M7 前预期状态）。
+
+核对产物后确认 queued/in_progress 为 0，立即恢复 PRIVATE 并复核 `isPrivate=true`。本循环没有运行 benchmark、runtime smoke、package、release 或任何无关 workflow；未创建 Release、未删除 cache/artifact、未长期公开。

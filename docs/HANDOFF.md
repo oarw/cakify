@@ -2,7 +2,7 @@
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
 > 最后更新：2026-08-18（Asia/Shanghai）
-> 交接状态：M0 Product validate 与 Windows runtime smoke 已闭合，当前进入 M1 数据与秘密基础。
+> 交接状态：M0 与 M1 SQLite/repository/Provider/SecretStore Product validate 已闭合，当前进入 M1 live backup/restore。
 
 ## 1. 五分钟上下文
 
@@ -39,19 +39,21 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 - 路径：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`
+- 当前 HEAD：`054aaf6b0ea939d41f455921ced714e4461ed5fa`（`fix: apply secret store formatting`）
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
 - Product validate 已验证源码提交：`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`
 - M0 runtime 最终验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
+- 最近 Product validate：`32127969715`，目标 HEAD `054aaf6b0ea939d41f455921ced714e4461ed5fa`，全量验证与 release artifact 已通过并核对。
 - 根产品 Cargo workspace 已建立，首批成员为 desktop、core、platform-windows。
 - GPUI 空窗口和 fake Core bridge 已通过 Actions 的 fmt/check/tests/Clippy/release build 与最终 runtime smoke；三轮窗口完整可见，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留。
 - 旧 benchmark 完整归档在 `archi/framework-benchmark-2026-08/`。
 - 根 `.github/workflows/product-validate.yml` 只有 `workflow_dispatch`；push 不会自动运行。
-- 最近实际成功 run：Windows runtime smoke `32093988986`，commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`。
+- 最近实际成功 run：Product validate `32127969715`；M0 最终 runtime smoke 仍为 `32093988986`。
 - Runtime smoke 前两轮分别暴露无效内存聚合与任务栏遮挡；第三轮全部硬门通过。本机始终未编译/测试/运行产品。
-- 首个产品 `Cargo.lock` 已提交；最终 artifact 含 release EXE 和依赖树，详见第 12 节。
+- 产品 `Cargo.lock` 已提交；SecretStore 最终 artifact 含 release EXE、依赖树和三份 migration，详见第 12 节。
 - Product validate 与 M0 runtime smoke 的公开前安全审计及 public -> Actions -> private 均已闭环，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
 - 仓库没有 LICENSE。
 
@@ -132,8 +134,8 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 1. 建立 M1 SQLite storage actor、initial schema、migration runner 和连接配置硬门。
 2. 实现 conversation/message/part/run repository、crash recovery 与领域约束测试。
 3. 实现 Provider profile CRUD；SQLite 只存 opaque credential reference。
-4. 实现 Credential Manager 主路径、DPAPI current-user 后备与 synthetic secret 测试。
-5. 实现 live backup/restore 与 `integrity_check`；不要提前接真实 Provider。
+4. 实现 Credential Manager 主路径、DPAPI current-user 后备与 synthetic secret 测试；已由 Product validate `32127969715` 闭合。
+5. 实现 live backup/restore 与 `integrity_check`；当前精确下一步，不要提前接真实 Provider。
 6. 物理微软拼音/日文 IME、DPI、无障碍仍是 M2 独立人工门；M0 空壳没有真实输入框，不能写成 IME 通过。
 
 ## 10. 后续顺序
@@ -171,6 +173,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - Product validate：<https://github.com/oarw/cakify/actions/runs/32034202488>，success，commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`，job `95400694626`，artifact ID `9290400569`；fmt/check/tests/Clippy/release/upload 全部通过。
 - 最终 artifact `product-validation-32034202488` digest `sha256:e9c4f5f0db1488d8f946acfcb2766d2d0ccd4f313fa4f7a476747639f9a8a7b5`；EXE 5,722,112 bytes，SHA-256 `4EB5AF9970EAFFC35850C599CD2A91685D6C1CC9FCB11B45526CA5B8D7DBF8DF`，未签名。
 - 最终锁文件与仓库逐行一致，越界框架包与 artifact 文本 secret 0 命中。恢复 private 前已确认 queued/in_progress 为空；当前仓库 PRIVATE。
+- Product validate：<https://github.com/oarw/cakify/actions/runs/32127969715>，success，commit `054aaf6b0ea939d41f455921ced714e4461ed5fa`，job `95682647629`，artifact `product-validation-32127969715`（ID `9321446137`，digest `sha256:1b4f6f03c4a6d0883f5c11d94b87a061d2d38db1e660d8401433d5d6fb6c795d`）。fmt/check/全量 tests、storage/repository/provider/secret contracts、Clippy、release build 与上传全部成功；6 files、2,386,299 bytes，release EXE 5,722,624 bytes，SHA-256 `9C63E9A44A8C7AC78D03FDCDAC4B3F9922E9A2388A9122B97F75B226982F3E0D`，`NotSigned`。锁文件归一化匹配仓库，越界 GPL AI crate 与文本 secret 0 命中；恢复前 queued/in_progress 为空，随后复核仓库 PRIVATE。
 - Windows runtime smoke：<https://github.com/oarw/cakify/actions/runs/32037554962>，success 但内存顶层聚合无效，不能作为最终证据。
 - Windows runtime smoke：<https://github.com/oarw/cakify/actions/runs/32038434473>，success，性能/生命周期证据有效，但截图显示任务栏遮挡，未接受为最终 M0 验收。
 - Windows runtime smoke：<https://github.com/oarw/cakify/actions/runs/32093988986>，success，commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`，job `95581655025`，artifact `windows-runtime-smoke-32093988986`（ID `9309416529`，digest `sha256:8a09c0785d1cc77257c798f26247a5bec16ae8e63b95ab129faa04a18430a6c3`）。三轮完整可见、空闲 Working Set `35.477-37.121 MiB`、0 子进程、正常退出且无残留；JSONL/日志/截图独立核验通过。
@@ -185,13 +188,13 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - M0 runtime 最终验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
-- 当前 milestone：M1 数据与秘密基础；M0 已闭合
-- 当前正在做：SQLite storage actor、initial schema 与 migration runner
-- 最近成功 Actions：Windows runtime smoke `32093988986`
-- 本轮 Actions：三次 runtime smoke；前两次证据分别因聚合错误/截图遮挡被拒绝，第三次最终通过
-- 精确下一动作：实现 SQLite actor/schema/migration，再做 conversation/message/part/run repository
+- 当前 milestone：M1 数据与秘密基础；M0 与 SecretStore 已闭合
+- 当前正在做：SQLite live backup/restore、`integrity_check` 和导出 secret 扫描
+- 最近成功 Actions：Product validate `32127969715`
+- 本轮 Actions：Product validate 首轮 `32127609188` 只因 rustfmt 失败；第二轮 `32127969715` 全部通过并核对 artifact，仓库已恢复 PRIVATE
+- 精确下一动作：实现 live backup/restore，使用 SQLite Backup API 或 `VACUUM INTO`，再在 Actions 验证恢复完整性和领域计数
 - 需要用户决定：项目许可证；M7 签名/发行渠道。8 月受控 visibility 闭环已有持续授权，不再逐次询问
-- 已知风险：M1 schema/migration 尚未验证、GPUI pre-1.0、直接 UI 组件工作量、真实 IME/accessibility、M0 指标只覆盖窗口壳层、EXE 未签名
+- 已知风险：backup/restore 尚未验证、真实聊天 UI/Provider/Agent/MCP 尚未开始、GPUI pre-1.0、直接 UI 组件工作量、真实 IME/accessibility、M0 指标只覆盖窗口壳层、EXE 未签名
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
 
 交接时用实际 `git rev-parse HEAD` 更新或解释 HEAD；不要让文档中的工作前基线冒充最新提交。
