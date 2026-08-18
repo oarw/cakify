@@ -1,0 +1,325 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "SemVer tag, for example v0.1.0-pre.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'push' && github.ref || inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  validate-package:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.release-meta.outputs.version }}
+      base-version: ${{ steps.release-meta.outputs.base-version }}
+      prerelease: ${{ steps.release-meta.outputs.prerelease }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Resolve and validate release metadata
+        id: release-meta
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $version = if ($env:EVENT_NAME -eq 'push') { $env:REF_NAME } else { $env:INPUT_RELEASE_TAG }
+          if ($version -notmatch '^v(?<base>(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))(?<suffix>-(pre|alpha|beta|rc)\.(0|[1-9][0-9]*))?$') {
+            throw "Release tag must look like v0.1.0 or v0.1.0-pre.1: $version"
+          }
+
+          $baseVersion = $Matches.base
+          $isPrerelease = -not [string]::IsNullOrEmpty($Matches.suffix)
+          $metadata = cargo metadata --format-version 1 --no-deps --locked | ConvertFrom-Json
+          $productVersions = @(
+            $metadata.packages |
+              Where-Object { $_.name -like 'cakify-*' } |
+              Select-Object -ExpandProperty version -Unique
+          )
+          if ($productVersions.Count -ne 1 -or $productVersions[0] -ne $baseVersion) {
+            throw "Release base version $baseVersion does not match Cakify package versions: $($productVersions -join ', ')"
+          }
+
+          if ($env:EVENT_NAME -eq 'workflow_dispatch') {
+            git show-ref --verify --quiet "refs/tags/$version"
+            if ($LASTEXITCODE -eq 0) {
+              throw "Tag already exists: $version"
+            }
+          }
+
+          "version=$version" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+          "base-version=$baseVersion" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+          "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+
+      - name: Restore Cargo cache
+        id: cargo-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Record toolchain and dependency tree
+        shell: pwsh
+        run: |
+          rustc -Vv
+          cargo -V
+          $tree = cargo tree --workspace --locked --prefix none
+          $tree | Set-Content -LiteralPath dependency-tree.txt -Encoding utf8
+          $forbidden = $tree | Select-String -Pattern '^(agent|agent_ui|language_model|context_server) v[0-9]'
+          if ($forbidden) {
+            $forbidden | ForEach-Object { Write-Error $_.Line }
+            throw 'Zed GPL AI business crates are not allowed in the product dependency tree.'
+          }
+
+      - name: Check formatting
+        shell: pwsh
+        run: cargo fmt --all -- --check
+
+      - name: Check workspace
+        shell: pwsh
+        run: cargo check --workspace --all-targets --locked
+
+      - name: Run all tests
+        shell: pwsh
+        run: cargo test --workspace --locked
+
+      - name: Run storage and repository contracts
+        shell: pwsh
+        run: |
+          cargo test --package cakify-storage --test storage_contract --locked
+          cargo test --package cakify-storage --test repository_contract --locked
+          cargo test --package cakify-storage --test provider_profile_contract --locked
+
+      - name: Run secret contracts
+        shell: pwsh
+        run: |
+          cargo test --package cakify-core secret::tests --locked
+          cargo test --package cakify-platform-windows --test secret_contract --locked
+
+      - name: Run clippy
+        shell: pwsh
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+      - name: Build release desktop
+        shell: pwsh
+        run: cargo build --release --package cakify-desktop --locked
+
+      - name: Build per-user installer
+        shell: pwsh
+        env:
+          CAKIFY_VERSION: ${{ steps.release-meta.outputs.base-version }}
+          RELEASE_VERSION: ${{ steps.release-meta.outputs.version }}
+        run: |
+          $isccCandidates = @(
+            (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
+            "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe"
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+            "$env:ProgramFiles\Inno Setup 7\ISCC.exe"
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) }
+          $iscc = $isccCandidates | Select-Object -First 1
+          if (-not $iscc) {
+            throw 'ISCC.exe was not found on the Windows runner.'
+          }
+
+          $dist = Join-Path (Get-Location) 'release-dist'
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          $installerBaseName = "Cakify-$env:RELEASE_VERSION-windows-x64-Setup"
+          & $iscc /Qp "/O$dist" "/F$installerBaseName" packaging/windows/cakify.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup compiler failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Install, run, and uninstall packaged app
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.release-meta.outputs.version }}
+        run: |
+          ./scripts/windows/installer-smoke.ps1 `
+            -InstallerPath "release-dist/Cakify-$env:RELEASE_VERSION-windows-x64-Setup.exe" `
+            -OutputDirectory installer-smoke `
+            -RunCount 3 `
+            -MaxIdleWorkingSetMiB 80
+
+      - name: Package portable assets and checksums
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ steps.release-meta.outputs.version }}
+          IS_PRERELEASE: ${{ steps.release-meta.outputs.prerelease }}
+        run: |
+          $dist = Join-Path (Get-Location) 'release-dist'
+          $assetStem = "Cakify-$env:RELEASE_VERSION-windows-x64"
+          $portableDirectory = Join-Path $dist 'portable'
+          New-Item -ItemType Directory -Force -Path $portableDirectory | Out-Null
+          Copy-Item -LiteralPath target/release/cakify-desktop.exe -Destination (Join-Path $portableDirectory 'Cakify.exe')
+          @(
+            "Cakify $env:RELEASE_VERSION"
+            ""
+            "Run Cakify.exe directly. No WebView, Node.js, or Python runtime is required."
+            "API keys are stored in Windows Credential Manager."
+            "This preview is unsigned. Windows may show a reputation warning."
+            "Unpack the entire ZIP before running the application."
+          ) | Set-Content -LiteralPath (Join-Path $portableDirectory 'README.txt') -Encoding ascii
+
+          $portableZip = Join-Path $dist "$assetStem-portable.zip"
+          Compress-Archive -Path (Join-Path $portableDirectory '*') -DestinationPath $portableZip -CompressionLevel Optimal
+          $standaloneExe = Join-Path $dist "$assetStem.exe"
+          Copy-Item -LiteralPath target/release/cakify-desktop.exe -Destination $standaloneExe
+
+          $installer = Join-Path $dist "$assetStem-Setup.exe"
+          $assets = @($installer, $standaloneExe, $portableZip)
+          foreach ($asset in $assets) {
+            if (-not (Test-Path -LiteralPath $asset -PathType Leaf)) {
+              throw "Release asset is missing: $asset"
+            }
+          }
+          $checksumLines = $assets |
+            Sort-Object { [IO.Path]::GetFileName($_) } |
+            ForEach-Object {
+              $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_).Hash.ToLowerInvariant()
+              "$hash  $([IO.Path]::GetFileName($_))"
+            }
+          $checksumLines | Set-Content -LiteralPath (Join-Path $dist 'SHA256SUMS.txt') -Encoding ascii
+
+          $channel = if ($env:IS_PRERELEASE -eq 'true') { 'Pre-release' } else { 'Release' }
+          @(
+            "# Cakify $env:RELEASE_VERSION"
+            ""
+            "$channel Windows x64 build."
+            ""
+            "## Downloads"
+            ""
+            "- ``$assetStem-Setup.exe``: per-user installer with Start Menu shortcut and standard uninstall."
+            "- ``$assetStem-portable.zip``: portable package."
+            "- ``$assetStem.exe``: standalone executable."
+            "- ``SHA256SUMS.txt``: SHA-256 checksums for all distributable assets."
+            ""
+            "## Current scope"
+            ""
+            "Native GPUI chat UI, OpenAI-compatible streaming, Markdown, stop/retry, Provider settings, and Windows Credential Manager integration."
+            ""
+            "Message persistence, live MCP execution, installer signing, and a real-key online smoke test are not complete yet."
+            ""
+            "Validation commit: ``$env:GITHUB_SHA``"
+            "Validation run: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          ) | Set-Content -LiteralPath (Join-Path $dist 'RELEASE_NOTES.md') -Encoding utf8
+
+          Copy-Item -LiteralPath installer-smoke/SUMMARY.md -Destination (Join-Path $dist 'INSTALLER-SMOKE.md')
+          Copy-Item -LiteralPath installer-smoke/runtime/SUMMARY.md -Destination (Join-Path $dist 'RUNTIME-SMOKE.md')
+
+      - name: Publish validation summaries
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath installer-smoke/SUMMARY.md) {
+            Get-Content -LiteralPath installer-smoke/SUMMARY.md | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          }
+          if (Test-Path -LiteralPath installer-smoke/runtime/SUMMARY.md) {
+            Get-Content -LiteralPath installer-smoke/runtime/SUMMARY.md | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload release candidate and validation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-candidate-${{ github.run_id }}
+          path: |
+            release-dist/**
+            installer-smoke/**
+            dependency-tree.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Save Cargo cache
+        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
+
+  publish:
+    needs: validate-package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download validated release candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-candidate-${{ github.run_id }}
+          path: release-bundle
+
+      - name: Verify release checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-bundle/release-dist
+          sha256sum --check SHA256SUMS.txt
+
+      - name: Create GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_VERSION: ${{ needs.validate-package.outputs.version }}
+          IS_PRERELEASE: ${{ needs.validate-package.outputs.prerelease }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists: $RELEASE_VERSION" >&2
+            exit 1
+          fi
+
+          cd release-bundle/release-dist
+          mapfile -t assets < <(find . -maxdepth 1 -type f \( -name '*.exe' -o -name '*.zip' -o -name 'SHA256SUMS.txt' \) -print | sort)
+          if [[ ${#assets[@]} -ne 4 ]]; then
+            echo "Expected installer, standalone EXE, portable ZIP, and checksums; found ${#assets[@]} assets." >&2
+            printf '%s\n' "${assets[@]}" >&2
+            exit 1
+          fi
+
+          args=(release create "$RELEASE_VERSION" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "Cakify $RELEASE_VERSION" --notes-file RELEASE_NOTES.md)
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            args+=(--verify-tag)
+          else
+            args+=(--target "$TARGET_SHA")
+          fi
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+          gh "${args[@]}"
+
+      - name: Publish release URL
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.validate-package.outputs.version }}
+        run: |
+          gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,tagName,targetCommitish | tee release.json
+          cat release.json >> "$GITHUB_STEP_SUMMARY"
