@@ -1502,16 +1502,11 @@ fn render_markdown(source: &str) -> Div {
     let muted = rgb(0x68736f);
     let code_surface = rgb(0xf0f3f1);
     let border = rgb(0xd8dedb);
-    div()
-        .w_full()
-        .flex()
-        .flex_col()
-        .gap_3()
-        .children(
-            parse_markdown(source)
-                .into_iter()
-                .enumerate()
-                .map(|(index, block)| match block {
+    div().w_full().flex().flex_col().gap_3().children(
+        parse_markdown(source)
+            .into_iter()
+            .enumerate()
+            .map(|(index, block)| match block {
                 MarkdownBlock::Paragraph(text_value) => div()
                     .w_full()
                     .line_height(px(23.0))
@@ -1579,8 +1574,8 @@ fn render_markdown(source: &str) -> Div {
                     .child(if ordered { "1." } else { "•" })
                     .child(div().flex_1().child(value)),
                 MarkdownBlock::Rule => div().w_full().h(px(1.0)).bg(border),
-                }),
-        )
+            }),
+    )
 }
 
 fn upsert_provider_profile(
