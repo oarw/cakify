@@ -6,10 +6,10 @@
 use std::{ops::Range, time::Duration};
 
 use gpui::{
-    actions, fill, hsla, point, prelude::*, px, relative, size, App, Bounds, Context,
-    CursorStyle, ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable,
-    InteractiveElement, KeyBinding, LayoutId, PaintQuad, Pixels, ShapedLine, SharedString,
-    Subscription, Task, TextRun, UTF16Selection, Window,
+    actions, fill, hsla, point, prelude::*, px, relative, size, App, Bounds, Context, CursorStyle,
+    ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable, InteractiveElement,
+    KeyBinding, LayoutId, PaintQuad, Pixels, ShapedLine, SharedString, Subscription, Task, TextRun,
+    UTF16Selection, Window,
 };
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -80,11 +80,7 @@ impl TextEditor {
             masked,
             multiline,
             _blink_task: Task::ready(()),
-            _subscriptions: vec![
-                focus_subscription,
-                blur_subscription,
-                value_subscription,
-            ],
+            _subscriptions: vec![focus_subscription, blur_subscription, value_subscription],
         }
     }
 
@@ -475,10 +471,7 @@ impl Element for EditorText {
         );
         let line_height = window.line_height();
         for (index, line) in prepaint.lines.iter().enumerate() {
-            let origin = point(
-                bounds.left(),
-                bounds.top() + line_height * index as f32,
-            );
+            let origin = point(bounds.left(), bounds.top() + line_height * index as f32);
             line.paint(origin, line_height, gpui::TextAlign::Left, None, window, cx)
                 .expect("paint editor text");
         }
@@ -549,9 +542,7 @@ fn next_boundary(content: &str, offset: usize) -> usize {
 }
 
 fn line_start(content: &str, offset: usize) -> usize {
-    content[..offset]
-        .rfind('\n')
-        .map_or(0, |index| index + 1)
+    content[..offset].rfind('\n').map_or(0, |index| index + 1)
 }
 
 fn line_end(content: &str, offset: usize) -> usize {

@@ -7,9 +7,7 @@ use cakify_core::{
     put_then_commit_reference, AppCommand, AppEvent, ConversationId, CoreEvents, CoreRuntime,
     RequestId, RunId, SecretId, SecretInput, SecretStore, ToolCall, Usage,
 };
-use cakify_platform_windows::{
-    app_data_paths, CredentialManagerSecretStore,
-};
+use cakify_platform_windows::{app_data_paths, CredentialManagerSecretStore};
 use cakify_provider::{OpenAiCompatibleProvider, OpenAiConfig, ProviderRouter};
 use cakify_storage::{
     NewProviderProfile, ProviderProfileRecord, ProviderProfileUpdate, StorageActor, StorageConfig,
@@ -174,11 +172,7 @@ struct CakifyApp {
 }
 
 impl CakifyApp {
-    fn new(
-        services: DesktopServices,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Self {
+    fn new(services: DesktopServices, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let endpoint = services
             .provider_profile
             .as_ref()
@@ -189,16 +183,7 @@ impl CakifyApp {
             .as_ref()
             .and_then(|profile| profile.default_model.clone())
             .unwrap_or_else(|| "gpt-5-mini".to_owned());
-        let composer = cx.new(|cx| {
-            TextEditor::new(
-                "",
-                "输入消息",
-                false,
-                true,
-                window,
-                cx,
-            )
-        });
+        let composer = cx.new(|cx| TextEditor::new("", "输入消息", false, true, window, cx));
         let endpoint_editor = cx.new(|cx| {
             TextEditor::new(
                 endpoint,
@@ -209,9 +194,7 @@ impl CakifyApp {
                 cx,
             )
         });
-        let model_editor = cx.new(|cx| {
-            TextEditor::new(model, "模型 ID", false, false, window, cx)
-        });
+        let model_editor = cx.new(|cx| TextEditor::new(model, "模型 ID", false, false, window, cx));
         let key_editor = cx.new(|cx| {
             TextEditor::new(
                 "",
@@ -226,19 +209,10 @@ impl CakifyApp {
                 cx,
             )
         });
-        let mcp_name_editor = cx.new(|cx| {
-            TextEditor::new("", "Server 名称", false, false, window, cx)
-        });
-        let mcp_target_editor = cx.new(|cx| {
-            TextEditor::new(
-                "",
-                "命令或 Streamable HTTP URL",
-                false,
-                false,
-                window,
-                cx,
-            )
-        });
+        let mcp_name_editor =
+            cx.new(|cx| TextEditor::new("", "Server 名称", false, false, window, cx));
+        let mcp_target_editor = cx
+            .new(|cx| TextEditor::new("", "命令或 Streamable HTTP URL", false, false, window, cx));
 
         Self {
             core: services.core,
@@ -420,11 +394,9 @@ impl CakifyApp {
                     message.state = MessageState::Complete;
                     message.usage = usage;
                 }
-                self.status = if self
-                    .tool_calls
-                    .iter()
-                    .any(|call| call.run_id == run_id && call.state == ToolApprovalState::AwaitingApproval)
-                {
+                self.status = if self.tool_calls.iter().any(|call| {
+                    call.run_id == run_id && call.state == ToolApprovalState::AwaitingApproval
+                }) {
                     "工具调用等待审批".into()
                 } else {
                     "完成".into()
@@ -496,12 +468,7 @@ impl CakifyApp {
         existing.state = ToolApprovalState::AwaitingApproval;
     }
 
-    fn new_conversation(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn new_conversation(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(run_id) = self.active_run.take() {
             let _ = self
                 .core
@@ -517,23 +484,13 @@ impl CakifyApp {
         cx.notify();
     }
 
-    fn submit_from_keyboard(
-        &mut self,
-        _: &Submit,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn submit_from_keyboard(&mut self, _: &Submit, window: &mut Window, cx: &mut Context<Self>) {
         if self.composer.read(cx).focus_handle.is_focused(window) {
             self.send_current(cx);
         }
     }
 
-    fn send_click(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn send_click(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(run_id) = self.active_run {
             self.cancel_run(run_id, cx);
         } else {
@@ -614,12 +571,7 @@ impl CakifyApp {
         cx.notify();
     }
 
-    fn retry_last(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn retry_last(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         let Some(prompt) = self.last_prompt.clone() else {
             return;
         };
@@ -632,19 +584,15 @@ impl CakifyApp {
         match self
             .core
             .handle()
-            .try_dispatch(AppCommand::CancelRun { run_id }) {
+            .try_dispatch(AppCommand::CancelRun { run_id })
+        {
             Ok(()) => self.status = "正在停止".into(),
             Err(error) => self.status = error.to_string().into(),
         }
         cx.notify();
     }
 
-    fn toggle_provider(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn toggle_provider(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         self.panel = if self.panel == Panel::Provider {
             Panel::None
         } else {
@@ -653,12 +601,7 @@ impl CakifyApp {
         cx.notify();
     }
 
-    fn toggle_mcp(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn toggle_mcp(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         self.panel = if self.panel == Panel::Mcp {
             Panel::None
         } else {
@@ -667,12 +610,7 @@ impl CakifyApp {
         cx.notify();
     }
 
-    fn save_provider(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn save_provider(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         let endpoint = self.endpoint_editor.read(cx).text(cx);
         let model = self.model_editor.read(cx).text(cx);
         let key = self.key_editor.read(cx).text(cx);
@@ -727,9 +665,7 @@ impl CakifyApp {
                 Ok::<(), StorageError>(())
             })
             .map_err(|error| error.to_string())
-            .and_then(|()| {
-                saved.ok_or_else(|| "Provider profile 未写入".to_owned())
-            })
+            .and_then(|()| saved.ok_or_else(|| "Provider profile 未写入".to_owned()))
         };
 
         match result {
@@ -748,32 +684,17 @@ impl CakifyApp {
         cx.notify();
     }
 
-    fn select_stdio(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn select_stdio(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         self.mcp_transport = McpTransport::Stdio;
         cx.notify();
     }
 
-    fn select_http(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn select_http(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         self.mcp_transport = McpTransport::Http;
         cx.notify();
     }
 
-    fn add_mcp_server(
-        &mut self,
-        _: &MouseUpEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn add_mcp_server(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
         let name = self.mcp_name_editor.read(cx).text(cx);
         let target = self.mcp_target_editor.read(cx).text(cx);
         if name.trim().is_empty() || target.trim().is_empty() {
@@ -845,7 +766,12 @@ impl CakifyApp {
                     .flex()
                     .items_center()
                     .justify_between()
-                    .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("Cakify"))
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child("Cakify"),
+                    )
                     .child(
                         div()
                             .id("new-conversation")
@@ -858,10 +784,7 @@ impl CakifyApp {
                             .text_lg()
                             .cursor_pointer()
                             .hover(|style| style.bg(selected))
-                            .on_mouse_up(
-                                MouseButton::Left,
-                                cx.listener(Self::new_conversation),
-                            )
+                            .on_mouse_up(MouseButton::Left, cx.listener(Self::new_conversation))
                             .child("+"),
                     ),
             )
@@ -925,12 +848,23 @@ impl CakifyApp {
                 div()
                     .flex()
                     .flex_col()
-                    .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).text_color(text).child("新会话"))
-                    .child(div().text_xs().text_color(muted).child(if model.is_empty() {
-                        "未选择模型".to_owned()
-                    } else {
-                        model
-                    })),
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(text)
+                            .child("新会话"),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(muted)
+                            .child(if model.is_empty() {
+                                "未选择模型".to_owned()
+                            } else {
+                                model
+                            }),
+                    ),
             )
             .child(
                 div()
@@ -969,7 +903,12 @@ impl CakifyApp {
                         .flex_col()
                         .items_center()
                         .gap_2()
-                        .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("开始一段对话"))
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("开始一段对话"),
+                        )
                         .child(div().text_sm().text_color(muted).child(
                             if self.provider_router.is_configured() {
                                 self.model_editor.read(cx).text(cx)
@@ -995,9 +934,11 @@ impl CakifyApp {
                     .flex()
                     .flex_col()
                     .gap_6()
-                    .children(self.messages.iter().map(|message| {
-                        self.render_message(message, cx)
-                    })),
+                    .children(
+                        self.messages
+                            .iter()
+                            .map(|message| self.render_message(message, cx)),
+                    ),
             )
     }
 
@@ -1073,12 +1014,7 @@ impl CakifyApp {
                     body = body.child(div().text_xs().text_color(muted).child("已停止"));
                 }
                 if let Some(usage) = &message.usage {
-                    body = body.child(
-                        div()
-                            .text_xs()
-                            .text_color(muted)
-                            .child(format_usage(usage)),
-                    );
+                    body = body.child(div().text_xs().text_color(muted).child(format_usage(usage)));
                 }
                 body
             }
@@ -1193,7 +1129,11 @@ impl CakifyApp {
         let accent = rgb(0x126b50);
         let muted = rgb(0x68736f);
         let focus_handle = self.composer.read(cx).focus_handle.clone();
-        let send_label = if self.active_run.is_some() { "停止" } else { "↑" };
+        let send_label = if self.active_run.is_some() {
+            "停止"
+        } else {
+            "↑"
+        };
         div()
             .bg(surface)
             .border_t_1()
@@ -1280,12 +1220,19 @@ impl CakifyApp {
                     .flex()
                     .items_center()
                     .justify_between()
-                    .child(div().font_weight(FontWeight::SEMIBOLD).text_color(text).child("Provider"))
-                    .child(div().text_xs().text_color(muted).child(if self.provider_router.is_configured() {
-                        "已配置"
-                    } else {
-                        "未配置"
-                    })),
+                    .child(
+                        div()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(text)
+                            .child("Provider"),
+                    )
+                    .child(div().text_xs().text_color(muted).child(
+                        if self.provider_router.is_configured() {
+                            "已配置"
+                        } else {
+                            "未配置"
+                        },
+                    )),
             )
             .child(labeled_input(
                 "Endpoint",
@@ -1356,8 +1303,18 @@ impl CakifyApp {
                     .flex()
                     .items_center()
                     .justify_between()
-                    .child(div().font_weight(FontWeight::SEMIBOLD).text_color(text).child("MCP Servers"))
-                    .child(div().text_xs().text_color(muted).child(self.mcp_servers.len().to_string())),
+                    .child(
+                        div()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(text)
+                            .child("MCP Servers"),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(muted)
+                            .child(self.mcp_servers.len().to_string()),
+                    ),
             )
             .children(self.mcp_servers.iter().enumerate().map(|(index, server)| {
                 div()
@@ -1370,27 +1327,26 @@ impl CakifyApp {
                             .flex()
                             .items_center()
                             .justify_between()
-                            .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child(server.name.clone()))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child(server.name.clone()),
+                            )
                             .child(div().text_xs().text_color(muted).child(if server.enabled {
                                 "已启用"
                             } else {
                                 "未连接"
                             })),
                     )
-                    .child(
-                        div()
-                            .mt_1()
-                            .text_xs()
-                            .text_color(muted)
-                            .child(format!(
-                                "{} · {}",
-                                match server.transport {
-                                    McpTransport::Stdio => "stdio",
-                                    McpTransport::Http => "HTTP",
-                                },
-                                server.target
-                            )),
-                    )
+                    .child(div().mt_1().text_xs().text_color(muted).child(format!(
+                        "{} · {}",
+                        match server.transport {
+                            McpTransport::Stdio => "stdio",
+                            McpTransport::Http => "HTTP",
+                        },
+                        server.target
+                    )))
             }))
             .child(div().flex_1())
             .child(labeled_input(
@@ -1422,7 +1378,9 @@ impl CakifyApp {
                             .text_sm()
                             .text_center()
                             .cursor_pointer()
-                            .when(self.mcp_transport == McpTransport::Stdio, |style| style.bg(selected))
+                            .when(self.mcp_transport == McpTransport::Stdio, |style| {
+                                style.bg(selected)
+                            })
                             .on_mouse_up(MouseButton::Left, cx.listener(Self::select_stdio))
                             .child("stdio"),
                     )
@@ -1435,7 +1393,9 @@ impl CakifyApp {
                             .text_sm()
                             .text_center()
                             .cursor_pointer()
-                            .when(self.mcp_transport == McpTransport::Http, |style| style.bg(selected))
+                            .when(self.mcp_transport == McpTransport::Http, |style| {
+                                style.bg(selected)
+                            })
                             .on_mouse_up(MouseButton::Left, cx.listener(Self::select_http))
                             .child("HTTP"),
                     ),
@@ -1537,67 +1497,75 @@ fn render_markdown(source: &str) -> Div {
         .flex()
         .flex_col()
         .gap_3()
-        .children(parse_markdown(source).into_iter().map(|block| match block {
-            MarkdownBlock::Paragraph(text_value) => div()
-                .w_full()
-                .line_height(px(23.0))
-                .text_color(text)
-                .child(text_value),
-            MarkdownBlock::Heading { level, text: value } => div()
-                .w_full()
-                .mt_2()
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_size(px(match level {
-                    1 => 21.0,
-                    2 => 19.0,
-                    3 => 17.0,
-                    _ => 15.0,
-                }))
-                .child(value),
-            MarkdownBlock::Code { language, text: value } => div()
-                .w_full()
-                .rounded(px(6.0))
-                .border_1()
-                .border_color(border)
-                .bg(code_surface)
-                .child(
-                    div()
-                        .px_3()
-                        .py_2()
-                        .border_b_1()
-                        .border_color(border)
-                        .text_xs()
-                        .text_color(muted)
-                        .child(if language.is_empty() {
-                            "代码".to_owned()
-                        } else {
-                            language
-                        }),
-                )
-                .child(
-                    div()
-                        .max_h(px(360.0))
-                        .overflow_scroll()
-                        .p_3()
-                        .font_family("Cascadia Mono")
-                        .text_size(px(13.0))
-                        .line_height(px(20.0))
-                        .child(value),
-                ),
-            MarkdownBlock::Quote(value) => div()
-                .w_full()
-                .border_l_2()
-                .border_color(rgb(0x8aa69b))
-                .pl_3()
-                .text_color(muted)
-                .child(value),
-            MarkdownBlock::ListItem { ordered, text: value } => div()
-                .w_full()
-                .flex()
-                .gap_2()
-                .child(if ordered { "1." } else { "•" })
-                .child(div().flex_1().child(value)),
-            MarkdownBlock::Rule => div().w_full().h(px(1.0)).bg(border),
+        .children(parse_markdown(source).into_iter().map(|block| {
+            match block {
+                MarkdownBlock::Paragraph(text_value) => div()
+                    .w_full()
+                    .line_height(px(23.0))
+                    .text_color(text)
+                    .child(text_value),
+                MarkdownBlock::Heading { level, text: value } => div()
+                    .w_full()
+                    .mt_2()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_size(px(match level {
+                        1 => 21.0,
+                        2 => 19.0,
+                        3 => 17.0,
+                        _ => 15.0,
+                    }))
+                    .child(value),
+                MarkdownBlock::Code {
+                    language,
+                    text: value,
+                } => div()
+                    .w_full()
+                    .rounded(px(6.0))
+                    .border_1()
+                    .border_color(border)
+                    .bg(code_surface)
+                    .child(
+                        div()
+                            .px_3()
+                            .py_2()
+                            .border_b_1()
+                            .border_color(border)
+                            .text_xs()
+                            .text_color(muted)
+                            .child(if language.is_empty() {
+                                "代码".to_owned()
+                            } else {
+                                language
+                            }),
+                    )
+                    .child(
+                        div()
+                            .max_h(px(360.0))
+                            .overflow_scroll()
+                            .p_3()
+                            .font_family("Cascadia Mono")
+                            .text_size(px(13.0))
+                            .line_height(px(20.0))
+                            .child(value),
+                    ),
+                MarkdownBlock::Quote(value) => div()
+                    .w_full()
+                    .border_l_2()
+                    .border_color(rgb(0x8aa69b))
+                    .pl_3()
+                    .text_color(muted)
+                    .child(value),
+                MarkdownBlock::ListItem {
+                    ordered,
+                    text: value,
+                } => div()
+                    .w_full()
+                    .flex()
+                    .gap_2()
+                    .child(if ordered { "1." } else { "•" })
+                    .child(div().flex_1().child(value)),
+                MarkdownBlock::Rule => div().w_full().h(px(1.0)).bg(border),
+            }
         }))
 }
 
@@ -1626,12 +1594,8 @@ fn upsert_provider_profile(
             models: None,
         });
     }
-    let mut profile = NewProviderProfile::new(
-        PROVIDER_ID,
-        "openai-compatible",
-        "OpenAI Compatible",
-        now,
-    );
+    let mut profile =
+        NewProviderProfile::new(PROVIDER_ID, "openai-compatible", "OpenAI Compatible", now);
     profile.endpoint = Some(endpoint);
     profile.credential_ref = credential_ref;
     profile.default_model = Some(model);

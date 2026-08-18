@@ -97,10 +97,7 @@ impl ChatProvider for ProviderRouter {
             .provider
             .read()
             .map_err(|_| {
-                ProviderError::new(
-                    ProviderErrorKind::NotConfigured,
-                    "Provider 配置暂时不可用",
-                )
+                ProviderError::new(ProviderErrorKind::NotConfigured, "Provider 配置暂时不可用")
             })?
             .clone()
             .ok_or_else(|| {
@@ -114,10 +111,7 @@ impl ChatProvider for ProviderRouter {
 }
 
 impl OpenAiCompatibleProvider {
-    pub fn new(
-        config: OpenAiConfig,
-        secrets: Arc<dyn SecretStore>,
-    ) -> Result<Self, ProviderError> {
+    pub fn new(config: OpenAiConfig, secrets: Arc<dyn SecretStore>) -> Result<Self, ProviderError> {
         let client = Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
@@ -125,10 +119,7 @@ impl OpenAiCompatibleProvider {
             .user_agent("Cakify/0.1")
             .build()
             .map_err(|_| {
-                ProviderError::new(
-                    ProviderErrorKind::Transport,
-                    "无法初始化安全网络客户端",
-                )
+                ProviderError::new(ProviderErrorKind::Transport, "无法初始化安全网络客户端")
             })?;
         Ok(Self {
             config,
@@ -161,10 +152,7 @@ impl OpenAiCompatibleProvider {
         body.insert(
             "messages".to_owned(),
             serde_json::to_value(&request.messages).map_err(|_| {
-                ProviderError::new(
-                    ProviderErrorKind::InvalidRequest,
-                    "无法编码聊天消息",
-                )
+                ProviderError::new(ProviderErrorKind::InvalidRequest, "无法编码聊天消息")
             })?,
         );
         if let Some(temperature) = request.temperature {
@@ -181,14 +169,13 @@ impl OpenAiCompatibleProvider {
                 .tools
                 .iter()
                 .map(|tool| {
-                    let parameters: Value = serde_json::from_str(&tool.parameters_json).map_err(
-                        |_| {
+                    let parameters: Value =
+                        serde_json::from_str(&tool.parameters_json).map_err(|_| {
                             ProviderError::new(
                                 ProviderErrorKind::InvalidRequest,
                                 format!("工具 {} 的参数 Schema 不是有效 JSON", tool.name),
                             )
-                        },
-                    )?;
+                        })?;
                     if !parameters.is_object() {
                         return Err(ProviderError::new(
                             ProviderErrorKind::InvalidRequest,
@@ -214,18 +201,19 @@ impl OpenAiCompatibleProvider {
         let Some(credential_id) = &self.config.credential_id else {
             return Ok(None);
         };
-        let secret = self.secrets.get(credential_id).map_err(|error| match error {
-            cakify_core::SecretError::NotFound { .. } => {
-                ProviderError::new(
+        let secret = self
+            .secrets
+            .get(credential_id)
+            .map_err(|error| match error {
+                cakify_core::SecretError::NotFound { .. } => ProviderError::new(
                     ProviderErrorKind::Authentication,
                     "Provider 的 API Key 不存在",
-                )
-            }
-            _ => ProviderError::new(
-                ProviderErrorKind::Authentication,
-                "无法从 Windows 安全存储读取 API Key",
-            ),
-        })?;
+                ),
+                _ => ProviderError::new(
+                    ProviderErrorKind::Authentication,
+                    "无法从 Windows 安全存储读取 API Key",
+                ),
+            })?;
 
         let mut value = Zeroizing::new(Vec::with_capacity(7 + secret.expose_secret().len()));
         value.extend_from_slice(b"Bearer ");
@@ -334,22 +322,13 @@ fn map_request_error(error: reqwest::Error) -> ProviderError {
 
 fn map_status(status: StatusCode) -> ProviderError {
     let (kind, message) = match status.as_u16() {
-        401 | 403 => (
-            ProviderErrorKind::Authentication,
-            "Provider 拒绝了 API Key",
-        ),
+        401 | 403 => (ProviderErrorKind::Authentication, "Provider 拒绝了 API Key"),
         429 => (
             ProviderErrorKind::RateLimited,
             "Provider 请求过于频繁，请稍后重试",
         ),
-        400..=499 => (
-            ProviderErrorKind::InvalidRequest,
-            "Provider 拒绝了聊天请求",
-        ),
-        _ => (
-            ProviderErrorKind::Transport,
-            "Provider 服务暂时不可用",
-        ),
+        400..=499 => (ProviderErrorKind::InvalidRequest, "Provider 拒绝了聊天请求"),
+        _ => (ProviderErrorKind::Transport, "Provider 服务暂时不可用"),
     };
     ProviderError::new(kind, message)
 }
@@ -367,10 +346,7 @@ fn consume_sse<R: BufRead>(
         }
         line.clear();
         let read = reader.read_line(&mut line).map_err(|_| {
-            ProviderError::new(
-                ProviderErrorKind::Transport,
-                "读取 Provider 流式响应失败",
-            )
+            ProviderError::new(ProviderErrorKind::Transport, "读取 Provider 流式响应失败")
         })?;
         if read == 0 {
             if !data.is_empty() {
@@ -476,7 +452,10 @@ fn dispatch_sse_data(data: &str, sink: &mut StreamSink<'_>) -> Result<(), Provid
         }
     }
 
-    if choice.get("finish_reason").is_some_and(|value| !value.is_null()) {
+    if choice
+        .get("finish_reason")
+        .is_some_and(|value| !value.is_null())
+    {
         if !sink(ProviderStreamEvent::Finished {
             reason: choice
                 .get("finish_reason")
@@ -495,11 +474,7 @@ fn cancelled() -> ProviderError {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::HashMap,
-        io::Cursor,
-        sync::Mutex,
-    };
+    use std::{collections::HashMap, io::Cursor, sync::Mutex};
 
     use cakify_core::{ChatMessage, ChatRole, SecretError, SecretInput, SecretValue};
 
@@ -623,8 +598,7 @@ mod tests {
             )
             .expect("store key");
         let provider = OpenAiCompatibleProvider::new(
-            OpenAiConfig::new("https://api.example.test/v1", Some(id))
-                .expect("provider config"),
+            OpenAiConfig::new("https://api.example.test/v1", Some(id)).expect("provider config"),
             secrets,
         )
         .expect("provider");
