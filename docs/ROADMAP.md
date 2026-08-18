@@ -1,6 +1,6 @@
 # Cakify 产品路线图
 
-> 日期：2026-08-17
+> 日期：2026-08-18
 > 估算口径：AI 实施工作日，不含 GitHub Actions 排队、临时公开授权等待和物理机人工验证时间。
 
 ## 1. 产品范围硬约束
@@ -36,7 +36,7 @@ Cakify 的整体功能向 **Cherry Studio 与 RikkaHub 的轻量 AI Chat 能力*
 - 达到轻量 Cherry Studio/RikkaHub 基础功能的 alpha：约 22–35 个 AI 工作日。
 - 加上物理机验证、签名、安装器与回归修复，日历时间预计 5–8 周。
 
-AI 可以完成全部源码、测试、CI、文档和修复。仍需要用户参与的只有：每次 2026 年 8 月临时公开运行 Actions 的授权、真实 Provider key 的本机体验、物理 Windows IME/无障碍判断，以及未来签名证书/发行渠道决定。
+AI 可以完成全部源码、测试、CI、文档和修复。2026 年 8 月受控临时公开闭环已有持续授权；仍需要用户参与的主要是撤销/扩大该授权、真实 Provider key 的本机体验、物理 Windows IME/无障碍判断，以及未来签名证书/发行渠道决定。
 
 ## 3. M0：产品工作区与技术 spike
 
@@ -69,7 +69,7 @@ AI 可以完成全部源码、测试、CI、文档和修复。仍需要用户参
 6. [x] `gpui-component` revision 兼容门失败，M0 决定直接使用 GPUI primitives。
 7. [x] Product validate `32034202488` 生成 release EXE、`Cargo.lock` 和依赖树；fmt/check/tests/Clippy/release build 全部通过。
 8. [x] 核对最终 artifact、锁文件一致性、依赖边界、哈希与 secret；提交锁文件并恢复仓库 PRIVATE。
-9. [ ] 增加 Windows runtime smoke，核对默认进程树、窗口生命周期、Working Set 和退出无残留后关闭 M0。
+9. [x] Windows runtime smoke `32093988986` 在 commit `a1f10429a7f48b5a7ca5968976676d6e2594554d` 上闭合：三轮窗口完整可见，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，WM_CLOSE 后 exit 0 且无残留。M0 已关闭。
 
 ## 4. M1：数据与秘密基础
 
@@ -90,6 +90,14 @@ AI 可以完成全部源码、测试、CI、文档和修复。仍需要用户参
 - migration 从空库和上一 schema 均可重复验证。
 - app 异常结束后 running run 变为 interrupted，不丢已 checkpoint 文本。
 - live backup 恢复后 `integrity_check` 与领域计数一致。
+
+当前实施顺序：
+
+1. [ ] 建立 SQLite actor、initial schema、migration runner 与数据库配置硬门。
+2. [ ] 实现 Conversation/message/part/run repository 和 crash recovery。
+3. [ ] 实现 Provider profile CRUD，数据库只保存 credential reference。
+4. [ ] 实现 Windows Credential Manager SecretStore 与 DPAPI current-user 后备。
+5. [ ] 实现 live backup/restore、synthetic secret 扫描与对应 Actions 验收。
 
 ## 5. M2：GPUI 完整聊天纵向切片
 

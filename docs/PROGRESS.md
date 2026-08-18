@@ -2,26 +2,27 @@
 
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-18（Asia/Shanghai）
-> 当前阶段：M0 - 产品工作区与技术 spike
-> 当前状态：M0_RUNTIME_SMOKE_WINDOW_GATE_FIX_IN_PROGRESS
+> 当前阶段：M1 - 数据与秘密基础
+> 当前状态：M1_STORAGE_FOUNDATION_IN_PROGRESS
 
 ## 1. 当前快照
 
 - 工作目录：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`。
-- 本轮开始时 HEAD：`36742654d67b276ce964ecaea1b6a5d1a2c4c58f`。
+- M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
-- 已验证产品修复提交：`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`。
+- M0 最终 runtime 验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：`PRIVATE`；第二轮 runtime smoke 完成且确认无 queued/in_progress 后已恢复并复核。
-- 最近成功 Actions：Windows runtime smoke `32038434473`，目标 commit `2c1125e10ff135656c078b69ffecf636d64fd728`。
-- 本轮 Actions：runtime smoke 首轮 `32037554962` 的内存汇总证据无效；第二轮 `32038434473` 的性能/生命周期证据有效，但截图暴露任务栏遮挡，第三轮最终验收待当前修复提交后运行。
+- 仓库可见性：`PRIVATE`；最终 runtime smoke 完成、artifact 核对且 queued/in_progress 均为空后已恢复并复核。
+- 最近成功 Actions：Windows runtime smoke `32093988986`，目标 commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`。
+- 本轮 Actions：runtime smoke 首轮 `32037554962` 的内存汇总证据无效；第二轮 `32038434473` 的性能/生命周期证据有效但截图暴露任务栏遮挡；第三轮 `32093988986` 全部硬门和 artifact 独立核验通过。
 - Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0，因此内存证据无效。
-- Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；截图仍显示窗口底部约 27 px 被任务栏遮挡，暂不关闭 M0，正在增加窗口工作区硬门并缩短默认高度。
+- Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；但截图显示窗口底部约 27 px 被任务栏遮挡，因此当时没有作为最终 M0 验收。
+- Runtime smoke 第三轮 `32093988986` 三轮窗口都完整位于工作区，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留；M0 已关闭。
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
-- 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；第二轮已取得有效性能数据，正在加入完整可见硬门后做最终重跑。
+- 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行 release EXE。第二轮三次窗口 ready 为 `160.087/122.374/128.065 ms`，空闲 Working Set 为 `37.289/35.668/35.684 MiB`，均为单进程并正常退出；窗口完整可见仍待修复后重跑，IME 保持独立物理机门。
+- 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行最终 M0 release EXE。三次窗口 ready 为 `145.450/129.692/118.279 ms`，空闲 Working Set 为 `37.121/35.480/35.477 MiB`，均完整可见、单进程并正常退出；IME 保持 M2 独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
 - 本次公开前审计与 visibility 闭环：已完成，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
 - 组件决定：M0 不引入 `gpui-component`；直接使用 GPUI primitives，见 ADR 0002。
@@ -93,10 +94,10 @@
 - [x] 将用户的 2026 年 8 月后续 Actions 受控闭环持续授权写入 AGENTS、Cursor 规则、计划、进度和交接文档。
 - [x] 实现 Windows runtime smoke 脚本与独立手动 workflow：三轮主窗口探针、进程树采样、80 MiB idle 门、0 默认子进程门、WM_CLOSE 正常退出、残留检查、截图与结构化 artifact。
 - [x] 对 runtime smoke 做本机静态核验：PowerShell AST 解析错误 0，workflow 只有手动触发与 `contents: read`，不在本机执行 EXE 或 Cargo。
+- [x] Windows runtime smoke `32093988986` 通过三轮窗口完整可见、80 MiB idle、0 子进程、WM_CLOSE/无残留硬门；artifact JSONL、日志、哈希和截图已独立核对，仓库已恢复 PRIVATE。
 
 ## 6. 尚未完成
 
-- [ ] 在 Actions 闭合 GPUI 空窗口启动、退出、默认子进程、基础内存和完整可见门；第二轮仅剩任务栏遮挡未通过验收。
 - [ ] 实现 SQLite initial schema/migration/storage actor。
 - [ ] 实现 Credential Manager/DPAPI SecretStore。
 - [ ] 实现 fake provider 聊天纵向切片。
@@ -107,19 +108,19 @@
 
 ## 7. 精确下一步
 
-下一位执行者先闭合 M0，不再做框架泛泛选型：
+下一位执行者直接实施 M1，不再做框架或 M0 runtime 泛泛选型：
 
-1. 提交并推送 620 px 默认高度与窗口/工作区矩形硬门；确认远端 commit 与本地一致。
-2. 按 8 月持续授权自动执行增量安全复核 -> public -> 只运行 `Windows runtime smoke` -> 核对 artifact 与完整截图 -> 无活动任务 -> private。
-3. 若 smoke 失败，按真实日志修复并只重跑同一 workflow；未通过前不关闭 M0。
-4. 物理微软拼音、日文 IME、DPI 与 UI Automation 保持独立人工门，不把无输入框的 M0 空壳写成 IME 通过。
-5. runtime smoke 闭合后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
+1. 建立 SQLite storage actor、initial schema、migration runner 与连接配置硬门。
+2. 实现 conversation/message/part/run repository、crash recovery 与领域约束测试。
+3. 实现 Provider profile CRUD，SQLite 只保存 opaque credential reference。
+4. 实现 Windows Credential Manager 主路径与 DPAPI current-user 后备。
+5. 实现 live backup/restore 和 synthetic secret 扫描，再用 Product validate/Windows smoke 对应步骤验收。
 
-详细验收见 `docs/ROADMAP.md` 的 M0。
+详细验收见 `docs/ROADMAP.md` 的 M1。
 
 ## 8. 性能与质量门
 
-以下是全产品目标；M0 第二轮已取得窗口壳层的部分证据，但当前窗口尺寸/硬门修复提交仍须最终重跑：
+以下是全产品目标；M0 已取得窗口壳层的启动、内存、进程树与退出证据，聊天交互和后续数据层仍按 milestone 分别验收：
 
 - 冷启动到可交互 P50 <= 400 ms、P95 <= 800 ms。
 - 默认 idle 整树 Working Set <= 80 MiB。
@@ -129,9 +130,9 @@
 - 工具取消到整棵进程树退出 P95 <= 2 s。
 - SQLite、日志、导出、artifact 中明文 secret 命中数 0。
 
-第二轮产品窗口实测为：窗口句柄 ready `122.374-160.087 ms`、空闲整树 Working Set `35.668-37.289 MiB`、默认子进程数 0。ready 只代表 M0 窗口创建，不等于完整聊天输入可交互；最终源码仍以第三轮 artifact 为准。
+最终 M0 产品窗口实测为：窗口句柄 ready `118.279-145.450 ms`、空闲整树 Working Set `35.477-37.121 MiB`、默认子进程数 0。ready 只代表 M0 窗口创建，不等于完整聊天输入可交互；完整冷启动目标将在 M2 真实 composer/消息列表后重测。
 
-本机未运行项目编译、测试、GUI、benchmark 或 package。任何门必须在后续 Actions/物理机实际运行后再标记通过。
+本机未运行项目编译、测试、GUI、benchmark 或 package。任何门只按对应 Actions/物理机实际证据标记通过；未覆盖的 M1–M7 门仍保持未完成。
 
 ## 9. 当前阻塞与风险
 
@@ -139,10 +140,10 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M0_RUNTIME_SMOKE_WINDOW_OCCLUDED`：第二轮非零内存、标题、单进程和退出证据有效，但窗口底部被任务栏遮挡；必须用新增工作区硬门重跑后才能关闭 M0。
+- `M1_SCHEMA_IN_PROGRESS`：initial schema、migration 与 storage actor 尚未实现；在 crash/upgrade/backup 测试通过前不接真实 Provider 或用户 secret。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
-- `M0_FINAL_SOURCE_UNRUN`：第二轮已经是产品窗口性能，不再沿用 benchmark 代替；但 620 px 高度与完整可见硬门尚未经过 Actions，最终 M0 结论待第三轮。
+- `M0_METRICS_SCOPE`：最终 M0 指标只覆盖窗口壳层，不冒充真实 composer、长消息列表或 Provider 启动性能；M2/M3 必须重测。
 - `SIGNING_PENDING`：签名证书、MSIX/安装器和更新通道未决定，安排在 M7。
 
 ## 10. Actions 事实记录
@@ -156,17 +157,19 @@
 - 恢复 private 前再次确认最终 run 为 completed/success，queued 与 in_progress 均为空；随后恢复 PRIVATE 并复核可见性。
 - [Windows runtime smoke #32037554962](https://github.com/oarw/cakify/actions/runs/32037554962)：GitHub `success`，commit `95b17b3e41d5b658a55d169615c32fb29dfcc51c`，job `95410897261`，artifact `windows-runtime-smoke-32037554962`（ID `9291266584`，digest `sha256:37933cd52977dcbd1a57b3412b53dd325845b98a2e35310ccb802cd793b20f15`）。三轮窗口 ready `157.141/131.985/133.119 ms`，均为 1 个进程，WM_CLOSE 后约 `33.577/35.500/35.465 ms` 以 code 0 退出；但顶层内存汇总错误为 0，不能作为 80 MiB 门通过证据。
 - [Windows runtime smoke #32038434473](https://github.com/oarw/cakify/actions/runs/32038434473)：GitHub `success`，commit `2c1125e10ff135656c078b69ffecf636d64fd728`，job `95413313494`，artifact `windows-runtime-smoke-32038434473`（ID `9291484529`，digest `sha256:dbf7314d6987caae8833d3387a16c665c901563b57dfb29e4b0ca2fab09c2128`）。三轮窗口标题均为 `Cakify`，ready `160.087/122.374/128.065 ms`，空闲 Working Set `37.289/35.668/35.684 MiB`，峰值最高 `38.449 MiB`，均为单进程、0 子进程、WM_CLOSE 后 `30.913/26.962/26.434 ms` 以 code 0 退出；JSONL 独立复算一致，日志为空。截图显示 960x680 内容窗口底部约 27 px 被任务栏遮挡，因此该 run 只接受性能/生命周期证据，不作为最终 M0 完整可见验收。
+- [Windows runtime smoke #32093988986](https://github.com/oarw/cakify/actions/runs/32093988986)：GitHub `success`，commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`，job `95581655025`，artifact `windows-runtime-smoke-32093988986`（ID `9309416529`，digest `sha256:8a09c0785d1cc77257c798f26247a5bec16ae8e63b95ab129faa04a18430a6c3`）。三轮窗口矩形均为 `(24,55)-(1000,714)`，完整位于 `(0,0)-(1024,720)` 工作区；ready `145.450/129.692/118.279 ms`，空闲 Working Set `37.121/35.480/35.477 MiB`，峰值最高 `38.320 MiB`，均为单进程、0 子进程、WM_CLOSE 后 `35.356/30.831/31.409 ms` 以 code 0 退出且无残留。JSONL 独立复算逐项一致，6 份日志为空白，artifact 文本 secret 命中 0，截图无遮挡。
+- 最终 runtime artifact：EXE 5,722,624 bytes，SHA-256 `CE54D290BD0F0A19F1CDDE0322C4A7C2D09838D62CCE4B5DDDAD276EA035EA78`；result JSON SHA-256 `9E9FEEB09AB3266E9098020B48E23F5DB55BDFA951811D0C85307E3F98FA5930`；截图 SHA-256 `34062732DE298CDED4B8BF9D58D0650C6D7F44B2B67C9C607C82509A2B202E12`。恢复前 queued/in_progress 均为空，随后已复核仓库为 PRIVATE。
 
 ### 公开前审计记录
 
-- 审计目标 HEAD：`b87789ce6c145cb8b1507ba077d8112d744dcdac`。
-- 18 个可达 commit、141 个历史路径，高置信 secret 与敏感文件名 0 命中。
+- 最终 runtime 循环审计目标 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
+- 25 个可达 commit、145 个历史路径，高置信 secret、敏感文件名与 LFS pointer 0 命中。
 - Actions/Dependabot/Codespaces secrets、variables、environments 均为 0。
-- 10 个历史 run 的约 1,719,506 字符日志，高置信 secret 0 命中。
+- 原完整审计覆盖 10 个历史 run；三次 runtime 日志共 250,394 字符，高置信 secret 0 命中。
 - 20 个 artifact 实际解包为 221 个文件、410,466,234 bytes，高置信 secret 与敏感文件名 0 命中；本地临时目录已删除。
 - 两份旧 Flutter cache 只核对了 key、来源 workflow 和创建日志，未逐文件扫描；当前 workflow 不使用 cache。
 - LFS、Release、Issue、PR、tag、fork 均为 0；仓库无 `LICENSE`。
-- 结论：安全审计未发现阻止本次临时公开的问题；本次授权、运行、产物核对和恢复 PRIVATE 已闭环。
+- 结论：安全审计未发现阻止最终 runtime 临时公开的问题；运行、产物核对和恢复 PRIVATE 已闭环，详见 `docs/PUBLIC-ACTIONS-AUDIT.md`。
 
 ## 11. 进度日志
 
@@ -232,6 +235,9 @@
 
 - 中断恢复后核对实际状态：仓库为 PRIVATE、无活动 run、HEAD 与 `origin/main` 一致，三处修复未被部分暂存或提交。
 - 对窗口高度、Win32 矩形门和进度记录完成 staged diff、PowerShell AST、workflow trigger/permission、whitespace 与敏感值静态检查；本机仍未运行 Cargo、EXE 或项目测试。
+- 提交 `a1f10429a7f48b5a7ca5968976676d6e2594554d` 推送后完成最终公开前审计，只触发 Windows runtime smoke `32093988986`。
+- 最终三轮窗口完整可见、空闲整树 Working Set `35.477-37.121 MiB`、默认子进程 0、正常退出且无残留；artifact JSON/JSONL、日志、哈希与截图已独立核验。
+- 在 queued/in_progress 均为空时恢复仓库 PRIVATE；M0 正式关闭，当前进入 M1 SQLite/storage foundation。
 
 ## 12. 更新规则
 

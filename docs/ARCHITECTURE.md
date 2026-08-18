@@ -1,7 +1,7 @@
 # Cakify 技术架构
 
 > 状态：产品架构基线 v1
-> 日期：2026-08-17
+> 日期：2026-08-18
 > 目标平台：Windows 10 22H2 / Windows 11 x64；ARM64 在 x64 稳定后加入
 
 ## 1. 架构决定
@@ -289,3 +289,9 @@ M0 通过 Actions 产生首个产品 `Cargo.lock` 后才冻结版本。网络默
 - 真实 10k 会话、Markdown 流式渲染无法满足路线图性能门。
 
 回退只替换 `cakify-desktop`，core/storage/provider/agent/mcp/platform traits 保持不变。这正是 UI 与 Core 边界必须在 M0 固化的原因。
+
+## 12. 当前实施位置
+
+M0 workspace、Core bridge、GPUI 空窗口、依赖 pin、`gpui-component` 拒绝决策、Product validate 和 Windows runtime smoke 已闭合。最终 runtime smoke `32093988986` 证明三轮窗口完整位于 runner 工作区，空闲整树 Working Set 为 `35.477-37.121 MiB`，默认子进程为 0，WM_CLOSE 后以 code 0 退出。
+
+当前进入 M1，实施顺序固定为：SQLite storage actor 与 initial schema/migration → conversation/message/part/run repository 与 crash recovery → Provider profile/credential reference → Windows Credential Manager 与 DPAPI current-user SecretStore → backup/restore 与 synthetic secret 验收。真实聊天 UI、IME 和 Provider 放在数据/密钥边界之后。

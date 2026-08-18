@@ -347,7 +347,7 @@ AppEvent ▲  delta 按 16–33 ms 合并后返回 UI</code></pre>
       </div>
 
       <h3>Zed 的作用</h3>
-      <p>Zed 已证明 GPUI 可以承载成熟 Agent 对话，包括输入、消息队列、上下文、工具时间线与权限。但其 <code>agent</code>/<code>agent_ui</code> 是 GPL-3.0-or-later；Cakify 只参考公开行为和 GPUI API，用独立领域模型与实现。Apache-2.0 的 <code>gpui-component</code> 只在 M0 完成版本兼容、IME、Markdown 和体积 spike 后决定是否采用。</p>
+      <p>Zed 已证明 GPUI 可以承载成熟 Agent 对话，包括输入、消息队列、上下文、工具时间线与权限。但其 <code>agent</code>/<code>agent_ui</code> 是 GPL-3.0-or-later；Cakify 只参考公开行为和 GPUI API，用独立领域模型与实现。Apache-2.0 的 <code>gpui-component</code> 在 M0 revision 兼容门未通过，当前按 ADR 0002 直接使用 GPUI primitives，未来满足固定 revision、IME、Markdown、体积和依赖门后再评估。</p>
     </section>
 
     <section id="data">
@@ -383,8 +383,8 @@ AppEvent ▲  delta 按 16–33 ms 合并后返回 UI</code></pre>
       <h2>路线图</h2>
       <p>达到可日常聊天的 M0–M3 预计 10–15 个 AI 工作日；达到轻量 Cherry Studio/RikkaHub 基础功能的 alpha 预计 22–35 个 AI 工作日。</p>
       <div class="milestones">
-        <div class="milestone"><strong>M0</strong><b>产品 workspace、command/event、GPUI component spike</b><span>1–2 AI 日</span></div>
-        <div class="milestone"><strong>M1</strong><b>SQLite、migration、Credential Manager/DPAPI</b><span>2–4 AI 日</span></div>
+        <div class="milestone"><strong>M0</strong><b>产品 workspace、Core bridge、GPUI runtime smoke</b><span>已完成</span></div>
+        <div class="milestone"><strong>M1</strong><b>SQLite、migration、Credential Manager/DPAPI</b><span>进行中</span></div>
         <div class="milestone"><strong>M2</strong><b>GPUI 会话 UI、真实 IME、虚拟列表、fake stream</b><span>4–6 AI 日</span></div>
         <div class="milestone"><strong>M3</strong><b>OpenAI-compatible、附件、编辑/分支、导出</b><span>3–5 AI 日</span></div>
         <div class="milestone"><strong>M4</strong><b>轻量 Agent、工具审批、Job Object</b><span>4–6 AI 日</span></div>
@@ -416,20 +416,20 @@ AppEvent ▲  delta 按 16–33 ms 合并后返回 UI</code></pre>
     </section>
 
     <section id="next">
-      <h2>下一次直接开始</h2>
+      <h2>当前直接开始</h2>
       <ol>
-        <li>增加 Windows runtime smoke，验证 release EXE 窗口启动/退出、默认进程树、Working Set 与无残留。</li>
-        <li>按 8 月持续授权自动完成安全复核、临时公开、只运行所需手动 workflow、核对并恢复私有。</li>
-        <li>保留真实微软拼音、日文 IME、DPI 与 UI Automation 为独立人工门。</li>
-        <li>进入 M1，先实现 SQLite storage actor、schema 和 migration。</li>
-        <li>再实现 Windows Credential Manager 与 DPAPI SecretStore。</li>
+        <li>实现 M1 SQLite storage actor、initial schema 和 migration runner。</li>
+        <li>实现 conversation/message/part/run repository、崩溃恢复与 live backup/restore。</li>
+        <li>实现 Provider profile CRUD，SQLite 只保存 opaque credential reference。</li>
+        <li>实现 Windows Credential Manager 与 DPAPI current-user SecretStore。</li>
+        <li>保留真实微软拼音、日文 IME、DPI 与 UI Automation 为 M2 独立人工门。</li>
       </ol>
       <div class="callout info">
-        <p>M0 workspace 与 Product validate 已完成，不再重做四框架选型或产品骨架，也不从知识库、营销首页或插件市场开始。完整技术细节请阅读同目录的 Markdown 文档。</p>
+        <p>M0 workspace、Product validate 与 Windows runtime smoke 已完成：最终三轮 ready 为 118.279–145.450 ms、空闲整树 Working Set 为 35.477–37.121 MiB、默认子进程 0。现在进入 M1，不再重做四框架选型或产品骨架，也不从知识库、营销首页或插件市场开始。</p>
       </div>
     </section>
   </main>
 
-  <footer>研究与规划快照：2026-08-17 · Cakify · 离线 HTML，无外部脚本或字体依赖</footer>
+  <footer>研究与规划快照：2026-08-18 · Cakify · 离线 HTML，无外部脚本或字体依赖</footer>
 </body>
 </html>

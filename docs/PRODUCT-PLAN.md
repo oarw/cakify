@@ -1,8 +1,8 @@
 # Cakify 产品总计划
 
 > 版本：v1
-> 日期：2026-08-17（Asia/Shanghai）
-> 决策状态：GPUI 产品路线已确认，下一步直接进入 M0
+> 日期：2026-08-18（Asia/Shanghai）
+> 决策状态：GPUI 产品路线已确认，M0 已闭合，当前进入 M1 数据与秘密基础
 
 ## 1. 一句话定义
 
@@ -39,7 +39,7 @@ Zed 已经在 GPUI 上实现成熟 Agent 对话，验证了这些产品形态可
 - 独立实现 Cakify 的领域模型、协议、数据库和界面。
 - 不复制 GPL 源码、测试、结构化片段或把 GPL crate 链入产品。
 
-Apache-2.0 的 `gpui-component` 提供 textarea、虚拟列表、Markdown 和主题，值得做 M0 spike；它目前追随 GPUI Git 版本，只有在锁定 commit、IME、流式 Markdown、体积和依赖审计全部通过后才采用。
+Apache-2.0 的 `gpui-component` 提供 textarea、虚拟列表、Markdown 和主题，但 M0 revision 兼容门未通过；ADR 0002 已决定当前直接使用 GPUI primitives。只有未来满足固定 revision、IME、流式 Markdown、体积和依赖审计条件时才重新评估。
 
 ## 4. 功能基线
 
@@ -158,7 +158,7 @@ Core Service ─────────────────
 
 路线图分八个 milestone：
 
-- M0 产品 workspace 与 GPUI/component spike：1–2 AI 日。
+- M0 产品 workspace、Core bridge 与 GPUI runtime smoke：已完成。
 - M1 SQLite 与 Windows SecretStore：2–4 AI 日。
 - M2 GPUI 完整聊天纵向切片：4–6 AI 日。
 - M3 真实 Provider 与基础聊天完成度：3–5 AI 日。
@@ -202,12 +202,12 @@ Avalonia 是唯一正式回退。只有 IME、accessibility、GPUI 维护或性�
 
 ## 13. 下一次直接开始的位置
 
-M0 workspace、三个首批 crate、Core bridge、GPUI 空窗口、依赖 pin、`gpui-component` 拒绝决策和 Product validate 已完成。下一位执行者不再重复这些工作，按顺序继续：
+M0 workspace、三个首批 crate、Core bridge、GPUI 空窗口、依赖 pin、`gpui-component` 拒绝决策、Product validate 和 Windows runtime smoke 均已闭合。最终 M0 run `32093988986` 的三轮窗口 ready 为 `118.279-145.450 ms`、空闲整树 Working Set 为 `35.477-37.121 MiB`、默认子进程 0；下一位执行者不再重复这些工作，按顺序继续：
 
-1. 增加 Windows runtime smoke，验证 release EXE 窗口启动/退出、默认进程树、Working Set 与无残留。
-2. 按 8 月持续授权自动完成安全复核 -> public -> 只运行 smoke 所需手动 workflow -> 核对 -> 无活动任务 -> private。
-3. 保留真实微软拼音/日文 IME、DPI 和 UI Automation 为独立人工门，不用 M0 空壳替代。
-4. 进入 M1，先实现 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
-5. 更新 `PROGRESS.md`/`HANDOFF.md`，自动 commit/push。
+1. 进入 M1，先实现 SQLite storage actor、initial schema 和 migration runner。
+2. 实现 conversation/message/part/run repository、crash recovery 与 live backup/restore。
+3. 实现 Provider profile CRUD，SQLite 只保存 opaque credential reference。
+4. 再实现 Windows Credential Manager 与 DPAPI current-user SecretStore。
+5. 保留真实微软拼音/日文 IME、DPI 和 UI Automation 为 M2 独立人工门，不用 M0 空壳替代。
 
 数据与密钥边界闭合后再叠真实聊天 UI；不从“大而全首页”或 RAG 开始。

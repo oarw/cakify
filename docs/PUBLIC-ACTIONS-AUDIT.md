@@ -1,8 +1,9 @@
-# Product validate 公开前安全审计
+# GitHub Actions 临时公开安全审计记录
 
-> 审计日期：2026-08-17（Asia/Shanghai）
-> 审计源码基线：commit `b87789ce6c145cb8b1507ba077d8112d744dcdac`
-> 当前结论：未发现 secret 或用户数据；本次 public -> Product validate -> private 已完成并恢复 PRIVATE。
+> 最近审计日期：2026-08-18（Asia/Shanghai）
+> 原 Product validate 审计基线：commit `b87789ce6c145cb8b1507ba077d8112d744dcdac`
+> 最近 runtime 审计基线：commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`
+> 当前结论：Product validate 与 M0 runtime smoke 的受控 public -> Actions -> private 均已完成；仓库已恢复 PRIVATE。
 
 本文件及同步进度文档是审计完成后的记录增量，提交前同样执行敏感模式和 staged diff 检查。真正切换 public 前还必须对当时的实际 HEAD 做一次增量复核。
 
@@ -29,8 +30,8 @@
 - Codespaces secrets：0。
 - Actions variables：0。
 - Environments：0。
-- 当前只有一个 active workflow：`.github/workflows/product-validate.yml`。
-- `Product validate` 只有 `workflow_dispatch`，没有 push、pull_request、schedule 或外部事件触发器；权限为 `contents: read`。
+- 当前有两个 active workflow：`.github/workflows/product-validate.yml` 与 `.github/workflows/windows-runtime-smoke.yml`。
+- 两者都只有 `workflow_dispatch`，没有 push、pull_request、schedule 或外部事件触发器；权限均为 `contents: read`。
 
 ## 4. Actions 日志、artifact 与 cache
 
@@ -93,6 +94,23 @@ Fork 计数为 0 只代表 GitHub 当前记录的 fork。前次公开期间是�
 - 公开可见性和第三方下载不可逆。
 - 两份旧 Flutter cache 未逐文件扫描，但当前 workflow 不使用，且创建来源和日志无 secret 证据。
 - 仓库没有许可证。
-- M0 产品代码已通过编译、测试、Clippy 和 release build，但 EXE 尚未做窗口生命周期/进程树 runtime smoke；这不属于本次公开审计结论。
+- M0 产品代码已通过编译、测试、Clippy、release build 与最终 Windows runtime smoke；真实 IME/accessibility 仍是后续物理机独立门，不属于公开审计结论。
 
 后续执行者必须遵守持续授权的边界，任何公开状态都不得闲置或跨会话遗留。
+
+## 9. M0 Windows runtime smoke 审计与闭环
+
+2026-08-17 至 2026-08-18 又执行了三次只针对 `Windows runtime smoke` 的受控循环。前两次没有被误写成最终验收：`32037554962` 的顶层内存聚合错误为 0；`32038434473` 的性能/生命周期证据有效，但截图显示窗口底部被任务栏遮挡。最终源提交为 `a1f10429a7f48b5a7ca5968976676d6e2594554d`。
+
+最终公开前复核结果：
+
+- 全部 25 个可达 commit、145 个历史路径，高置信 secret、敏感历史文件名与 LFS pointer 均为 0。
+- Actions/Dependabot/Codespaces secrets、Actions variables、Environments 均为 0。
+- 三次 runtime 日志共 250,394 字符，高置信 secret 命中 0。
+- 两份旧 Flutter cache 的 ID、key、大小与来源未变化；当前 workflow 不读取 cache。
+- Release、Issue、PR、tag、fork 均为 0；仓库仍无 `LICENSE`。
+- 切换前仓库为 PRIVATE，HEAD 与 `origin/main` 均为 `a1f10429a7f48b5a7ca5968976676d6e2594554d`，queued/in_progress 均为空。
+
+最终 run [Windows runtime smoke `32093988986`](https://github.com/oarw/cakify/actions/runs/32093988986) 为 `success`，job `95581655025`。artifact `windows-runtime-smoke-32093988986` 的 ID 为 `9309416529`，archive digest 为 `sha256:8a09c0785d1cc77257c798f26247a5bec16ae8e63b95ab129faa04a18430a6c3`。三轮窗口矩形均为 `(24,55)-(1000,714)`，完整位于 `(0,0)-(1024,720)` 工作区；空闲整树 Working Set 为 `37.121/35.480/35.477 MiB`，峰值最高 `38.320 MiB`，默认进程数 1、子进程 0，WM_CLOSE 后均以 code 0 正常退出且无残留。JSONL 独立复算与 result JSON 逐项一致，6 份 stdout/stderr 只有空白，artifact 文本 secret 命中 0，截图目视无遮挡。
+
+artifact 内 EXE 为 5,722,624 bytes，SHA-256 `CE54D290BD0F0A19F1CDDE0322C4A7C2D09838D62CCE4B5DDDAD276EA035EA78`；result JSON SHA-256 `9E9FEEB09AB3266E9098020B48E23F5DB55BDFA951811D0C85307E3F98FA5930`；截图 SHA-256 `34062732DE298CDED4B8BF9D58D0650C6D7F44B2B67C9C607C82509A2B202E12`。核对后再次确认 queued/in_progress 为空，随即恢复 PRIVATE 并复核 `isPrivate=true`。本循环没有运行 benchmark、package、release 或无关 workflow。
