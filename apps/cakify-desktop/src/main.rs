@@ -9,7 +9,7 @@ use gpui::{
 use gpui_platform::application;
 
 const WINDOW_WIDTH: f32 = 960.0;
-const WINDOW_HEIGHT: f32 = 680.0;
+const WINDOW_HEIGHT: f32 = 620.0;
 
 struct CakifyApp {
     core: CoreRuntime,

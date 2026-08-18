@@ -1,9 +1,9 @@
 # Cakify 进度记录
 
 > 本文件是项目状态的单一事实来源。
-> 最后更新：2026-08-17（Asia/Shanghai）
+> 最后更新：2026-08-18（Asia/Shanghai）
 > 当前阶段：M0 - 产品工作区与技术 spike
-> 当前状态：M0_RUNTIME_SMOKE_METRICS_FIX_IN_PROGRESS
+> 当前状态：M0_RUNTIME_SMOKE_WINDOW_GATE_FIX_IN_PROGRESS
 
 ## 1. 当前快照
 
@@ -13,14 +13,15 @@
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
 - 已验证产品修复提交：`a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：`PRIVATE`；最终 run 完成且确认无 queued/in_progress 后已恢复并复核。
-- 最近成功 Actions：产品 Product validate `32034202488`，目标 commit `a2d19ceb5647ce050a5012ed2b8fdc1d7f7db4ab`。
-- 本轮 Actions：前两轮分别暴露格式和 Core 借用错误；第三轮 fmt、workspace check、tests、Clippy、release build、artifact upload 全部通过。
-- Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0；GitHub conclusion 虽为 success，内存门证据无效，正在修复后重跑。
+- 仓库可见性：`PRIVATE`；第二轮 runtime smoke 完成且确认无 queued/in_progress 后已恢复并复核。
+- 最近成功 Actions：Windows runtime smoke `32038434473`，目标 commit `2c1125e10ff135656c078b69ffecf636d64fd728`。
+- 本轮 Actions：runtime smoke 首轮 `32037554962` 的内存汇总证据无效；第二轮 `32038434473` 的性能/生命周期证据有效，但截图暴露任务栏遮挡，第三轮最终验收待当前修复提交后运行。
+- Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0，因此内存证据无效。
+- Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；截图仍显示窗口底部约 27 px 被任务栏遮挡，暂不关闭 M0，正在增加窗口工作区硬门并缩短默认高度。
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
-- 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；首轮已运行但内存聚合无效，正在修复后重跑。
+- 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；第二轮已取得有效性能数据，正在加入完整可见硬门后做最终重跑。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- 产品构建状态：本机没有编译/测试；Actions 已验证并生成 5,722,112-byte release EXE。窗口启动/退出、默认进程树、内存和 IME 仍未做 runtime smoke。
+- 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行 release EXE。第二轮三次窗口 ready 为 `160.087/122.374/128.065 ms`，空闲 Working Set 为 `37.289/35.668/35.684 MiB`，均为单进程并正常退出；窗口完整可见仍待修复后重跑，IME 保持独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
 - 本次公开前审计与 visibility 闭环：已完成，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
 - 组件决定：M0 不引入 `gpui-component`；直接使用 GPUI primitives，见 ADR 0002。
@@ -95,7 +96,7 @@
 
 ## 6. 尚未完成
 
-- [ ] 在 Actions/物理机验证 GPUI 空窗口启动、退出、默认子进程和基础内存；当前只有编译成功的 EXE，尚未运行。
+- [ ] 在 Actions 闭合 GPUI 空窗口启动、退出、默认子进程、基础内存和完整可见门；第二轮仅剩任务栏遮挡未通过验收。
 - [ ] 实现 SQLite initial schema/migration/storage actor。
 - [ ] 实现 Credential Manager/DPAPI SecretStore。
 - [ ] 实现 fake provider 聊天纵向切片。
@@ -108,8 +109,8 @@
 
 下一位执行者先闭合 M0，不再做框架泛泛选型：
 
-1. 提交并推送 runtime smoke 脚本/workflow；确认远端 commit 与本地一致。
-2. 按 8 月持续授权自动执行安全复核 -> public -> 只运行 `Windows runtime smoke` -> 核对 artifact -> 无活动任务 -> private。
+1. 提交并推送 620 px 默认高度与窗口/工作区矩形硬门；确认远端 commit 与本地一致。
+2. 按 8 月持续授权自动执行增量安全复核 -> public -> 只运行 `Windows runtime smoke` -> 核对 artifact 与完整截图 -> 无活动任务 -> private。
 3. 若 smoke 失败，按真实日志修复并只重跑同一 workflow；未通过前不关闭 M0。
 4. 物理微软拼音、日文 IME、DPI 与 UI Automation 保持独立人工门，不把无输入框的 M0 空壳写成 IME 通过。
 5. runtime smoke 闭合后进入 M1：先建 SQLite storage actor/schema/migration，再实现 Credential Manager/DPAPI SecretStore。
@@ -118,7 +119,7 @@
 
 ## 8. 性能与质量门
 
-以下仍是目标，未实际验证：
+以下是全产品目标；M0 第二轮已取得窗口壳层的部分证据，但当前窗口尺寸/硬门修复提交仍须最终重跑：
 
 - 冷启动到可交互 P50 <= 400 ms、P95 <= 800 ms。
 - 默认 idle 整树 Working Set <= 80 MiB。
@@ -128,6 +129,8 @@
 - 工具取消到整棵进程树退出 P95 <= 2 s。
 - SQLite、日志、导出、artifact 中明文 secret 命中数 0。
 
+第二轮产品窗口实测为：窗口句柄 ready `122.374-160.087 ms`、空闲整树 Working Set `35.668-37.289 MiB`、默认子进程数 0。ready 只代表 M0 窗口创建，不等于完整聊天输入可交互；最终源码仍以第三轮 artifact 为准。
+
 本机未运行项目编译、测试、GUI、benchmark 或 package。任何门必须在后续 Actions/物理机实际运行后再标记通过。
 
 ## 9. 当前阻塞与风险
@@ -136,10 +139,10 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M0_RUNTIME_SMOKE_METRICS_INVALID`：首轮证实三次窗口与退出，但内存聚合为 0；必须重跑取得非零内存证据后才能关闭 M0。
+- `M0_RUNTIME_SMOKE_WINDOW_OCCLUDED`：第二轮非零内存、标题、单进程和退出证据有效，但窗口底部被任务栏遮挡；必须用新增工作区硬门重跑后才能关闭 M0。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
-- `PRODUCT_METRICS_UNRUN`：42 MiB/113 ms 是 benchmark 壳，不是产品性能。
+- `M0_FINAL_SOURCE_UNRUN`：第二轮已经是产品窗口性能，不再沿用 benchmark 代替；但 620 px 高度与完整可见硬门尚未经过 Actions，最终 M0 结论待第三轮。
 - `SIGNING_PENDING`：签名证书、MSIX/安装器和更新通道未决定，安排在 M7。
 
 ## 10. Actions 事实记录
@@ -152,6 +155,7 @@
 - 最终 EXE：5,722,112 bytes，SHA-256 `4EB5AF9970EAFFC35850C599CD2A91685D6C1CC9FCB11B45526CA5B8D7DBF8DF`，`NotSigned`（M7 前预期状态）。artifact `Cargo.lock` 与仓库逐行一致，依赖树 SHA-256 `4F424A9412718C56907ECE687A2342E55F491C9C6F7E4B3BFE3712E3276E729A`，越界框架包与文本 secret 均 0 命中。
 - 恢复 private 前再次确认最终 run 为 completed/success，queued 与 in_progress 均为空；随后恢复 PRIVATE 并复核可见性。
 - [Windows runtime smoke #32037554962](https://github.com/oarw/cakify/actions/runs/32037554962)：GitHub `success`，commit `95b17b3e41d5b658a55d169615c32fb29dfcc51c`，job `95410897261`，artifact `windows-runtime-smoke-32037554962`（ID `9291266584`，digest `sha256:37933cd52977dcbd1a57b3412b53dd325845b98a2e35310ccb802cd793b20f15`）。三轮窗口 ready `157.141/131.985/133.119 ms`，均为 1 个进程，WM_CLOSE 后约 `33.577/35.500/35.465 ms` 以 code 0 退出；但顶层内存汇总错误为 0，不能作为 80 MiB 门通过证据。
+- [Windows runtime smoke #32038434473](https://github.com/oarw/cakify/actions/runs/32038434473)：GitHub `success`，commit `2c1125e10ff135656c078b69ffecf636d64fd728`，job `95413313494`，artifact `windows-runtime-smoke-32038434473`（ID `9291484529`，digest `sha256:dbf7314d6987caae8833d3387a16c665c901563b57dfb29e4b0ca2fab09c2128`）。三轮窗口标题均为 `Cakify`，ready `160.087/122.374/128.065 ms`，空闲 Working Set `37.289/35.668/35.684 MiB`，峰值最高 `38.449 MiB`，均为单进程、0 子进程、WM_CLOSE 后 `30.913/26.962/26.434 ms` 以 code 0 退出；JSONL 独立复算一致，日志为空。截图显示 960x680 内容窗口底部约 27 px 被任务栏遮挡，因此该 run 只接受性能/生命周期证据，不作为最终 M0 完整可见验收。
 
 ### 公开前审计记录
 
@@ -221,6 +225,13 @@
 - 首轮 Actions 实际打开窗口三次并正常退出；artifact 明细每轮进程 Working Set 为 `39,505,920` bytes，但顶层聚合错误为 0，定位为 ordered dictionary 与 `Measure-Object -Property` 不兼容。
 - 改用显式数值累加，移除对 GPUI 无效的 `WaitForInputIdle`；依据固定 GPUI revision 的 `TitlebarOptions` 给窗口设置 `Cakify` 标题，并将标题纳入第二轮 ready 门。
 - 首轮截图真实捕获 Cakify 窗口，但 1120x720 默认尺寸超出 runner 的 1024x768 桌面并被左右/底部裁切；默认窗口调整为 960x680，等待第二轮截图复核完整框架。
+- 第二轮修复后的指标与 JSONL 独立复算一致，三轮约 `35.7-37.3 MiB`、单进程、正常关闭；但 960x680 内容高度加系统标题栏后仍伸入任务栏区域约 27 px，拒绝仅凭绿色 workflow 关闭 M0。
+- 默认内容高度进一步调整为 620 px，并在 smoke 中通过 `GetWindowRect` 与显示器 `WorkingArea` 对三轮完整可见性做硬门；下一轮 artifact 将记录窗口/工作区矩形并继续保留桌面截图。
+
+### 2026-08-18：M0 完整可见硬门
+
+- 中断恢复后核对实际状态：仓库为 PRIVATE、无活动 run、HEAD 与 `origin/main` 一致，三处修复未被部分暂存或提交。
+- 对窗口高度、Win32 矩形门和进度记录完成 staged diff、PowerShell AST、workflow trigger/permission、whitespace 与敏感值静态检查；本机仍未运行 Cargo、EXE 或项目测试。
 
 ## 12. 更新规则
 

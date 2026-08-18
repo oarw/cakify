@@ -102,6 +102,67 @@ function Save-DesktopScreenshot([string]$Path) {
     }
 }
 
+function Get-WindowPlacement([int64]$Handle) {
+    Add-Type -AssemblyName System.Windows.Forms
+    if ($null -eq ("Cakify.NativeWindow" -as [type])) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+namespace Cakify {
+    public static class NativeWindow {
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Rect {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool GetWindowRect(IntPtr handle, out Rect rect);
+
+        public static Rect ReadBounds(IntPtr handle) {
+            if (!GetWindowRect(handle, out Rect rect)) {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            return rect;
+        }
+    }
+}
+"@
+    }
+
+    $window = [Cakify.NativeWindow]::ReadBounds([IntPtr]$Handle)
+    $workArea = [System.Windows.Forms.Screen]::FromHandle([IntPtr]$Handle).WorkingArea
+    $fullyVisible =
+        $window.Left -ge $workArea.Left -and
+        $window.Top -ge $workArea.Top -and
+        $window.Right -le $workArea.Right -and
+        $window.Bottom -le $workArea.Bottom
+
+    return [ordered]@{
+        window = [ordered]@{
+            left = $window.Left
+            top = $window.Top
+            right = $window.Right
+            bottom = $window.Bottom
+            width = $window.Right - $window.Left
+            height = $window.Bottom - $window.Top
+        }
+        work_area = [ordered]@{
+            left = $workArea.Left
+            top = $workArea.Top
+            right = $workArea.Right
+            bottom = $workArea.Bottom
+            width = $workArea.Width
+            height = $workArea.Height
+        }
+        fully_visible = $fullyVisible
+    }
+}
+
 $runs = @()
 $failures = New-Object System.Collections.Generic.List[string]
 $maxIdleWorkingSetBytes = [int64]$MaxIdleWorkingSetMiB * 1MB
@@ -113,6 +174,9 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
     $readyMs = 0.0
     $mainWindowHandle = [int64]0
     $mainWindowTitle = ""
+    $windowBounds = $null
+    $workAreaBounds = $null
+    $windowFullyVisible = $false
     $closeRequested = $false
     $exitMs = 0.0
     $exitCode = $null
@@ -154,6 +218,17 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
         }
         if ($mainWindowTitle -ne $ExpectedWindowTitle) {
             throw "window title '$mainWindowTitle' did not match expected title '$ExpectedWindowTitle' within $ReadyTimeoutSeconds seconds"
+        }
+
+        $placement = Get-WindowPlacement -Handle $mainWindowHandle
+        $windowBounds = $placement.window
+        $workAreaBounds = $placement.work_area
+        $windowFullyVisible = $placement.fully_visible
+        if (-not $windowFullyVisible) {
+            $gateFailures.Add(
+                "window bounds $($windowBounds.left),$($windowBounds.top),$($windowBounds.right),$($windowBounds.bottom) " +
+                "were outside work area $($workAreaBounds.left),$($workAreaBounds.top),$($workAreaBounds.right),$($workAreaBounds.bottom)"
+            )
         }
 
         if ($runIndex -eq 0) {
@@ -237,6 +312,9 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
         ready_ms = [Math]::Round($readyMs, 3)
         main_window_handle = $mainWindowHandle
         main_window_title = $mainWindowTitle
+        window_bounds = $windowBounds
+        work_area_bounds = $workAreaBounds
+        window_fully_visible = $windowFullyVisible
         sample_count = $snapshots.Count
         idle_working_set_bytes = Get-Median -Values $workingSets
         peak_working_set_bytes = [int64](($workingSets | Measure-Object -Maximum).Maximum ?? 0)
@@ -272,6 +350,7 @@ $result = [ordered]@{
         idle_seconds = $IdleSeconds
         max_idle_working_set_mib = $MaxIdleWorkingSetMiB
         expected_window_title = $ExpectedWindowTitle
+        expected_window_fully_visible = $true
         expected_child_process_count = 0
         exit_timeout_seconds = $ExitTimeoutSeconds
     }
@@ -290,13 +369,14 @@ $summary = @(
     "- Passed: ``$($result.passed)``"
     "- Runs: ``$RunCount``"
     "- Idle Working Set gate: ``$MaxIdleWorkingSetMiB MiB``"
+    "- Window fully visible gate: ``true``"
     "- Default child-process gate: ``0``"
     ""
-    "| Run | Window ready (ms) | Idle WS (MiB) | Peak WS (MiB) | Processes | Close/exit (ms) | Result |"
-    "| ---: | ---: | ---: | ---: | ---: | ---: | --- |"
+    "| Run | Window ready (ms) | Visible | Idle WS (MiB) | Peak WS (MiB) | Processes | Close/exit (ms) | Result |"
+    "| ---: | ---: | :---: | ---: | ---: | ---: | ---: | --- |"
 )
 foreach ($run in $runs) {
-    $summary += "| $($run.run_index) | $($run.ready_ms) | $([Math]::Round($run.idle_working_set_bytes / 1MB, 3)) | $([Math]::Round($run.peak_working_set_bytes / 1MB, 3)) | $($run.max_process_count) | $($run.exit_ms) | $(if ($run.failed) { 'failed' } else { 'passed' }) |"
+    $summary += "| $($run.run_index) | $($run.ready_ms) | $($run.window_fully_visible) | $([Math]::Round($run.idle_working_set_bytes / 1MB, 3)) | $([Math]::Round($run.peak_working_set_bytes / 1MB, 3)) | $($run.max_process_count) | $($run.exit_ms) | $(if ($run.failed) { 'failed' } else { 'passed' }) |"
 }
 $summary | Set-Content -LiteralPath (Join-Path $output "SUMMARY.md") -Encoding utf8
 
