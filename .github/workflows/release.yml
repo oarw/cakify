@@ -58,8 +58,8 @@ jobs:
           }
 
           if ($env:EVENT_NAME -eq 'workflow_dispatch') {
-            git show-ref --verify --quiet "refs/tags/$version"
-            if ($LASTEXITCODE -eq 0) {
+            $existingTag = git tag --list $version
+            if ($existingTag) {
               throw "Tag already exists: $version"
             }
           }
@@ -252,7 +252,7 @@ jobs:
           retention-days: 14
 
       - name: Save Cargo cache
-        if: always() && steps.cargo-cache.outputs.cache-hit != 'true'
+        if: always() && steps.cargo-cache.outcome == 'success' && steps.cargo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
