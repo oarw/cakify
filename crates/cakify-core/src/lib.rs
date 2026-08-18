@@ -491,7 +491,7 @@ fn execute_run(input: RunWorker) {
 
     let result = input
         .provider
-        .stream(input.request, input.cancellation.clone(), &mut |event| {
+        .stream(input.request.clone(), input.cancellation.clone(), &mut |event| {
             if input.cancellation.load(Ordering::Acquire) {
                 return false;
             }
