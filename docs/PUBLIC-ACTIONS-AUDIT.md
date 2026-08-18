@@ -3,7 +3,8 @@
 > 最近审计日期：2026-08-18（Asia/Shanghai）
 > 原 Product validate 审计基线：commit `b87789ce6c145cb8b1507ba077d8112d744dcdac`
 > 最近 runtime 审计基线：commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`
-> 当前结论：Product validate 与 M0 runtime smoke 的受控 public -> Actions -> private 均已完成；仓库已恢复 PRIVATE。
+> 最近 M1 Product validate 基线：commit `785241720db087ce38121b095ea5f192063ab2b4`
+> 当前结论：Product validate、M0 runtime smoke 与 M1 storage foundation 的受控 public -> Actions -> private 均已完成；仓库已恢复 PRIVATE。
 
 本文件及同步进度文档是审计完成后的记录增量，提交前同样执行敏感模式和 staged diff 检查。真正切换 public 前还必须对当时的实际 HEAD 做一次增量复核。
 
@@ -114,3 +115,15 @@ Fork 计数为 0 只代表 GitHub 当前记录的 fork。前次公开期间是�
 最终 run [Windows runtime smoke `32093988986`](https://github.com/oarw/cakify/actions/runs/32093988986) 为 `success`，job `95581655025`。artifact `windows-runtime-smoke-32093988986` 的 ID 为 `9309416529`，archive digest 为 `sha256:8a09c0785d1cc77257c798f26247a5bec16ae8e63b95ab129faa04a18430a6c3`。三轮窗口矩形均为 `(24,55)-(1000,714)`，完整位于 `(0,0)-(1024,720)` 工作区；空闲整树 Working Set 为 `37.121/35.480/35.477 MiB`，峰值最高 `38.320 MiB`，默认进程数 1、子进程 0，WM_CLOSE 后均以 code 0 正常退出且无残留。JSONL 独立复算与 result JSON 逐项一致，6 份 stdout/stderr 只有空白，artifact 文本 secret 命中 0，截图目视无遮挡。
 
 artifact 内 EXE 为 5,722,624 bytes，SHA-256 `CE54D290BD0F0A19F1CDDE0322C4A7C2D09838D62CCE4B5DDDAD276EA035EA78`；result JSON SHA-256 `9E9FEEB09AB3266E9098020B48E23F5DB55BDFA951811D0C85307E3F98FA5930`；截图 SHA-256 `34062732DE298CDED4B8BF9D58D0650C6D7F44B2B67C9C607C82509A2B202E12`。核对后再次确认 queued/in_progress 为空，随即恢复 PRIVATE 并复核 `isPrivate=true`。本循环没有运行 benchmark、package、release 或无关 workflow。
+
+## 10. M1 storage foundation Product validate 审计与闭环
+
+2026-08-18 对 M1 SQLite/storage foundation 执行一次持续授权范围内的受控修复循环。公开前目标 commit `900bcde26847fc9910d50823469262bb4295ee9c`：27 个可达 commit、152 个历史路径，高置信 secret、敏感文件名与 LFS pointer 0 命中；Actions/Dependabot/Codespaces secrets、variables、environments 均为 0；Release、Issue、PR、tag、fork 均为 0。两份旧 Flutter cache 未变化且当前 workflow 不使用，仓库仍无 `LICENSE`。
+
+首轮 [Product validate `32097396883`](https://github.com/oarw/cakify/actions/runs/32097396883) 为 `failure`：依赖树与许可证边界成功，`cargo fmt --check` 失败，其余编译/测试步骤未运行。artifact `product-validation-32097396883`（ID `9310434562`，digest `sha256:f1c82871e39b1e5ac87188fa1c9608211a52826d5f8b3ae470a7bb75ca2add34`）已成功下载并核验；由此取回 runner 生成的 `Cargo.lock`，其 SHA-256 为 `731531574FD1B25AA23F8B0476BF60365D2529B894F50FE5A0AC020B34441E30`。`rusqlite 0.40.2` registry checksum 与官方值一致，依赖树未出现网络栈、向量库或密钥库越界包；migration artifact 与目标提交内容一致，仅 checkout 行尾为 CRLF。
+
+按 runner 精确格式差异修复并提交锁文件后，最终 [Product validate `32097907337`](https://github.com/oarw/cakify/actions/runs/32097907337) 在 commit `785241720db087ce38121b095ea5f192063ab2b4` 上为 `success`，job `95592703383`。fmt、workspace check、全量 tests、专门的 5 项 storage contract、Clippy、release build 与 artifact upload 全部成功；测试覆盖 PRAGMA/schema、外键孤儿拒绝、重复打开、migration checksum 篡改与未来 schema 拒绝。
+
+最终 artifact `product-validation-32097907337` 的 ID 为 `9310763337`，上传日志和 API 均记录 5 个文件、2,385,820 bytes、archive digest `sha256:66b893168eadc5ead939c71c4059ca65f15cc6c9f2b2c38c2e3f49a2274ab118`。本机随后通过 GitHub CLI、GitHub API/curl 三种路径下载时，均在 Azure Blob `productionresultssa8.blob.core.windows.net:443` 连接超时；因此最终 ZIP 的锁文件/EXE/SQL/secret 独立解包检查仍明确为待办，不能伪造为已经完成。
+
+下载超时后没有让仓库继续公开等待：再次确认 queued/in_progress 为 0，立即恢复 PRIVATE，并复核 `isPrivate=true` 与最终 run `completed/success`。本循环只运行 Product validate，没有运行 benchmark、runtime smoke、package、release 或任何无关 workflow。

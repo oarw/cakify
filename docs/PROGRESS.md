@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-18（Asia/Shanghai）
 > 当前阶段：M1 - 数据与秘密基础
-> 当前状态：M1_STORAGE_VALIDATION_REPAIR
+> 当前状态：M1_REPOSITORIES_IN_PROGRESS
 
 ## 1. 当前快照
 
@@ -13,8 +13,8 @@
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
 - M0 最终 runtime 验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：`PUBLIC`（仅为修复当前 Product validate 的临时状态）；run `32097396883` 已完成且当前无活动任务，修复闭环结束前不得闲置或停止，最终必须恢复 `PRIVATE`。
-- 最近成功 Actions：Windows runtime smoke `32093988986`，目标 commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`；最近 Product validate `32097396883` 为格式检查失败，不能记为存储层通过。
+- 仓库可见性：`PRIVATE`；Product validate `32097907337` 完成后确认活动任务为 0，已恢复并复核。
+- 最近成功 Actions：Product validate `32097907337`，目标 commit `785241720db087ce38121b095ea5f192063ab2b4`，fmt/check/tests/storage contract/Clippy/release build/artifact upload 全部通过。
 - 本轮 Actions：runtime smoke 首轮 `32037554962` 的内存汇总证据无效；第二轮 `32038434473` 的性能/生命周期证据有效但截图暴露任务栏遮挡；第三轮 `32093988986` 全部硬门和 artifact 独立核验通过。
 - Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0，因此内存证据无效。
 - Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；但截图显示窗口底部约 27 px 被任务栏遮挡，因此当时没有作为最终 M0 验收。
@@ -22,7 +22,7 @@
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
 - 产品源码：根 Cargo workspace 已建立，包含 desktop、core、platform-windows 三个首批成员。
-- M1 源码：已新增独立 `cakify-storage` crate、两步 SQL migration、单 writer actor、连接/完整性硬门与 storage contract 测试源码；首轮 Actions 只完成依赖边界并在格式门失败，编译、测试和 Clippy 尚未执行。
+- M1 源码：独立 `cakify-storage` crate、两步 SQL migration、单 writer actor、连接/完整性硬门与 storage contract 已在 Product validate `32097907337` 通过；当前转入 conversation/message/part/run repository 与 crash recovery。
 - M1 依赖：已从 run `32097396883` artifact 取回 runner 生成的 `Cargo.lock`；固定 `rusqlite 0.40.2`、`sha2 0.10.9`，rusqlite registry checksum 与官方值一致，依赖树未发现网络栈、向量库或密钥库越界包。
 - 产品构建状态：本机没有编译/测试；Actions 已验证构建并实际运行最终 M0 release EXE。三次窗口 ready 为 `145.450/129.692/118.279 ms`，空闲 Working Set 为 `37.121/35.480/35.477 MiB`，均完整可见、单进程并正常退出；IME 保持 M2 独立物理机门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
@@ -98,10 +98,11 @@
 - [x] 实现 Windows runtime smoke 脚本与独立手动 workflow：三轮主窗口探针、进程树采样、80 MiB idle 门、0 默认子进程门、WM_CLOSE 正常退出、残留检查、截图与结构化 artifact。
 - [x] 对 runtime smoke 做本机静态核验：PowerShell AST 解析错误 0，workflow 只有手动触发与 `contents: read`，不在本机执行 EXE 或 Cargo。
 - [x] Windows runtime smoke `32093988986` 通过三轮窗口完整可见、80 MiB idle、0 子进程、WM_CLOSE/无残留硬门；artifact JSONL、日志、哈希和截图已独立核对，仓库已恢复 PRIVATE。
+- [x] Product validate `32097907337` 在含 runner 锁文件的 commit 上通过 SQLite actor、migration、schema/外键/checksum/重开/未来版本 contract、Clippy 与 release build；仓库已恢复 PRIVATE。
 
 ## 6. 尚未完成
 
-- [ ] 实现 SQLite initial schema/migration/storage actor。
+- [x] 实现 SQLite initial schema/migration/storage actor。
 - [ ] 实现 Credential Manager/DPAPI SecretStore。
 - [ ] 实现 fake provider 聊天纵向切片。
 - [ ] 实现真实 OpenAI-compatible provider。
@@ -113,9 +114,9 @@
 
 下一位执行者直接实施 M1，不再做框架或 M0 runtime 泛泛选型：
 
-1. 提交 runner 生成并核验后的 `Cargo.lock`、首轮精确 rustfmt 修复和检索回退规则；不在本机运行 Cargo/SQLite。
-2. 重跑 Product validate，按真实 check/test/storage contract/clippy 结果继续修复，直至包含锁文件的提交全部通过。
-3. 核对最终 artifact、确认无 queued/in_progress 并恢复 PRIVATE；storage foundation 通过后实现 conversation/message/part/run repository 与 crash recovery。
+1. 在 storage actor 上实现 typed conversation/message/part/run repository command，不让 Core 直接持有 SQLite connection。
+2. 增加事务级聚合写入、稳定排序/分页、级联删除与并发队列 contract；保持用户内容与状态字段受 schema 约束。
+3. 实现启动时把遗留 `running` run 原子转为 `interrupted`，不丢已 checkpoint 的 message/part 文本，并用 Actions 验证重复恢复幂等。
 4. 实现 Provider profile CRUD，SQLite 只保存 opaque credential reference。
 5. 再实现 Credential Manager/DPAPI、live backup/restore 和 synthetic secret 扫描。
 
@@ -143,8 +144,8 @@
 - `PUBLIC_CYCLE_AUTOMATION`：用户已持续授权 8 月后续受控闭环；每次仍须安全复核，公开不得闲置，新增风险或扩大范围时停止并请求确认。
 - `LICENSE_PENDING`：根仓库无 LICENSE，最终开源/闭源策略未定。
 - `GPUI_PRE_1_0`：必须固定 commit，升级单独处理。
-- `M1_SCHEMA_IN_PROGRESS`：initial schema、migration 与 storage actor 已有源码但尚未通过 Actions；首轮只到 rustfmt，repository、crash recovery 与 backup 仍未实现，在对应测试通过前不接真实 Provider 或用户 secret。
-- `M1_VALIDATION_REPAIR`：runner 锁文件已取回并核验，首轮精确 rustfmt 修复待提交；check/test/storage contract/clippy/release 仍未执行，必须按真实结果闭环。
+- `M1_REPOSITORIES_IN_PROGRESS`：SQLite foundation 已通过 Actions；repository、crash recovery 与 backup 仍未实现，在对应 contract 通过前不接真实 Provider 或用户 secret。
+- `M1_ARTIFACT_DOWNLOAD_PENDING`：最终 artifact 已由 runner 成功上传 5 个文件、2,385,820 bytes，ID/digest 与上传日志一致；本机到 Azure Blob 的三种下载方式均连接超时，因此最终 ZIP 内容独立解包检查仍待网络恢复后补做。workflow 结论和仓库恢复不受影响，不能把尚未下载写成已核对。
 - `DIRECT_GPUI_UI_WORK`：M0 已拒绝当前 `gpui-component` 依赖，聊天输入、Markdown 和组件需要直接实现与维护。
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
 - `M0_METRICS_SCOPE`：最终 M0 指标只覆盖窗口壳层，不冒充真实 composer、长消息列表或 Provider 启动性能；M2/M3 必须重测。
@@ -164,6 +165,7 @@
 - [Windows runtime smoke #32093988986](https://github.com/oarw/cakify/actions/runs/32093988986)：GitHub `success`，commit `a1f10429a7f48b5a7ca5968976676d6e2594554d`，job `95581655025`，artifact `windows-runtime-smoke-32093988986`（ID `9309416529`，digest `sha256:8a09c0785d1cc77257c798f26247a5bec16ae8e63b95ab129faa04a18430a6c3`）。三轮窗口矩形均为 `(24,55)-(1000,714)`，完整位于 `(0,0)-(1024,720)` 工作区；ready `145.450/129.692/118.279 ms`，空闲 Working Set `37.121/35.480/35.477 MiB`，峰值最高 `38.320 MiB`，均为单进程、0 子进程、WM_CLOSE 后 `35.356/30.831/31.409 ms` 以 code 0 退出且无残留。JSONL 独立复算逐项一致，6 份日志为空白，artifact 文本 secret 命中 0，截图无遮挡。
 - 最终 runtime artifact：EXE 5,722,624 bytes，SHA-256 `CE54D290BD0F0A19F1CDDE0322C4A7C2D09838D62CCE4B5DDDAD276EA035EA78`；result JSON SHA-256 `9E9FEEB09AB3266E9098020B48E23F5DB55BDFA951811D0C85307E3F98FA5930`；截图 SHA-256 `34062732DE298CDED4B8BF9D58D0650C6D7F44B2B67C9C607C82509A2B202E12`。恢复前 queued/in_progress 均为空，随后已复核仓库为 PRIVATE。
 - [Product validate #32097396883](https://github.com/oarw/cakify/actions/runs/32097396883)：`failure`，commit `900bcde26847fc9910d50823469262bb4295ee9c`，job `95591302608`，artifact `product-validation-32097396883`（ID `9310434562`，digest `sha256:f1c82871e39b1e5ac87188fa1c9608211a52826d5f8b3ae470a7bb75ca2add34`）。依赖树/许可证边界成功，格式检查失败，后续 check/test/storage contract/Clippy/release 均被跳过；不能记为 M1 通过。artifact `Cargo.lock` SHA-256 `731531574FD1B25AA23F8B0476BF60365D2529B894F50FE5A0AC020B34441E30`，dependency tree SHA-256 `8F85318D7203E7DE9B5BC223EF741F979C4EC5A1A3831CB3B000AF552F4C2684`；两份 migration 与目标提交内容一致，仅 runner checkout 使用 CRLF。
+- [Product validate #32097907337](https://github.com/oarw/cakify/actions/runs/32097907337)：`success`，commit `785241720db087ce38121b095ea5f192063ab2b4`，job `95592703383`，artifact `product-validation-32097907337`（ID `9310763337`，digest `sha256:66b893168eadc5ead939c71c4059ca65f15cc6c9f2b2c38c2e3f49a2274ab118`，5 files，2,385,820 bytes）。fmt、workspace check、全量 tests、5 项 storage contract、Clippy、release build 与上传全部成功；release 优化构建用时 3m51s。artifact ZIP 因本机连接 `productionresultssa8.blob.core.windows.net:443` 持续超时尚未解包，不能写成内容已独立核对。
 
 ### 公开前审计记录
 
@@ -257,8 +259,11 @@
 - 对 commit `900bcde26847fc9910d50823469262bb4295ee9c` 完成公开前复核后，临时设为 PUBLIC 并只触发 Product validate `32097396883`。
 - 依赖树与许可证边界成功；`cargo fmt --check` 给出 4 个源文件的纯格式差异，编译、测试、storage contract、Clippy 与 release build 未执行。
 - 已取回 artifact 中 runner 生成的锁文件和 migration SQL；核对 `rusqlite 0.40.2` checksum、直接依赖边界、migration 规范化内容与文本 secret 均无异常。
-- 已按 CI 精确差异修复格式并落盘锁文件，等待提交和下一轮 Actions；仓库当前仅因同一 workflow 修复保持临时 PUBLIC，闭环结束必须恢复 PRIVATE。
+- 已按 CI 精确差异修复格式并落盘锁文件；当时仓库仅因同一 workflow 修复保持临时 PUBLIC，随后第二轮成功并已恢复 PRIVATE。
 - 用户补充检索规则：内置搜索端点仍会返回 HTTP 404；已写入 `AGENTS.md` 和当前产品决定，后续主动改用 MCP 工具或官方一手 API/仓库 CLI。
+- 修复提交 `785241720db087ce38121b095ea5f192063ab2b4` 的第二轮 Product validate `32097907337` 全部通过：workspace tests 中 storage contract 5/5，通过专门重复执行 5/5；Clippy、release build 和 artifact upload 均成功。
+- 上传日志确认 artifact 为 5 个文件、2,385,820 bytes，ID `9310763337`、digest `sha256:66b893168eadc5ead939c71c4059ca65f15cc6c9f2b2c38c2e3f49a2274ab118`；本机到 Azure Blob 连续三种客户端连接超时，完整解包核验明确留为待办。
+- 确认 queued/in_progress 为 0 后立即恢复 PRIVATE，并复核 run completed/success 与 `isPrivate=true`；M1 转入领域 repository 与 crash recovery。
 
 ## 12. 更新规则
 
