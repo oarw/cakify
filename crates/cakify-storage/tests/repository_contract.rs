@@ -55,13 +55,13 @@ fn conversation_pagination_is_stable_and_excludes_soft_deleted_rows() {
     let actor = StorageActor::open(database.config()).expect("open actor");
     let handle = actor.handle();
 
-    let mut unsafe_snapshot = NewConversation::new("rejected", "Rejected", 99);
+    let mut sensitive_snapshot = NewConversation::new("rejected", "Rejected", 99);
     let forbidden_key = ["api", "key"].join("_");
-    unsafe_snapshot.provider_snapshot_json =
+    sensitive_snapshot.provider_snapshot_json =
         format!("{{\"{forbidden_key}\":\"synthetic-value\"}}");
     assert!(matches!(
         handle
-            .create_conversation(unsafe_snapshot)
+            .create_conversation(sensitive_snapshot)
             .expect_err("credential-bearing snapshot must fail"),
         StorageError::SensitiveJsonKey { .. }
     ));
