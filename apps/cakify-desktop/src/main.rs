@@ -886,7 +886,7 @@ impl CakifyApp {
             )
     }
 
-    fn render_messages(&self, cx: &mut Context<Self>) -> Div {
+    fn render_messages(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let background = rgb(0xfcfdfc);
         let muted = rgb(0x68736f);
         if self.messages.is_empty() {
@@ -1063,8 +1063,12 @@ impl CakifyApp {
             )
             .child(
                 div()
+                    .id((
+                        gpui::ElementId::from(("tool-arguments", call.run_id.value())),
+                        call.index,
+                    ))
                     .max_h(px(140.0))
-                    .overflow_scroll()
+                    .overflow_y_scroll()
                     .text_xs()
                     .font_family("Cascadia Mono")
                     .text_color(muted)
@@ -1085,7 +1089,10 @@ impl CakifyApp {
                     .gap_2()
                     .child(
                         div()
-                            .id(("deny-tool", call.run_id.value(), call.index as usize))
+                            .id((
+                                gpui::ElementId::from(("deny-tool", call.run_id.value())),
+                                call.index,
+                            ))
                             .px_3()
                             .py_1()
                             .text_sm()
@@ -1101,7 +1108,10 @@ impl CakifyApp {
                     )
                     .child(
                         div()
-                            .id(("approve-tool", call.run_id.value(), call.index as usize))
+                            .id((
+                                gpui::ElementId::from(("approve-tool", call.run_id.value())),
+                                call.index,
+                            ))
                             .rounded(px(5.0))
                             .bg(accent)
                             .text_color(rgb(0xffffff))
@@ -1455,8 +1465,8 @@ fn labeled_input(
     label: &'static str,
     id: &'static str,
     editor: Entity<TextEditor>,
-    background: gpui::Hsla,
-    border: gpui::Hsla,
+    background: gpui::Rgba,
+    border: gpui::Rgba,
     cx: &mut Context<CakifyApp>,
 ) -> Div {
     let focus_handle = editor.read(cx).focus_handle.clone();
@@ -1497,8 +1507,11 @@ fn render_markdown(source: &str) -> Div {
         .flex()
         .flex_col()
         .gap_3()
-        .children(parse_markdown(source).into_iter().map(|block| {
-            match block {
+        .children(
+            parse_markdown(source)
+                .into_iter()
+                .enumerate()
+                .map(|(index, block)| match block {
                 MarkdownBlock::Paragraph(text_value) => div()
                     .w_full()
                     .line_height(px(23.0))
@@ -1540,8 +1553,9 @@ fn render_markdown(source: &str) -> Div {
                     )
                     .child(
                         div()
+                            .id(("markdown-code", index))
                             .max_h(px(360.0))
-                            .overflow_scroll()
+                            .overflow_x_scroll()
                             .p_3()
                             .font_family("Cascadia Mono")
                             .text_size(px(13.0))
@@ -1565,8 +1579,8 @@ fn render_markdown(source: &str) -> Div {
                     .child(if ordered { "1." } else { "•" })
                     .child(div().flex_1().child(value)),
                 MarkdownBlock::Rule => div().w_full().h(px(1.0)).bg(border),
-            }
-        }))
+                }),
+        )
 }
 
 fn upsert_provider_profile(

@@ -24,10 +24,8 @@ struct PendingBlock {
 }
 
 pub fn parse_markdown(source: &str) -> Vec<MarkdownBlock> {
-    let options = Options::ENABLE_TABLES
-        | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_TASKLISTS
-        | Options::ENABLE_CJK_FRIENDLY_EMPHASIS;
+    let options =
+        Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
     let mut blocks = Vec::new();
     let mut stack = Vec::<PendingBlock>::new();
     let mut list_ordered = Vec::<bool>::new();

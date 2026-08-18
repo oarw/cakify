@@ -6,7 +6,7 @@
 use std::{ops::Range, time::Duration};
 
 use gpui::{
-    actions, fill, hsla, point, prelude::*, px, relative, size, App, Bounds, Context, CursorStyle,
+    actions, fill, hsla, point, prelude::*, px, relative, size, App, Bounds, Context,
     ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable, InteractiveElement,
     KeyBinding, LayoutId, PaintQuad, Pixels, ShapedLine, SharedString, Subscription, Task, TextRun,
     UTF16Selection, Window,
