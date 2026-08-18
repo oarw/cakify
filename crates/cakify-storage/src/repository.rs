@@ -34,12 +34,11 @@ pub(crate) fn create_conversation(
             input.created_at,
         ],
     )?;
-    let conversation = get_conversation(&transaction, &input.id)?.ok_or_else(|| {
-        StorageError::NotFound {
+    let conversation =
+        get_conversation(&transaction, &input.id)?.ok_or_else(|| StorageError::NotFound {
             entity: "conversation",
             id: input.id.clone(),
-        }
-    })?;
+        })?;
     transaction.commit()?;
     Ok(conversation)
 }
@@ -71,9 +70,10 @@ pub(crate) fn list_conversations(
         });
     }
 
-    let fetch_limit = i64::try_from(query.limit + 1).map_err(|_| StorageError::ValueOutOfRange {
-        field: "conversation query limit",
-    })?;
+    let fetch_limit =
+        i64::try_from(query.limit + 1).map_err(|_| StorageError::ValueOutOfRange {
+            field: "conversation query limit",
+        })?;
     let include_archived = if query.include_archived { 1_i64 } else { 0_i64 };
     let cursor_updated_at = query.cursor.as_ref().map(|cursor| cursor.updated_at);
     let cursor_id = query.cursor.as_ref().map(|cursor| cursor.id.as_str());
@@ -93,12 +93,7 @@ pub(crate) fn list_conversations(
     )?;
     let mut items = statement
         .query_map(
-            params![
-                include_archived,
-                cursor_updated_at,
-                cursor_id,
-                fetch_limit
-            ],
+            params![include_archived, cursor_updated_at, cursor_id, fetch_limit],
             map_conversation,
         )?
         .collect::<Result<Vec<_>, _>>()?;
@@ -137,10 +132,11 @@ pub(crate) fn mark_conversation_deleted(
             id: id.to_owned(),
         });
     }
-    let conversation = get_conversation(&transaction, id)?.ok_or_else(|| StorageError::NotFound {
-        entity: "conversation",
-        id: id.to_owned(),
-    })?;
+    let conversation =
+        get_conversation(&transaction, id)?.ok_or_else(|| StorageError::NotFound {
+            entity: "conversation",
+            id: id.to_owned(),
+        })?;
     transaction.commit()?;
     Ok(conversation)
 }

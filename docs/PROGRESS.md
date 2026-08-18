@@ -13,8 +13,8 @@
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
 - M0 最终 runtime 验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：`PRIVATE`；Product validate `32097907337` 完成后确认活动任务为 0，已恢复并复核。
-- 最近成功 Actions：Product validate `32097907337`，目标 commit `785241720db087ce38121b095ea5f192063ab2b4`，fmt/check/tests/storage contract/Clippy/release build/artifact upload 全部通过。
+- 仓库可见性：`PUBLIC`（仅为修复当前 repository Product validate 的临时状态）；run `32100633458` 已结束且无活动任务，同一 workflow 修复完成前不得闲置，最终必须恢复 `PRIVATE`。
+- 最近成功 Actions：Product validate `32097907337`；最新 repository Product validate `32100633458` 仅依赖边界成功、格式失败，不能记为 repository 编译或测试通过。
 - 本轮 Actions：runtime smoke 首轮 `32037554962` 的内存汇总证据无效；第二轮 `32038434473` 的性能/生命周期证据有效但截图暴露任务栏遮挡；第三轮 `32093988986` 全部硬门和 artifact 独立核验通过。
 - Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0，因此内存证据无效。
 - Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；但截图显示窗口底部约 27 px 被任务栏遮挡，因此当时没有作为最终 M0 验收。
@@ -114,8 +114,8 @@
 
 下一位执行者直接实施 M1，不再做框架或 M0 runtime 泛泛选型：
 
-1. 对新增 repository、v3 migration、checkpoint revision 与 crash recovery contract 做静态审查并提交推送；不在本机运行 Cargo/SQLite。
-2. 按持续授权运行 Product validate，核对真实 check/test/repository contract/Clippy/release 结果；失败按日志修复。
+1. 提交 Product validate `32100633458` 给出的精确 rustfmt 修复；不在本机运行 Cargo/SQLite。
+2. 重跑 Product validate，核对真实 check/test/repository contract/Clippy/release 结果；失败继续按日志修复。
 3. 验证启动时把遗留 active run 原子转为 `interrupted`，不丢已 checkpoint 的 message/part 文本，并确认重复恢复幂等；通过后再实现 Provider profile CRUD。
 4. 实现 Provider profile CRUD，SQLite 只保存 opaque credential reference。
 5. 再实现 Credential Manager/DPAPI、live backup/restore 和 synthetic secret 扫描。
@@ -166,6 +166,7 @@
 - 最终 runtime artifact：EXE 5,722,624 bytes，SHA-256 `CE54D290BD0F0A19F1CDDE0322C4A7C2D09838D62CCE4B5DDDAD276EA035EA78`；result JSON SHA-256 `9E9FEEB09AB3266E9098020B48E23F5DB55BDFA951811D0C85307E3F98FA5930`；截图 SHA-256 `34062732DE298CDED4B8BF9D58D0650C6D7F44B2B67C9C607C82509A2B202E12`。恢复前 queued/in_progress 均为空，随后已复核仓库为 PRIVATE。
 - [Product validate #32097396883](https://github.com/oarw/cakify/actions/runs/32097396883)：`failure`，commit `900bcde26847fc9910d50823469262bb4295ee9c`，job `95591302608`，artifact `product-validation-32097396883`（ID `9310434562`，digest `sha256:f1c82871e39b1e5ac87188fa1c9608211a52826d5f8b3ae470a7bb75ca2add34`）。依赖树/许可证边界成功，格式检查失败，后续 check/test/storage contract/Clippy/release 均被跳过；不能记为 M1 通过。artifact `Cargo.lock` SHA-256 `731531574FD1B25AA23F8B0476BF60365D2529B894F50FE5A0AC020B34441E30`，dependency tree SHA-256 `8F85318D7203E7DE9B5BC223EF741F979C4EC5A1A3831CB3B000AF552F4C2684`；两份 migration 与目标提交内容一致，仅 runner checkout 使用 CRLF。
 - [Product validate #32097907337](https://github.com/oarw/cakify/actions/runs/32097907337)：`success`，commit `785241720db087ce38121b095ea5f192063ab2b4`，job `95592703383`，artifact `product-validation-32097907337`（ID `9310763337`，digest `sha256:66b893168eadc5ead939c71c4059ca65f15cc6c9f2b2c38c2e3f49a2274ab118`，5 files，2,385,820 bytes）。fmt、workspace check、全量 tests、5 项 storage contract、Clippy、release build 与上传全部成功；release 优化构建用时 3m51s。artifact ZIP 因本机连接 `productionresultssa8.blob.core.windows.net:443` 持续超时尚未解包，不能写成内容已独立核对。
+- [Product validate #32100633458](https://github.com/oarw/cakify/actions/runs/32100633458)：`failure`，commit `2f4b8688fc71ae727781baa7ac9306db48f9e2aa`，job `95600298727`，artifact `product-validation-32100633458`（ID `9311450847`，digest `sha256:b15cb49d2ab6970c9de214e8a215c0856a8c00fd8bfc0663223da0401e8de9a2`）。依赖树/许可证边界成功，格式检查失败；check/tests/storage/repository contract/Clippy/release 均跳过，不能写成 repository 通过。
 
 ### 公开前审计记录
 
@@ -272,6 +273,7 @@
 - 新增 provider snapshot JSON 的递归 credential-bearing key 防线；只允许 opaque/non-secret snapshot，解析或敏感键均在入库前拒绝。
 - 新增 repository contract 源码：稳定 cursor 分页/软删除、消息与 parts 原子回滚、checkpoint 幂等与 stale 拒绝、run 单调状态/终态保护、重启恢复一次性与级联 purge。
 - Product validate workflow 增加显式 `Run repository contract tests`；本机只做源码、SQL、workflow、依赖与敏感模式静态检查，尚未编译或执行测试。
+- 对 commit `2f4b8688fc71ae727781baa7ac9306db48f9e2aa` 临时公开后只触发 Product validate `32100633458`；首轮在 rustfmt 门失败，后续步骤未运行，已按 runner 的完整差异修复 actor/lib/repository/test 纯格式。
 
 ## 12. 更新规则
 

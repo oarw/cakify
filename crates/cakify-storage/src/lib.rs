@@ -74,10 +74,7 @@ pub enum StorageError {
     #[error("{field} is outside the supported numeric range")]
     ValueOutOfRange { field: &'static str },
     #[error("invalid {field}: {reason}")]
-    InvalidInput {
-        field: &'static str,
-        reason: String,
-    },
+    InvalidInput { field: &'static str, reason: String },
     #[error("{entity} {id} was not found")]
     NotFound { entity: &'static str, id: String },
     #[error("invalid relation {relation}: {details}")]
@@ -105,10 +102,7 @@ pub enum StorageError {
     #[error("crash recovery selected {selected} runs but updated {updated}")]
     RecoveryCountMismatch { selected: usize, updated: usize },
     #[error("{field} contains forbidden credential-bearing key {key}")]
-    SensitiveJsonKey {
-        field: &'static str,
-        key: String,
-    },
+    SensitiveJsonKey { field: &'static str, key: String },
     #[error("JSON parsing failed: {0}")]
     Json(#[from] serde_json::Error),
 }

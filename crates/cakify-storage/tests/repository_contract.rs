@@ -65,12 +65,10 @@ fn conversation_pagination_is_stable_and_excludes_soft_deleted_rows() {
             .expect_err("credential-bearing snapshot must fail"),
         StorageError::SensitiveJsonKey { .. }
     ));
-    assert!(
-        handle
-            .get_conversation("rejected")
-            .expect("look up rejected conversation")
-            .is_none()
-    );
+    assert!(handle
+        .get_conversation("rejected")
+        .expect("look up rejected conversation")
+        .is_none());
 
     for id in ["conversation-1", "conversation-2", "conversation-3"] {
         handle
@@ -91,9 +89,7 @@ fn conversation_pagination_is_stable_and_excludes_soft_deleted_rows() {
     );
     let mut next_query = ConversationQuery::new(2);
     next_query.cursor = first.next_cursor;
-    let second = handle
-        .list_conversations(next_query)
-        .expect("second page");
+    let second = handle.list_conversations(next_query).expect("second page");
     assert_eq!(
         second
             .items
@@ -123,7 +119,10 @@ fn conversation_pagination_is_stable_and_excludes_soft_deleted_rows() {
     let error = handle
         .list_conversations(ConversationQuery::new(0))
         .expect_err("zero page size must fail");
-    assert!(matches!(error, StorageError::InvalidPageLimit { limit: 0, .. }));
+    assert!(matches!(
+        error,
+        StorageError::InvalidPageLimit { limit: 0, .. }
+    ));
 }
 
 #[test]
@@ -204,12 +203,10 @@ fn message_and_parts_commit_atomically_and_load_in_ordinal_order() {
     assert_eq!(thread.messages[0].parts[0].ordinal, 0);
     assert_eq!(thread.messages[0].parts[1].ordinal, 1);
     assert_eq!(thread.messages[1].parts[0].revision, 0);
-    assert!(
-        thread
-            .messages
-            .iter()
-            .all(|message| message.id != "message-invalid")
-    );
+    assert!(thread
+        .messages
+        .iter()
+        .all(|message| message.id != "message-invalid"));
 }
 
 #[test]
@@ -305,23 +302,17 @@ fn checkpoint_survives_restart_and_active_run_recovers_once() {
     let second_reopen = StorageActor::open(database.config()).expect("second reopen");
     assert_eq!(second_reopen.startup_recovery().recovered_count(), 0);
     let second_handle = second_reopen.handle();
-    assert!(
-        second_handle
-            .purge_conversation("conversation-1")
-            .expect("purge conversation")
-    );
-    assert!(
-        second_handle
-            .load_thread("conversation-1")
-            .expect("load purged thread")
-            .is_none()
-    );
-    assert!(
-        second_handle
-            .get_run("run-1")
-            .expect("load cascaded run")
-            .is_none()
-    );
+    assert!(second_handle
+        .purge_conversation("conversation-1")
+        .expect("purge conversation"));
+    assert!(second_handle
+        .load_thread("conversation-1")
+        .expect("load purged thread")
+        .is_none());
+    assert!(second_handle
+        .get_run("run-1")
+        .expect("load cascaded run")
+        .is_none());
 }
 
 #[test]
@@ -374,7 +365,10 @@ fn run_updates_are_monotonic_and_terminal_runs_cannot_reopen() {
         })
         .expect("complete run");
     assert_eq!(completed.status, RunStatus::Completed);
-    assert_eq!(completed.usage_json.as_deref(), Some("{\"output_tokens\":2}"));
+    assert_eq!(
+        completed.usage_json.as_deref(),
+        Some("{\"output_tokens\":2}")
+    );
 
     let stale = RunUpdate {
         id: "run-1".to_owned(),

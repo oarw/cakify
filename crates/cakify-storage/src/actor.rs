@@ -67,10 +67,7 @@ impl StorageHandle {
         self.request(|reply| Command::CreateConversation { input, reply })
     }
 
-    pub fn get_conversation(
-        &self,
-        id: &str,
-    ) -> Result<Option<ConversationRecord>, StorageError> {
+    pub fn get_conversation(&self, id: &str) -> Result<Option<ConversationRecord>, StorageError> {
         self.request(|reply| Command::GetConversation {
             id: id.to_owned(),
             reply,
@@ -302,8 +299,7 @@ fn initialize(config: StorageConfig) -> Result<(Connection, CrashRecoveryReport)
     configure_connection(&connection, config.busy_timeout)?;
     quick_check(&connection)?;
     migration::apply_migrations(&mut connection, unix_timestamp_ms()?)?;
-    let startup_recovery =
-        repository::recover_active_runs(&mut connection, unix_timestamp_ms()?)?;
+    let startup_recovery = repository::recover_active_runs(&mut connection, unix_timestamp_ms()?)?;
     let health = read_health(&connection)?;
     validate_health(&health)?;
     Ok((connection, startup_recovery))
