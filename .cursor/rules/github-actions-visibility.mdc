@@ -9,7 +9,8 @@ alwaysApply: true
 - 私有仓库 Actions 分钟本月已耗尽，私有状态下不要触发 workflow。
 - 用户已于 2026-08-17 持续授权本月后续的受控临时公开闭环。需要 Actions 时，安全复核无新增实质风险后自动执行：确认 private/无活动任务 -> public -> 只运行当前任务所需的手动 workflow -> 核对 run/artifact -> 确认无 queued/in_progress -> 立即 private；无需逐次询问。
 - 公开过的历史与 fork 可能无法收回，任何 secret 都不得进入公开源码、日志、缓存或 artifact。
-- 自动授权不包括长期公开、Release/发包、无关 workflow 或审计发现新增实质风险后继续；这些情况先请求用户确认。
+- 完成可交付源码或产品功能后自动 commit/push，并在验证通过后用统一 Release workflow 自动递增预览版本、创建 Release、上传安装器/便携 ZIP/独立 EXE/校验文件；不得只验证不发版。文档-only、测试-only、CI-only 或用户明确不发版的改动可只推送。
+- 自动授权不包括长期公开、正式稳定版语义、无关 workflow，或审计发现 secret、新敏感历史、未知外部输入、许可证冲突、数据破坏风险后继续；这些情况先请求用户确认。
 - 公开状态不得闲置或跨会话遗留；失败修复期间可维持本次闭环，但停止工作前必须恢复 private。
 - 构建、测试、基准、打包和发布使用 GitHub Actions，本机原则上只编辑源码。
 - 持续授权至 2026-08-31 23:59（Asia/Shanghai）或用户撤销时失效；新月份先核实额度，再决定是否继续使用公开切换流程。

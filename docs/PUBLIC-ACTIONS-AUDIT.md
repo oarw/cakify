@@ -91,7 +91,7 @@ Fork 计数为 0 只代表 GitHub 当前记录的 fork。前次公开期间是�
 
 最终 artifact archive digest 为 `sha256:e9c4f5f0db1488d8f946acfcb2766d2d0ccd4f313fa4f7a476747639f9a8a7b5`。release EXE 为 5,722,112 bytes，SHA-256 `4EB5AF9970EAFFC35850C599CD2A91685D6C1CC9FCB11B45526CA5B8D7DBF8DF`，当前未签名；锁文件逐行匹配仓库，越界框架包与 artifact 文本 secret 均为 0 命中。恢复 private 前确认 queued/in_progress 均为空，随后已复核仓库为 PRIVATE。
 
-用户另于 2026-08-17 持续授权 2026 年 8 月后续的受控临时公开闭环。后续每次仍须按本审计维度复核；无新增实质风险时可自动执行 public -> 当前任务所需手动 workflow -> 核对 -> 无活动任务 -> private，不再逐次询问。长期公开、Release/发包、无关 workflow 或新增风险不在该授权内；授权于 2026-08-31 23:59（Asia/Shanghai）或用户撤销时失效。
+用户持续授权 2026 年 8 月后续的受控临时公开与预览发版闭环。完成可交付源码或产品功能后必须自动 commit/push，并在验证通过后自动递增预览版本、运行统一 Release workflow 和发布下载资产。后续每次仍须按本审计维度复核；无新增实质风险时自动执行 public -> 当前任务所需手动 workflow/Release -> 核对 -> 无活动任务 -> private，不再逐次询问。文档-only、测试-only、CI-only 或用户明确不发版的改动可只推送；长期公开、正式稳定版语义、无关 workflow 或新增安全/许可证/数据风险不在授权内。授权于 2026-08-31 23:59（Asia/Shanghai）或用户撤销时失效。
 
 ## 8. 审计结论
 

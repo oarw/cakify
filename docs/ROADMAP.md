@@ -234,7 +234,7 @@ AI 可以完成全部源码、测试、CI、文档和修复。2026 年 8 月受�
 - `package.yml`：portable ZIP/SBOM/checksum；只手动运行。
 - `release.yml`：tag、签名、release environment；到 M7 才创建。
 
-2026 年 8 月约束仍有效：仓库 PRIVATE 时不触发 Actions。即使源码自动 commit/push，workflow 也保持 `workflow_dispatch`。用户已持续授权本月后续受控闭环；每次运行前仍做公开安全复核，无新增实质风险时自动完成 public -> 当前任务所需 workflow -> 核对 -> 无活动任务 -> private，不再逐次询问。进入 9 月先检查额度和规则，再决定是否恢复 push/PR validate。
+2026 年 8 月约束仍有效：仓库 PRIVATE 时不触发 Actions，workflow 保持 `workflow_dispatch`。完成可交付源码或产品功能后自动 commit/push，并在验证通过后自动递增预览版本、运行统一 Release workflow、核对下载资产；无新增实质风险时自动完成 public -> 当前任务所需 workflow/Release -> 核对 -> 无活动任务 -> private，不再逐次询问。文档-only、测试-only、CI-only 或用户明确不发版的改动可只推送。进入 9 月先检查额度和规则，再决定是否恢复 push/PR validate。
 
 ## 12. 回退与停止条件
 
@@ -264,4 +264,4 @@ AI 可以完成全部源码、测试、CI、文档和修复。2026 年 8 月受�
 2. 实质架构决定写 ADR 或更新 `docs/ARCHITECTURE.md`，不只留在聊天里。
 3. Actions 记录 run URL/ID、commit SHA、artifact 名和结论；未运行写“未运行”。
 4. 停止或换模型前更新 `docs/HANDOFF.md`。
-5. 完成的源码与文档自动 commit/push；8 月 Actions 按持续授权自动完成受控临时公开闭环，超出授权边界时再请求确认。
+5. 完成的源码与文档自动 commit/push；可交付源码或产品功能验证通过后自动递增预览版本并发布下载资产。8 月 Actions 按持续授权自动完成受控临时公开与预览发版闭环，只有新增安全/许可证/数据风险、正式稳定版语义或长期公开等超出授权边界时再请求确认。

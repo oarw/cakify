@@ -180,7 +180,7 @@ Core Service ─────────────────
 - Benchmark：启动、整树内存、10k、stream、cancel。
 - Package：portable ZIP、SBOM、checksum；MSIX/签名后置。
 
-2026 年 8 月私库 Actions 分钟已耗尽。源码完成后可以自动 commit/push，但 Actions 不能随 push 自动触发。用户已于 2026-08-17 持续授权本月后续的受控临时公开闭环：每次仍须安全复核；无新增实质风险时由执行者自动临时 public、只运行当前任务所需的手动 workflow、核对 runs/artifacts、确认无 queued/in_progress，再立即恢复 private。长期公开、Release/发包、无关 workflow 或新增风险不在授权内；进入 9 月先核实额度和规则。
+2026 年 8 月私库 Actions 分钟已耗尽。Actions 不能随 push 自动触发，但完成可交付源码或产品功能后仍须自动 commit/push，并在必要验证通过后自动递增预览版本、运行统一 Release workflow、发布安装器/便携 ZIP/独立 EXE/校验文件。用户已持续授权本月后续的受控临时公开与预览发版闭环：每次仍须安全复核；无新增实质风险时由执行者自动临时 public、运行当前任务所需 workflow、核对 runs/artifacts/Release、确认无 queued/in_progress，再立即恢复 private。文档-only、测试-only、CI-only 或用户明确不发版的改动可只推送；长期公开、正式稳定版语义、无关 workflow 或新增安全/许可证/数据风险不在授权内；进入 9 月先核实额度和规则。
 
 ## 12. 决策与风险
 

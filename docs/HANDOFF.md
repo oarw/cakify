@@ -60,6 +60,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 仓库没有 LICENSE。
 - `crates/cakify-mcp` 已固定 `rmcp 3.1.0`，实现 async actor、stdio/Streamable HTTP、工具发现/路由、并发与生命周期边界，stdio 使用 process-wrap Job Object/KillOnDrop；配置、路由、取消与生命周期 tests 已通过。
 - Composer 已实现 selection、clipboard、鼠标拖选、多行导航和 marked-text/UTF-16 IME 接口；Provider 已通过真实 loopback HTTP、工具回填、有界 SSE 与错误脱敏契约。物理 IME、真实第三方 MCP 和真实用户 API Key 仍未验收。
+- 用户已明确撤销“Release/发包需另行确认”的旧约束：可交付功能完成并验证后必须自动发预览版。当前工作台 UI/UX 与图标正在发布 `v0.1.0-pre.2`；若交接时尚未完成，先续跑/修复同一 Release 闭环，不要再次询问是否发版。
 
 接手后先执行只读检查：`git status --short --branch`、`git rev-parse HEAD`、`git remote -v`、`gh repo view ... --json visibility,isPrivate`、`gh run list`。实际状态优先于本文。
 
@@ -67,10 +68,10 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 - 始终使用简体中文。
 - 本机原则上只编辑源码；不安装大批环境，不执行项目编译、测试、benchmark、打包或发布。
-- 完成源码/文档后自动 commit/push；不要等待用户再提醒推送。
+- 完成源码/文档后自动 commit/push；完成可交付源码或产品功能且必要验证通过后，自动递增预览版本并运行统一 Release workflow，直到安装器、便携 ZIP、独立 EXE 与校验文件可下载；不得停在“已验证但未发版”。文档-only、测试-only、CI-only 或用户明确不发版的改动可只推送。
 - 2026 年 8 月私库 Actions 分钟已耗尽，PRIVATE 时不得运行 workflow。
 - 用户已于 2026-08-17 持续授权本月后续受控闭环。每次 Actions 必须安全复核；无新增实质风险时自动执行：确认 private/无活动任务 -> public -> 只运行当前任务所需手动 workflow -> 核对 -> 确认无 queued/in_progress -> 立即 private，不再逐次询问。
-- 自动授权不包括长期公开、Release/发包、无关 workflow 或审计发现新增风险后继续；这些情况请求用户确认。授权于 2026-08-31 23:59（Asia/Shanghai）或用户撤销时失效。
+- 自动授权包括创建预览版 Release 和发布下载资产；不包括长期公开、正式稳定版语义、无关 workflow，或审计发现 secret、新敏感历史、未知外部输入、许可证冲突、数据破坏风险后继续。这些情况请求用户确认。授权于 2026-08-31 23:59（Asia/Shanghai）或用户撤销时失效。
 - 公开状态不得闲置或跨会话遗留；失败修复期间可维持同一闭环，但停止工作前必须恢复 private。
 - 不提交/打印真实 API Key、OAuth token、签名证书、私人 endpoint 或用户数据。
 - Actions 未实际运行不得写“通过”。
