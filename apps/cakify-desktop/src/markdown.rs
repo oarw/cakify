@@ -119,12 +119,12 @@ pub fn parse_markdown(source: &str) -> Vec<MarkdownBlock> {
                 list_ordered.pop();
             }
             Event::End(TagEnd::TableCell) => {
-                if let Some(cell) = stack.pop()
-                    && matches!(cell.kind, PendingKind::TableCell)
-                {
-                    table_row
-                        .get_or_insert_default()
-                        .push(cell.text.trim().to_owned());
+                if let Some(cell) = stack.pop() {
+                    if matches!(cell.kind, PendingKind::TableCell) {
+                        table_row
+                            .get_or_insert_default()
+                            .push(cell.text.trim().to_owned());
+                    }
                 }
             }
             Event::End(TagEnd::TableHead) | Event::End(TagEnd::TableRow) => {

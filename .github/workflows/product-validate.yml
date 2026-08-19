@@ -63,7 +63,11 @@ jobs:
           cargo fmt --all -- --check
           if ($LASTEXITCODE -ne 0) {
             cargo fmt --all
+            $formatExit = $LASTEXITCODE
             git diff --binary | Out-File -LiteralPath rustfmt.patch -Encoding utf8
+            if ($formatExit -ne 0) {
+              throw 'Rust source could not be parsed by rustfmt; inspect the step log.'
+            }
             throw 'Rust formatting differs; apply rustfmt.patch from the artifact.'
           }
 
