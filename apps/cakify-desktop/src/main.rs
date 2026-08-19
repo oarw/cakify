@@ -1475,7 +1475,8 @@ impl CakifyApp {
                                         )
                                         .child(div().text_xs().text_color(muted).child(detail))
                                 }),
-                        )
+                        ),
+                )
                 );
         }
 
