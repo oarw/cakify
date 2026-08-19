@@ -137,10 +137,7 @@ pub fn parse_markdown(source: &str) -> Vec<MarkdownBlock> {
                     append_text(&mut stack, ")");
                 }
             }
-            Event::Start(_)
-            | Event::End(_)
-            | Event::Html(_)
-            | Event::InlineHtml(_) => {}
+            Event::Start(_) | Event::End(_) | Event::Html(_) | Event::InlineHtml(_) => {}
         }
     }
 
@@ -200,10 +197,8 @@ fn safe_visible_link(destination: &str) -> Option<String> {
         || destination.starts_with('/')
         || destination.starts_with("./")
         || destination.starts_with("../");
-    (safe_scheme
-        && destination.len() <= 2_048
-        && !destination.chars().any(char::is_control))
-    .then(|| destination.to_owned())
+    (safe_scheme && destination.len() <= 2_048 && !destination.chars().any(char::is_control))
+        .then(|| destination.to_owned())
 }
 
 fn heading_level(level: HeadingLevel) -> u8 {
@@ -272,6 +267,9 @@ mod tests {
         let blocks = parse_markdown(
             "[run](javascript:alert(1)) ![preview](https://example.com/private.png)",
         );
-        assert_eq!(blocks, vec![MarkdownBlock::Paragraph("run preview".to_owned())]);
+        assert_eq!(
+            blocks,
+            vec![MarkdownBlock::Paragraph("run preview".to_owned())]
+        );
     }
 }

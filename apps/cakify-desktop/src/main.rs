@@ -977,9 +977,7 @@ impl CakifyApp {
                     McpServerConfig::try_from(&stored)
                         .map_err(|error| error.to_string())
                         .and_then(|config| {
-                            self.mcp
-                                .connect(config)
-                                .map_err(|error| error.to_string())
+                            self.mcp.connect(config).map_err(|error| error.to_string())
                         })
                         .err()
                 } else {

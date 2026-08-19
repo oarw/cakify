@@ -413,12 +413,7 @@ impl TextEditor {
         self.is_selecting = false;
     }
 
-    fn on_mouse_move(
-        &mut self,
-        event: &MouseMoveEvent,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn on_mouse_move(&mut self, event: &MouseMoveEvent, _: &mut Window, cx: &mut Context<Self>) {
         if self.is_selecting {
             let content = self.text(cx);
             let offset = self.byte_index_for_point(&content, event.position);
@@ -630,11 +625,7 @@ impl EntityInputHandler for TextEditor {
         cx.notify();
     }
 
-    fn text_length_utf16(
-        &mut self,
-        _window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<usize> {
+    fn text_length_utf16(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> Option<usize> {
         Some(self.text(cx).encode_utf16().count())
     }
 }
@@ -1181,7 +1172,8 @@ fn marked_runs(
     source: &str,
     masked: bool,
 ) -> Vec<TextRun> {
-    let Some(marked) = marked_range.and_then(|marked| range_intersection(line_range, marked)) else {
+    let Some(marked) = marked_range.and_then(|marked| range_intersection(line_range, marked))
+    else {
         return vec![base];
     };
     if marked.is_empty() {
