@@ -12,7 +12,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
-$output = [IO.Path]::GetFullPath((Join-Path (Get-Location) $OutputDirectory))
+$output = if ([IO.Path]::IsPathFullyQualified($OutputDirectory)) {
+    [IO.Path]::GetFullPath($OutputDirectory)
+} else {
+    [IO.Path]::GetFullPath((Join-Path (Get-Location).Path $OutputDirectory))
+}
 $installDirectory = Join-Path $output "installed\Cakify"
 $logsDirectory = Join-Path $output "logs"
 $runtimeDirectory = Join-Path $output "runtime"

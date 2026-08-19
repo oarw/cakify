@@ -22,7 +22,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $app = (Resolve-Path -LiteralPath $AppPath).Path
-$output = [IO.Path]::GetFullPath((Join-Path (Get-Location) $OutputDirectory))
+$output = if ([IO.Path]::IsPathFullyQualified($OutputDirectory)) {
+    [IO.Path]::GetFullPath($OutputDirectory)
+} else {
+    [IO.Path]::GetFullPath((Join-Path (Get-Location).Path $OutputDirectory))
+}
 $metricsDirectory = Join-Path $output "metrics"
 $logsDirectory = Join-Path $output "logs"
 $screenshotsDirectory = Join-Path $output "screenshots"
