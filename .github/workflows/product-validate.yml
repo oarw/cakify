@@ -95,6 +95,10 @@ jobs:
         shell: pwsh
         run: cargo test --package cakify-mcp --locked
 
+      - name: Run Provider transport contract tests
+        shell: pwsh
+        run: cargo test --package cakify-provider --locked
+
       - name: Run tool approval loop contract tests
         shell: pwsh
         run: cargo test --package cakify-core approved_tool_executes_and_continues_the_model_turn --locked
