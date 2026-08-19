@@ -1329,4 +1329,118 @@ mod tests {
                 if kind == "protocol" && message.contains("数量超过安全上限")
         ));
     }
+
+    struct DeniedToolProvider {
+        calls: AtomicUsize,
+    }
+
+    impl ChatProvider for DeniedToolProvider {
+        fn stream(
+            &self,
+            request: ChatRequest,
+            _cancellation: Arc<AtomicBool>,
+            sink: &mut StreamSink<'_>,
+        ) -> Result<(), ProviderError> {
+            if self.calls.fetch_add(1, Ordering::AcqRel) == 0 {
+                assert!(sink(ProviderStreamEvent::ToolCallDelta {
+                    index: 0,
+                    id: Some("call-denied".to_owned()),
+                    name: Some(CURRENT_TIME_TOOL_NAME.to_owned()),
+                    arguments_delta: "{}".to_owned(),
+                }));
+                return Ok(());
+            }
+            let tool_result = request.messages.last().expect("denied tool result");
+            assert_eq!(tool_result.role, ChatRole::Tool);
+            assert_eq!(tool_result.tool_call_id.as_deref(), Some("call-denied"));
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(&tool_result.content)
+                    .expect("denial JSON")["error"],
+                "user_denied"
+            );
+            assert!(sink(ProviderStreamEvent::TextDelta(
+                "已跳过工具".to_owned()
+            )));
+            assert!(sink(ProviderStreamEvent::Finished {
+                reason: Some("stop".to_owned()),
+            }));
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn denied_tool_is_returned_to_model_without_execution() {
+        let provider = Arc::new(DeniedToolProvider {
+            calls: AtomicUsize::new(0),
+        });
+        let runtime = CoreRuntime::start_with_provider_and_tools(
+            provider.clone(),
+            Arc::new(BuiltinToolExecutor),
+        )
+        .expect("core thread");
+        let events = runtime.events();
+        assert!(matches!(
+            events.recv_blocking().expect("ready"),
+            AppEvent::CoreReady { .. }
+        ));
+        runtime
+            .handle()
+            .dispatch(AppCommand::CreateConversation {
+                request_id: RequestId::new(30),
+                title: "deny tool".to_owned(),
+            })
+            .expect("create conversation");
+        let conversation_id = match events.recv_blocking().expect("created") {
+            AppEvent::ConversationCreated {
+                conversation_id, ..
+            } => conversation_id,
+            event => panic!("unexpected event: {event:?}"),
+        };
+        runtime
+            .handle()
+            .dispatch(AppCommand::SubmitDraft {
+                request_id: RequestId::new(31),
+                conversation_id,
+                model: "fixture".to_owned(),
+                text: "do not call".to_owned(),
+                tools: builtin_tool_definitions(),
+                temperature: None,
+            })
+            .expect("submit draft");
+        let run_id = match events.recv_blocking().expect("accepted") {
+            AppEvent::DraftAccepted { run_id, .. } => run_id,
+            event => panic!("unexpected event: {event:?}"),
+        };
+        assert!(matches!(
+            events.recv_blocking().expect("tool delta"),
+            AppEvent::ToolCallDelta { .. }
+        ));
+        assert!(matches!(
+            events.recv_blocking().expect("approval requested"),
+            AppEvent::ToolApprovalRequested { .. }
+        ));
+        runtime
+            .handle()
+            .dispatch(AppCommand::ResolveToolApproval {
+                run_id,
+                tool_call_id: "call-denied".to_owned(),
+                approved: false,
+            })
+            .expect("deny tool");
+        assert!(matches!(
+            events.recv_blocking().expect("denial resolved"),
+            AppEvent::ToolApprovalResolved {
+                approved: false, ..
+            }
+        ));
+        assert!(matches!(
+            events.recv_blocking().expect("continued model output"),
+            AppEvent::AssistantDelta { ref delta, .. } if delta == "已跳过工具"
+        ));
+        assert!(matches!(
+            events.recv_blocking().expect("completed"),
+            AppEvent::RunCompleted { .. }
+        ));
+        assert_eq!(provider.calls.load(Ordering::Acquire), 2);
+    }
 }
