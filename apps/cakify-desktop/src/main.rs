@@ -1453,10 +1453,11 @@ impl CakifyApp {
                                     ("帮我写一段代码", "从需求到可运行的实现"),
                                 ]
                                 .into_iter()
-                                .map(|(title, detail)| {
+                                .enumerate()
+                                .map(|(index, (title, detail))| {
                                     let prompt = title.to_owned();
                                     div()
-                                        .id(("suggestion", title))
+                                        .id(("suggestion", index))
                                         .flex_1()
                                         .rounded(px(10.0))
                                         .border_1()
