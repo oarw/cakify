@@ -126,10 +126,7 @@ impl StorageHandle {
         })
     }
 
-    pub fn create_mcp_server(
-        &self,
-        input: NewMcpServer,
-    ) -> Result<McpServerRecord, StorageError> {
+    pub fn create_mcp_server(&self, input: NewMcpServer) -> Result<McpServerRecord, StorageError> {
         self.request(|reply| Command::CreateMcpServer { input, reply })
     }
 
@@ -505,10 +502,7 @@ fn run_loop(mut connection: Connection, receiver: Receiver<Command>) {
                 let _ = reply.send(repository::list_mcp_servers(&connection));
             }
             Command::SetMcpServerEnabled { input, reply } => {
-                let _ = reply.send(repository::set_mcp_server_enabled(
-                    &mut connection,
-                    input,
-                ));
+                let _ = reply.send(repository::set_mcp_server_enabled(&mut connection, input));
             }
             Command::DeleteMcpServer { id, reply } => {
                 let _ = reply.send(repository::delete_mcp_server(&mut connection, &id));

@@ -433,8 +433,7 @@ fn run_loop(
                 });
 
                 let cancellation = Arc::new(AtomicBool::new(false));
-                let (approvals, approval_receiver) =
-                    mpsc::sync_channel(APPROVAL_QUEUE_CAPACITY);
+                let (approvals, approval_receiver) = mpsc::sync_channel(APPROVAL_QUEUE_CAPACITY);
                 let worker = spawn_run(RunWorker {
                     provider: provider.clone(),
                     tool_executor: tool_executor.clone(),
@@ -563,63 +562,62 @@ fn execute_run(input: RunWorker) {
         let mut round_usage = None;
         let mut finish_reason = None;
 
-        let result = input.provider.stream(
-            request.clone(),
-            input.cancellation.clone(),
-            &mut |event| {
-                if input.cancellation.load(Ordering::Acquire) {
-                    return false;
-                }
-                match event {
-                    ProviderStreamEvent::TextDelta(delta) => {
-                        assistant_text.push_str(&delta);
-                        pending_text.push_str(&delta);
-                        if pending_text.len() >= DELTA_FLUSH_BYTES
-                            || last_flush.elapsed() >= DELTA_FLUSH_INTERVAL
-                        {
-                            flush_text(&input, &mut pending_text);
-                            last_flush = Instant::now();
-                        }
+        let result =
+            input
+                .provider
+                .stream(request.clone(), input.cancellation.clone(), &mut |event| {
+                    if input.cancellation.load(Ordering::Acquire) {
+                        return false;
                     }
-                    ProviderStreamEvent::ToolCallDelta {
-                        index,
-                        id,
-                        name,
-                        arguments_delta,
-                    } => {
-                        flush_text(&input, &mut pending_text);
-                        let call = tool_calls.entry(index).or_insert_with(|| {
-                            let ui_index = next_ui_index;
-                            next_ui_index = next_ui_index.saturating_add(1);
-                            ToolCallBuffer {
-                                ui_index,
-                                id: String::new(),
-                                name: String::new(),
-                                arguments_json: String::new(),
+                    match event {
+                        ProviderStreamEvent::TextDelta(delta) => {
+                            assistant_text.push_str(&delta);
+                            pending_text.push_str(&delta);
+                            if pending_text.len() >= DELTA_FLUSH_BYTES
+                                || last_flush.elapsed() >= DELTA_FLUSH_INTERVAL
+                            {
+                                flush_text(&input, &mut pending_text);
+                                last_flush = Instant::now();
                             }
-                        });
-                        if let Some(id) = &id {
-                            call.id = id.clone();
                         }
-                        if let Some(name) = &name {
-                            call.name = name.clone();
-                        }
-                        call.arguments_json.push_str(&arguments_delta);
-                        input.emitter.emit(AppEvent::ToolCallDelta {
-                            run_id: input.run_id,
-                            index: call.ui_index,
+                        ProviderStreamEvent::ToolCallDelta {
+                            index,
                             id,
                             name,
                             arguments_delta,
-                            revision: 0,
-                        });
+                        } => {
+                            flush_text(&input, &mut pending_text);
+                            let call = tool_calls.entry(index).or_insert_with(|| {
+                                let ui_index = next_ui_index;
+                                next_ui_index = next_ui_index.saturating_add(1);
+                                ToolCallBuffer {
+                                    ui_index,
+                                    id: String::new(),
+                                    name: String::new(),
+                                    arguments_json: String::new(),
+                                }
+                            });
+                            if let Some(id) = &id {
+                                call.id = id.clone();
+                            }
+                            if let Some(name) = &name {
+                                call.name = name.clone();
+                            }
+                            call.arguments_json.push_str(&arguments_delta);
+                            input.emitter.emit(AppEvent::ToolCallDelta {
+                                run_id: input.run_id,
+                                index: call.ui_index,
+                                id,
+                                name,
+                                arguments_delta,
+                                revision: 0,
+                            });
+                        }
+                        ProviderStreamEvent::Usage(value) => round_usage = Some(value),
+                        ProviderStreamEvent::Finished { reason } => finish_reason = reason,
                     }
-                    ProviderStreamEvent::Usage(value) => round_usage = Some(value),
-                    ProviderStreamEvent::Finished { reason } => finish_reason = reason,
-                }
-                true
-            },
-        );
+                    true
+                });
         flush_text(&input, &mut pending_text);
         merge_usage(&mut aggregate_usage, round_usage);
 
@@ -652,10 +650,7 @@ fn execute_run(input: RunWorker) {
         if round == MAX_TOOL_ROUNDS {
             fail_run(
                 &input,
-                ProviderError::new(
-                    ProviderErrorKind::Protocol,
-                    "工具调用轮数超过安全上限",
-                ),
+                ProviderError::new(ProviderErrorKind::Protocol, "工具调用轮数超过安全上限"),
             );
             return;
         }
@@ -762,10 +757,7 @@ fn execute_run(input: RunWorker) {
             Err(_) => {
                 fail_run(
                     &input,
-                    ProviderError::new(
-                        ProviderErrorKind::Protocol,
-                        "对话历史暂时不可用",
-                    ),
+                    ProviderError::new(ProviderErrorKind::Protocol, "对话历史暂时不可用"),
                 );
                 return;
             }

@@ -217,6 +217,7 @@
 - GPUI 正常发送路径不再传空工具列表；工具卡展示审批、执行中、完成、失败和结果，run 只在模型续写完成后结束。
 - MCP 配置使用现有 `mcp_servers` 表和单 writer actor，新增创建/读取/列表/启停/删除 contract；远程 HTTP 限制为 HTTPS（loopback 可 HTTP），配置递归拒绝 credential-bearing key。
 - 本机只做源码与 diff 静态检查；尚未运行 rustfmt、编译、测试、Clippy 或产品构建，以上必须等 Product validate 实证，`rmcp` 实际连接仍为下一步。
+- Product validate `32222027498` 验证提交 `c8200421e7b4bfd6b8ffd12e5082df4abe757add`：依赖树/许可证边界通过，rustfmt 门失败，编译与测试未执行；已下载并应用 runner 生成的纯格式补丁，等待第二轮。
 
 ### 2026-08-16 至 2026-08-17：框架筛选
 

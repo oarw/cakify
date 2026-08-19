@@ -6,9 +6,9 @@ use url::Url;
 
 use crate::{
     ConversationCursor, ConversationPage, ConversationQuery, ConversationRecord,
-    ConversationThread, CrashRecoveryReport, DeletedProviderProfile, MessagePartKind,
-    MessagePartRecord, MessageRecord, MessageRole, McpServerRecord, McpServerStatusUpdate,
-    McpTransport, NewConversation, NewMcpServer, NewMessage, NewProviderModel, NewProviderProfile,
+    ConversationThread, CrashRecoveryReport, DeletedProviderProfile, McpServerRecord,
+    McpServerStatusUpdate, McpTransport, MessagePartKind, MessagePartRecord, MessageRecord,
+    MessageRole, NewConversation, NewMcpServer, NewMessage, NewProviderModel, NewProviderProfile,
     NewRun, ProviderModelRecord, ProviderProfileRecord, ProviderProfileStatusUpdate,
     ProviderProfileUpdate, RunRecord, RunStatus, RunUpdate, StorageError, TextCheckpoint,
 };
@@ -241,12 +241,11 @@ pub(crate) fn create_mcp_server(
             input.created_at,
         ],
     )?;
-    let server = get_mcp_server(&transaction, &input.id)?.ok_or_else(|| {
-        StorageError::NotFound {
+    let server =
+        get_mcp_server(&transaction, &input.id)?.ok_or_else(|| StorageError::NotFound {
             entity: "MCP server",
             id: input.id.clone(),
-        }
-    })?;
+        })?;
     transaction.commit()?;
     Ok(server)
 }
@@ -311,20 +310,16 @@ pub(crate) fn set_mcp_server_enabled(
     if changed == 0 {
         return mcp_server_write_failure(&transaction, &input.id);
     }
-    let server = get_mcp_server(&transaction, &input.id)?.ok_or_else(|| {
-        StorageError::NotFound {
+    let server =
+        get_mcp_server(&transaction, &input.id)?.ok_or_else(|| StorageError::NotFound {
             entity: "MCP server",
             id: input.id.clone(),
-        }
-    })?;
+        })?;
     transaction.commit()?;
     Ok(server)
 }
 
-pub(crate) fn delete_mcp_server(
-    connection: &mut Connection,
-    id: &str,
-) -> Result<(), StorageError> {
+pub(crate) fn delete_mcp_server(connection: &mut Connection, id: &str) -> Result<(), StorageError> {
     validate_required_text("mcp_server.id", id, 128)?;
     let changed = connection.execute("DELETE FROM mcp_servers WHERE id = ?1", params![id])?;
     if changed == 0 {
@@ -1034,9 +1029,7 @@ fn map_stored_mcp_server(row: &Row<'_>) -> rusqlite::Result<StoredMcpServer> {
     })
 }
 
-fn stored_mcp_server_into_record(
-    stored: StoredMcpServer,
-) -> Result<McpServerRecord, StorageError> {
+fn stored_mcp_server_into_record(stored: StoredMcpServer) -> Result<McpServerRecord, StorageError> {
     Ok(McpServerRecord {
         id: stored.id,
         display_name: stored.display_name,
@@ -1051,10 +1044,7 @@ fn stored_mcp_server_into_record(
     })
 }
 
-fn mcp_server_write_failure<T>(
-    connection: &Connection,
-    id: &str,
-) -> Result<T, StorageError> {
+fn mcp_server_write_failure<T>(connection: &Connection, id: &str) -> Result<T, StorageError> {
     let exists = connection.query_row(
         "SELECT EXISTS(SELECT 1 FROM mcp_servers WHERE id = ?1)",
         params![id],

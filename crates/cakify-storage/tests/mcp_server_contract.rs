@@ -125,15 +125,10 @@ fn mcp_config_rejects_insecure_remote_urls_and_credential_fields() {
         Err(StorageError::InvalidInput { .. })
     ));
 
-    let mut secret = NewMcpServer::streamable_http(
-        "secret",
-        "Secret",
-        "https://mcp.example.invalid/mcp",
-        11,
-    );
+    let mut secret =
+        NewMcpServer::streamable_http("secret", "Secret", "https://mcp.example.invalid/mcp", 11);
     secret.config_json =
-        r#"{"url":"https://mcp.example.invalid/mcp","authorization":"synthetic"}"#
-            .to_owned();
+        r#"{"url":"https://mcp.example.invalid/mcp","authorization":"synthetic"}"#.to_owned();
     assert!(matches!(
         handle.create_mcp_server(secret),
         Err(StorageError::SensitiveJsonKey { .. })

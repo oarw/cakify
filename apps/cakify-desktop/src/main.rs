@@ -4,9 +4,9 @@ mod markdown;
 use std::{sync::Arc, time::SystemTime};
 
 use cakify_core::{
-    builtin_tool_definitions, put_then_commit_reference, AppCommand, AppEvent,
-    BuiltinToolExecutor, ConversationId, CoreEvents, CoreRuntime, RequestId, RunId, SecretId,
-    SecretInput, SecretStore, ToolCall, Usage,
+    builtin_tool_definitions, put_then_commit_reference, AppCommand, AppEvent, BuiltinToolExecutor,
+    ConversationId, CoreEvents, CoreRuntime, RequestId, RunId, SecretId, SecretInput, SecretStore,
+    ToolCall, Usage,
 };
 use cakify_platform_windows::{app_data_paths, CredentialManagerSecretStore};
 use cakify_provider::{OpenAiCompatibleProvider, OpenAiConfig, ProviderRouter};
@@ -817,14 +817,12 @@ impl CakifyApp {
                 return;
             }
         };
-        match self
-            .storage
-            .set_mcp_server_enabled(McpServerStatusUpdate {
-                id: id.clone(),
-                enabled,
-                expected_updated_at,
-                updated_at: now,
-            }) {
+        match self.storage.set_mcp_server_enabled(McpServerStatusUpdate {
+            id: id.clone(),
+            enabled,
+            expected_updated_at,
+            updated_at: now,
+        }) {
             Ok(stored) => {
                 if let Some(server) = self.mcp_servers.iter_mut().find(|server| server.id == id) {
                     *server = mcp_record_to_ui(stored);
@@ -1503,16 +1501,11 @@ impl CakifyApp {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child(server.name.clone()),
                             )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(muted)
-                                    .child(if server.enabled {
-                                        "已启用 · 未连接"
-                                    } else {
-                                        "已停用"
-                                    }),
-                            ),
+                            .child(div().text_xs().text_color(muted).child(if server.enabled {
+                                "已启用 · 未连接"
+                            } else {
+                                "已停用"
+                            })),
                     )
                     .child(div().mt_1().text_xs().text_color(muted).child(format!(
                         "{} · {}",
@@ -1838,9 +1831,7 @@ fn provider_from_profile(
 }
 
 fn mcp_record_to_ui(record: McpServerRecord) -> McpServerUi {
-    let target = record
-        .target()
-        .unwrap_or_else(|| "配置不可用".to_owned());
+    let target = record.target().unwrap_or_else(|| "配置不可用".to_owned());
     McpServerUi {
         id: record.id,
         name: record.display_name,
