@@ -63,15 +63,17 @@ fn mcp_servers_persist_with_stable_order_and_optimistic_status_updates() {
             ))
             .expect("create HTTP server");
         let local = handle
-            .create_mcp_server(NewMcpServer::stdio(
+            .create_mcp_server(NewMcpServer::stdio_with_args(
                 "local",
                 "Alpha",
                 "C:\\Tools\\mcp-server.exe",
+                vec!["--stdio".to_owned(), "--quiet".to_owned()],
                 11,
             ))
             .expect("create stdio server");
         assert_eq!(local.transport, McpTransport::Stdio);
         assert_eq!(local.target().as_deref(), Some("C:\\Tools\\mcp-server.exe"));
+        assert!(local.config_json.contains("--stdio"));
         assert!(!local.enabled);
 
         let enabled = handle

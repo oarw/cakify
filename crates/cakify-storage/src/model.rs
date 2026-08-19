@@ -294,13 +294,23 @@ impl NewMcpServer {
         command: impl Into<String>,
         created_at: i64,
     ) -> Self {
+        Self::stdio_with_args(id, display_name, command, Vec::new(), created_at)
+    }
+
+    pub fn stdio_with_args(
+        id: impl Into<String>,
+        display_name: impl Into<String>,
+        command: impl Into<String>,
+        args: Vec<String>,
+        created_at: i64,
+    ) -> Self {
         Self {
             id: id.into(),
             display_name: display_name.into(),
             transport: McpTransport::Stdio,
             config_json: serde_json::json!({
                 "command": command.into(),
-                "args": [],
+                "args": args,
             })
             .to_string(),
             enabled: false,

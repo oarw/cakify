@@ -229,6 +229,7 @@ struct CakifyApp {
     key_editor: Entity<TextEditor>,
     mcp_name_editor: Entity<TextEditor>,
     mcp_target_editor: Entity<TextEditor>,
+    mcp_args_editor: Entity<TextEditor>,
     panel: Panel,
     mcp_transport: McpTransport,
     mcp_servers: Vec<McpServerUi>,
@@ -286,6 +287,16 @@ impl CakifyApp {
             cx.new(|cx| TextEditor::new("", "Server 名称", false, false, window, cx));
         let mcp_target_editor = cx
             .new(|cx| TextEditor::new("", "命令或 Streamable HTTP URL", false, false, window, cx));
+        let mcp_args_editor = cx.new(|cx| {
+            TextEditor::new(
+                "[]",
+                r#"JSON 参数，例如 ["-y","@modelcontextprotocol/server"]"#,
+                false,
+                false,
+                window,
+                cx,
+            )
+        });
 
         Self {
             core: services.core,
@@ -304,6 +315,7 @@ impl CakifyApp {
             key_editor,
             mcp_name_editor,
             mcp_target_editor,
+            mcp_args_editor,
             panel: Panel::None,
             mcp_transport: McpTransport::Stdio,
             mcp_servers: services
@@ -899,7 +911,18 @@ impl CakifyApp {
         };
         let id = format!("mcp-{now}-{}", self.mcp_servers.len());
         let input = match self.mcp_transport {
-            McpTransport::Stdio => NewMcpServer::stdio(id, name, target, now),
+            McpTransport::Stdio => {
+                let args_json = self.mcp_args_editor.read(cx).text(cx);
+                let args = match serde_json::from_str::<Vec<String>>(&args_json) {
+                    Ok(args) => args,
+                    Err(_) => {
+                        self.status = "stdio 参数必须是 JSON 字符串数组".into();
+                        cx.notify();
+                        return;
+                    }
+                };
+                NewMcpServer::stdio_with_args(id, name, target, args, now)
+            }
             McpTransport::Http => NewMcpServer::streamable_http(id, name, target, now),
         };
         let stored = match self.storage.create_mcp_server(input) {
@@ -915,6 +938,8 @@ impl CakifyApp {
             .update(cx, |editor, cx| editor.clear(cx));
         self.mcp_target_editor
             .update(cx, |editor, cx| editor.clear(cx));
+        self.mcp_args_editor
+            .update(cx, |editor, cx| editor.set_text("[]", cx));
         self.status = "MCP Server 已保存；启用后连接".into();
         cx.notify();
     }
@@ -1739,6 +1764,16 @@ impl CakifyApp {
                 border,
                 cx,
             ))
+            .when(self.mcp_transport == McpTransport::Stdio, |view| {
+                view.child(labeled_input(
+                    "参数（JSON 数组）",
+                    "mcp-args",
+                    self.mcp_args_editor.clone(),
+                    field,
+                    border,
+                    cx,
+                ))
+            })
             .child(
                 div()
                     .flex()

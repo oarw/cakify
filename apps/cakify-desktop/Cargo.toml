@@ -17,4 +17,5 @@ cakify-storage = { path = "../../crates/cakify-storage" }
 gpui.workspace = true
 gpui_platform.workspace = true
 pulldown-cmark.workspace = true
+serde_json.workspace = true
 unicode-segmentation.workspace = true
