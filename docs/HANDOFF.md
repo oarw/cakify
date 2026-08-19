@@ -2,7 +2,7 @@
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
 > 最后更新：2026-08-19（Asia/Shanghai）
-> 交接状态：`v0.1.0-pre.2` 已由统一 Release 流水线发布，包含新聊天工作台 UI 与应用图标，安装版、便携版、独立 EXE 与校验文件可下载；继续推进消息持久化、会话 CRUD 与物理 IME。
+> 交接状态：设置工作区与 Lucide 图标改动已完成源码整合，正在等待 Product validate、三视图 Windows smoke 与 Release 预览版闭环；上一个可下载版本为 `v0.1.0-pre.2`。
 
 ## 1. 五分钟上下文
 
@@ -57,6 +57,8 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 产品 `Cargo.lock` 已提交；最新 Product validate artifact 含 11,015,680-byte release EXE、依赖树和三份 migration，详见第 12 节。
 - 本轮 UI/UX 验证的 public -> Actions -> private 已闭环；仓库已恢复并复核为 PRIVATE。
 - 已发布 prerelease：<https://github.com/oarw/cakify/releases/tag/v0.1.0-pre.2>。安装后三轮 ready `125.365-158.572 ms`、idle Working Set `39.918-44.312 MiB`，完整可见、单进程、正常退出，安装/卸载 exit code 均为 0。
+- 当前未提交源码包含独立设置工作区（Provider/MCP 全宽页面、二级导航、返回聊天）以及固定 `CAKIFY_SMOKE_VIEW` 的聊天/Provider/MCP 启动视图；Actions 尚未对本轮 commit 运行。
+- 当前 UI 图标使用 Lucide 1.33.0 官方 SVG 子集，GPUI 通过 `include_bytes!` 编译期内嵌；完整 ISC/MIT 派生 LICENSE 与 NOTICE 已加入源码，并配置随安装器/便携包分发。
 - 仓库没有 LICENSE。
 - `crates/cakify-mcp` 已固定 `rmcp 3.1.0`，实现 async actor、stdio/Streamable HTTP、工具发现/路由、并发与生命周期边界，stdio 使用 process-wrap Job Object/KillOnDrop；配置、路由、取消与生命周期 tests 已通过。
 - Composer 已实现 selection、clipboard、鼠标拖选、多行导航和 marked-text/UTF-16 IME 接口；Provider 已通过真实 loopback HTTP、工具回填、有界 SSE 与错误脱敏契约。物理 IME、真实第三方 MCP 和真实用户 API Key 仍未验收。

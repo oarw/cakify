@@ -16,7 +16,9 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$ExpectedWindowTitle = "Cakify",
     [ValidateRange(1, 1024)]
-    [int]$MaxIdleWorkingSetMiB = 80
+    [int]$MaxIdleWorkingSetMiB = 80,
+    [ValidateSet("chat", "settings-provider", "settings-mcp")]
+    [string[]]$StartupViews = @("chat")
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,6 +34,17 @@ $logsDirectory = Join-Path $output "logs"
 $screenshotsDirectory = Join-Path $output "screenshots"
 New-Item -ItemType Directory -Force -Path $metricsDirectory, $logsDirectory, $screenshotsDirectory | Out-Null
 
+if ($StartupViews.Count -ne 1 -and $StartupViews.Count -ne $RunCount) {
+    throw "StartupViews must contain one view for every run or exactly one default view; got $($StartupViews.Count) for $RunCount runs."
+}
+
+function Get-StartupView([int]$RunIndex) {
+    if ($StartupViews.Count -eq 1) {
+        return $StartupViews[0]
+    }
+    return $StartupViews[$RunIndex]
+}
+
 function Get-TreeIds([int]$RootPid) {
     $ids = New-Object System.Collections.Generic.HashSet[int]
     $queue = New-Object System.Collections.Generic.Queue[int]
@@ -45,7 +58,7 @@ function Get-TreeIds([int]$RootPid) {
     return @($ids)
 }
 
-function Get-TreeSnapshot([int]$RootPid, [int]$Index) {
+function Get-TreeSnapshot([int]$RootPid, [int]$Index, [string]$StartupView) {
     $rows = @()
     foreach ($treeProcessId in (Get-TreeIds $RootPid)) {
         try {
@@ -73,6 +86,7 @@ function Get-TreeSnapshot([int]$RootPid, [int]$Index) {
 
     return [ordered]@{
         sample = $Index
+        startup_view = $StartupView
         timestamp_utc = (Get-Date).ToUniversalTime().ToString("o")
         root_pid = $RootPid
         process_count = $rows.Count
@@ -172,6 +186,7 @@ $failures = New-Object System.Collections.Generic.List[string]
 $maxIdleWorkingSetBytes = [int64]$MaxIdleWorkingSetMiB * 1MB
 
 for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
+    $startupView = Get-StartupView -RunIndex $runIndex
     $notes = New-Object System.Collections.Generic.List[string]
     $process = $null
     $watch = $null
@@ -190,6 +205,8 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
     $runFailed = $false
     $stdoutPath = Join-Path $logsDirectory "stdout-$runIndex.log"
     $stderrPath = Join-Path $logsDirectory "stderr-$runIndex.log"
+    $screenshotName = "desktop-$runIndex-$startupView.png"
+    $screenshotPath = Join-Path $screenshotsDirectory $screenshotName
 
     try {
         $startInfo = [Diagnostics.ProcessStartInfo]::new()
@@ -198,6 +215,7 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
         $startInfo.WorkingDirectory = Split-Path -Parent $app
         $startInfo.RedirectStandardOutput = $true
         $startInfo.RedirectStandardError = $true
+        $startInfo.Environment["CAKIFY_SMOKE_VIEW"] = $startupView
 
         $watch = [Diagnostics.Stopwatch]::StartNew()
         $process = [Diagnostics.Process]::Start($startInfo)
@@ -235,17 +253,18 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
             )
         }
 
-        if ($runIndex -eq 0) {
-            try {
-                Save-DesktopScreenshot -Path (Join-Path $screenshotsDirectory "desktop.png")
-            } catch {
-                $notes.Add("screenshot_failed: $($_.Exception.Message)")
+        try {
+            Save-DesktopScreenshot -Path $screenshotPath
+            if (-not (Test-Path -LiteralPath $screenshotPath -PathType Leaf)) {
+                $gateFailures.Add("screenshot was not created: $screenshotPath")
             }
+        } catch {
+            $gateFailures.Add("screenshot_failed: $($_.Exception.Message)")
         }
 
         $sampleCount = [Math]::Max(1, [Math]::Ceiling(($IdleSeconds * 1000) / $SampleIntervalMs))
         for ($sampleIndex = 0; $sampleIndex -lt $sampleCount; $sampleIndex++) {
-            $snapshot = Get-TreeSnapshot -RootPid $process.Id -Index $sampleIndex
+            $snapshot = Get-TreeSnapshot -RootPid $process.Id -Index $sampleIndex -StartupView $startupView
             $snapshots += $snapshot
             $snapshot | ConvertTo-Json -Depth 8 -Compress |
                 Add-Content -LiteralPath (Join-Path $metricsDirectory "process-tree-$runIndex.jsonl") -Encoding utf8
@@ -313,6 +332,12 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
     $privateBytes = @($snapshots | ForEach-Object { [int64]$_.private_bytes })
     $runs += [ordered]@{
         run_index = $runIndex
+        startup_view = $startupView
+        screenshot = if (Test-Path -LiteralPath $screenshotPath -PathType Leaf) {
+            "screenshots/$screenshotName"
+        } else {
+            $null
+        }
         ready_ms = [Math]::Round($readyMs, 3)
         main_window_handle = $mainWindowHandle
         main_window_title = $mainWindowTitle
@@ -335,7 +360,7 @@ for ($runIndex = 0; $runIndex -lt $RunCount; $runIndex++) {
 
 $computer = Get-CimInstance Win32_ComputerSystem
 $result = [ordered]@{
-    schema_version = "runtime-smoke.v1"
+    schema_version = "runtime-smoke.v2"
     commit_sha = if ($env:GITHUB_SHA) { $env:GITHUB_SHA } else { "local-source-only" }
     generated_at_utc = (Get-Date).ToUniversalTime().ToString("o")
     app_path = $app
@@ -350,6 +375,7 @@ $result = [ordered]@{
     }
     gates = [ordered]@{
         run_count = $RunCount
+        startup_views = @($StartupViews)
         ready_timeout_seconds = $ReadyTimeoutSeconds
         idle_seconds = $IdleSeconds
         max_idle_working_set_mib = $MaxIdleWorkingSetMiB
@@ -372,15 +398,16 @@ $summary = @(
     "- Commit: ``$($result.commit_sha)``"
     "- Passed: ``$($result.passed)``"
     "- Runs: ``$RunCount``"
+    "- Startup views: ``$($StartupViews -join ', ')``"
     "- Idle Working Set gate: ``$MaxIdleWorkingSetMiB MiB``"
     "- Window fully visible gate: ``true``"
     "- Default child-process gate: ``0``"
     ""
-    "| Run | Window ready (ms) | Visible | Idle WS (MiB) | Peak WS (MiB) | Processes | Close/exit (ms) | Result |"
-    "| ---: | ---: | :---: | ---: | ---: | ---: | ---: | --- |"
+    "| Run | Startup view | Screenshot | Window ready (ms) | Visible | Idle WS (MiB) | Peak WS (MiB) | Processes | Close/exit (ms) | Result |"
+    "| ---: | --- | --- | ---: | :---: | ---: | ---: | ---: | ---: | --- |"
 )
 foreach ($run in $runs) {
-    $summary += "| $($run.run_index) | $($run.ready_ms) | $($run.window_fully_visible) | $([Math]::Round($run.idle_working_set_bytes / 1MB, 3)) | $([Math]::Round($run.peak_working_set_bytes / 1MB, 3)) | $($run.max_process_count) | $($run.exit_ms) | $(if ($run.failed) { 'failed' } else { 'passed' }) |"
+    $summary += "| $($run.run_index) | ``$($run.startup_view)`` | ``$($run.screenshot)`` | $($run.ready_ms) | $($run.window_fully_visible) | $([Math]::Round($run.idle_working_set_bytes / 1MB, 3)) | $([Math]::Round($run.peak_working_set_bytes / 1MB, 3)) | $($run.max_process_count) | $($run.exit_ms) | $(if ($run.failed) { 'failed' } else { 'passed' }) |"
 }
 $summary | Set-Content -LiteralPath (Join-Path $output "SUMMARY.md") -Encoding utf8
 

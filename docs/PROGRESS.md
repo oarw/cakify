@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-19（Asia/Shanghai）
 > 当前阶段：M2/M3 - 聊天垂直切片
-> 当前状态：V0_1_0_PRE_2_RELEASED
+> 当前状态：SETTINGS_WORKSPACE_PENDING_VALIDATION
 
 ## 1. 当前快照
 
@@ -16,7 +16,7 @@
 - GitHub remote：`https://github.com/oarw/cakify.git`。
 - 仓库可见性：`PRIVATE`；Release `32262223258` 发布并核对后确认无 queued/in_progress，已恢复并复核。
 - 最近成功 Actions：Release `32262223258`，目标 commit `f7b862bc7a5cf8f338e098b85813ed1e6fc62368`，已自动发布 `v0.1.0-pre.2`。
-- 本轮 Actions：完整 fmt/check/tests/专项 contracts/Clippy/release build、安装器构建、安装后三轮原生窗口 smoke、卸载、打包、校验与 GitHub Release 发布全部通过。
+- 上一轮 Release Actions：完整 fmt/check/tests/专项 contracts/Clippy/release build、安装器构建、安装后三轮原生窗口 smoke、卸载、打包、校验与 GitHub Release 发布全部通过；本轮设置/图标改动尚未运行 Actions。
 - Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0，因此内存证据无效。
 - Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；但截图显示窗口底部约 27 px 被任务栏遮挡，因此当时没有作为最终 M0 验收。
 - Runtime smoke 第三轮 `32093988986` 三轮窗口都完整位于工作区，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留；M0 已关闭。
@@ -39,6 +39,8 @@
 - 当前 UI/UX 改造已通过 Actions 和真实窗口截图复核：聊天壳改为工作台式双层侧栏、模型状态头部、引导式空状态、消息身份层级与带工具入口的 composer；Provider/MCP 保留原有真实交互并统一视觉令牌。
 - 新 Cakify 标记已提供 SVG 源稿、GPUI 原生绘制和 Windows 多尺寸 ICO 构建资源；Actions 生成的 EXE 可提取 32 px 关联图标，几何与色彩和源稿一致。
 - 交付规则已改为自动发版：可交付源码或产品功能完成且必要验证通过后，必须自动递增预览版本并通过统一 Release workflow 发布下载资产，不能只验证不发版。
+- 本轮源码改动：新增独立设置工作区，集中 Provider 与 MCP 配置；聊天页入口统一跳转设置，设置页提供返回聊天与二级导航；接入 Lucide 1.33.0 官方 SVG 子集并内嵌进 GPUI，替换操作字符图标；安装器/便携包携带 Lucide 第三方授权文件。
+- 本轮运行时验收改动：Windows runtime smoke 与 Release installer smoke 支持 `chat`、`settings-provider`、`settings-mcp` 三个固定启动视图，并分别保留截图和结构化记录；尚未在 Actions 运行。
 
 ## 2.1 当前聊天垂直切片（首个预览已验证）
 
@@ -126,6 +128,9 @@
 - [x] 发布 `v0.1.0-pre.1`：Release `32249902570` 全绿并自动创建 prerelease；三项分发资产已独立下载并与 `SHA256SUMS.txt` 全部匹配，安装/三轮启动/退出/卸载证据与截图已核对。
 - [x] 完成聊天工作台 UI/UX 与应用图标；Product validate `32257944799`、Windows runtime smoke `32259992090`、截图和 EXE 关联图标均已核对。
 - [x] 自动发布 `v0.1.0-pre.2`：Release `32262223258` 全绿，安装版/便携版/独立 EXE/校验文件可下载，资产哈希与安装运行证据已独立核对。
+- [x] 完成独立设置工作区源码：Provider/MCP 配置集中到全宽设置页，聊天与设置入口可互相切换，`CAKIFY_SMOKE_VIEW` 支持两个设置视图。
+- [x] 接入 Lucide 1.33.0 官方 SVG 子集：GPUI 编译期内嵌渲染，保留完整 ISC/MIT 派生授权与 NOTICE，替换聊天和设置 UI 中的字符图标。
+- [x] 扩展 runtime/installer smoke 为三视图截图与结构化验收，发布包携带 Lucide 第三方授权文件；等待 Product validate、Windows runtime smoke 与 Release 实证。
 
 ## 6. 尚未完成
 
@@ -141,9 +146,9 @@
 
 下一位执行者不要重做选型，直接把已验证预览推进到日常可用：
 
-1. 优先接消息持久化与会话 CRUD，让发送、流式增量、工具结果、失败/取消和重启恢复真正落入现有 storage actor。
-2. 增加微软拼音/日文 IME、候选窗、高 DPI 拖选、剪贴板和超过三行 composer 的 Windows 物理机门；同时实现长消息虚拟列表。
-3. 为 Provider 改造可即时取消的 async transport；为 MCP 增加协议取消、状态快照/重同步、工具列表变更通知、远程认证与真实 stdio 进程树 smoke。
+1. 对本轮设置/图标源码运行 Product validate、三视图 Windows runtime smoke 和 Release installer smoke，核对截图、产物、许可证文件与下载资产后发布下一个预览版。
+2. 优先接消息持久化与会话 CRUD，让发送、流式增量、工具结果、失败/取消和重启恢复真正落入现有 storage actor。
+3. 增加微软拼音/日文 IME、候选窗、高 DPI 拖选、剪贴板和超过三行 composer 的 Windows 物理机门；同时实现长消息虚拟列表。
 
 ## 8. 性能与质量门
 

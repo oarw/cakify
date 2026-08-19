@@ -6,7 +6,9 @@ param(
     [ValidateRange(1, 10)]
     [int]$RunCount = 3,
     [ValidateRange(1, 1024)]
-    [int]$MaxIdleWorkingSetMiB = 80
+    [int]$MaxIdleWorkingSetMiB = 80,
+    [ValidateSet("chat", "settings-provider", "settings-mcp")]
+    [string[]]$StartupViews = @("chat")
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,6 +31,8 @@ $installExitCode = $null
 $uninstallExitCode = $null
 $installedApp = Join-Path $installDirectory "Cakify.exe"
 $uninstaller = Join-Path $installDirectory "unins000.exe"
+$lucideNotice = Join-Path $installDirectory "THIRD-PARTY-NOTICES\Lucide\NOTICE.md"
+$lucideNoticeInstalled = $false
 $failure = $null
 
 try {
@@ -52,6 +56,10 @@ try {
     if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
         throw "Inno Setup uninstaller is missing: $uninstaller"
     }
+    if (-not (Test-Path -LiteralPath $lucideNotice -PathType Leaf)) {
+        throw "Lucide third-party notice is missing from the installed package: $lucideNotice"
+    }
+    $lucideNoticeInstalled = $true
 
     $runtimeSmoke = Join-Path $PSScriptRoot "runtime-smoke.ps1"
     & $runtimeSmoke `
@@ -63,7 +71,8 @@ try {
         -SampleIntervalMs 250 `
         -ExitTimeoutSeconds 10 `
         -ExpectedWindowTitle Cakify `
-        -MaxIdleWorkingSetMiB $MaxIdleWorkingSetMiB
+        -MaxIdleWorkingSetMiB $MaxIdleWorkingSetMiB `
+        -StartupViews $StartupViews
 } catch {
     $failure = $_
 } finally {
@@ -86,6 +95,9 @@ try {
     if ((Test-Path -LiteralPath $installedApp -PathType Leaf) -and $null -eq $failure) {
         $failure = "Installed executable remains after uninstall: $installedApp"
     }
+    if ((Test-Path -LiteralPath $lucideNotice -PathType Leaf) -and $null -eq $failure) {
+        $failure = "Third-party notice remains after uninstall: $lucideNotice"
+    }
 
     $passed = $null -eq $failure
     @(
@@ -93,9 +105,12 @@ try {
         ""
         "- Installer: ``$([IO.Path]::GetFileName($installer))``"
         "- Install exit code: ``$installExitCode``"
+        "- Startup views: ``$($StartupViews -join ', ')``"
         "- Installed runtime smoke: ``$(if (Test-Path -LiteralPath (Join-Path $runtimeDirectory 'SUMMARY.md')) { 'completed' } else { 'not completed' })``"
         "- Uninstall exit code: ``$uninstallExitCode``"
         "- Installed executable removed: ``$(-not (Test-Path -LiteralPath $installedApp -PathType Leaf))``"
+        "- Lucide notice installed: ``$lucideNoticeInstalled``"
+        "- Lucide notice removed: ``$(-not (Test-Path -LiteralPath $lucideNotice -PathType Leaf))``"
         "- Passed: ``$passed``"
     ) | Set-Content -LiteralPath $summaryPath -Encoding utf8
 }

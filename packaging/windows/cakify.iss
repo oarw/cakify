@@ -34,6 +34,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\..\target\release\cakify-desktop.exe"; DestDir: "{app}"; DestName: "Cakify.exe"; Flags: ignoreversion
+Source: "..\..\assets\icons\lucide\LICENSE"; DestDir: "{app}\THIRD-PARTY-NOTICES\Lucide"; DestName: "LICENSE"; Flags: ignoreversion
+Source: "..\..\assets\icons\lucide\NOTICE.md"; DestDir: "{app}\THIRD-PARTY-NOTICES\Lucide"; DestName: "NOTICE.md"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Cakify"; Filename: "{app}\Cakify.exe"

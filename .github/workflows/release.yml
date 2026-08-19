@@ -160,6 +160,7 @@ jobs:
             -InstallerPath "release-dist/Cakify-$env:RELEASE_VERSION-windows-x64-Setup.exe" `
             -OutputDirectory installer-smoke `
             -RunCount 3 `
+            -StartupViews @('chat','settings-provider','settings-mcp') `
             -MaxIdleWorkingSetMiB 80
 
       - name: Package portable assets and checksums
@@ -173,11 +174,16 @@ jobs:
           $portableDirectory = Join-Path $dist 'portable'
           New-Item -ItemType Directory -Force -Path $portableDirectory | Out-Null
           Copy-Item -LiteralPath target/release/cakify-desktop.exe -Destination (Join-Path $portableDirectory 'Cakify.exe')
+          $noticeDirectory = Join-Path (Join-Path $portableDirectory 'THIRD-PARTY-NOTICES') 'Lucide'
+          New-Item -ItemType Directory -Force -Path $noticeDirectory | Out-Null
+          Copy-Item -LiteralPath assets/icons/lucide/LICENSE -Destination (Join-Path $noticeDirectory 'LICENSE')
+          Copy-Item -LiteralPath assets/icons/lucide/NOTICE.md -Destination (Join-Path $noticeDirectory 'NOTICE.md')
           @(
             "Cakify $env:RELEASE_VERSION"
             ""
             "Run Cakify.exe directly. No WebView, Node.js, or Python runtime is required."
             "API keys are stored in Windows Credential Manager."
+            "Third-party notices are included under THIRD-PARTY-NOTICES."
             "This preview is unsigned. Windows may show a reputation warning."
             "Unpack the entire ZIP before running the application."
           ) | Set-Content -LiteralPath (Join-Path $portableDirectory 'README.txt') -Encoding ascii
@@ -186,6 +192,10 @@ jobs:
           Compress-Archive -Path (Join-Path $portableDirectory '*') -DestinationPath $portableZip -CompressionLevel Optimal
           $standaloneExe = Join-Path $dist "$assetStem.exe"
           Copy-Item -LiteralPath target/release/cakify-desktop.exe -Destination $standaloneExe
+          $standaloneText = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($standaloneExe))
+          if (-not $standaloneText.Contains('ISC License') -or -not $standaloneText.Contains('Lucide Icons notice')) {
+            throw 'Standalone executable does not retain the embedded Lucide third-party notice.'
+          }
 
           $installer = Join-Path $dist "$assetStem-Setup.exe"
           $assets = @($installer, $standaloneExe, $portableZip)
@@ -214,6 +224,7 @@ jobs:
             "- ``$assetStem-portable.zip``: portable package."
             "- ``$assetStem.exe``: standalone executable."
             "- ``SHA256SUMS.txt``: SHA-256 checksums for all distributable assets."
+            "- Lucide Icons notices are included in the installer and portable package under ``THIRD-PARTY-NOTICES/Lucide``."
             ""
             "## Current scope"
             ""

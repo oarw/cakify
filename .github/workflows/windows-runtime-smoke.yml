@@ -45,7 +45,8 @@ jobs:
             -SampleIntervalMs 250 `
             -ExitTimeoutSeconds 10 `
             -ExpectedWindowTitle Cakify `
-            -MaxIdleWorkingSetMiB 80
+            -MaxIdleWorkingSetMiB 80 `
+            -StartupViews @('chat','settings-provider','settings-mcp')
 
       - name: Publish smoke summary
         if: always() && hashFiles('runtime-smoke/SUMMARY.md') != ''

@@ -1,4 +1,5 @@
 mod composer;
+mod icons;
 mod markdown;
 
 use std::{
@@ -20,6 +21,7 @@ use cakify_storage::{
     StorageError, StorageHandle,
 };
 use composer::{bind_input_keys, editor_actions, Submit, TextEditor};
+use icons::{icon, IconName};
 use gpui::{
     div, prelude::*, px, rgb, size, App, Bounds, Context, CursorStyle, Div, Entity, FontWeight,
     MouseButton, MouseUpEvent, SharedString, TitlebarOptions, Window, WindowBounds, WindowOptions,
@@ -136,8 +138,13 @@ impl DesktopServices {
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-enum Panel {
-    None,
+enum Workspace {
+    Chat,
+    Settings,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum SettingsSection {
     Provider,
     Mcp,
 }
@@ -230,7 +237,8 @@ struct CakifyApp {
     mcp_name_editor: Entity<TextEditor>,
     mcp_target_editor: Entity<TextEditor>,
     mcp_args_editor: Entity<TextEditor>,
-    panel: Panel,
+    workspace: Workspace,
+    settings_section: SettingsSection,
     mcp_transport: McpTransport,
     mcp_servers: Vec<McpServerUi>,
     messages: Vec<UiMessage>,
@@ -299,6 +307,13 @@ impl CakifyApp {
             )
         });
 
+        let (workspace, settings_section) =
+            match std::env::var("CAKIFY_SMOKE_VIEW").ok().as_deref() {
+                Some("settings-provider") => (Workspace::Settings, SettingsSection::Provider),
+                Some("settings-mcp") => (Workspace::Settings, SettingsSection::Mcp),
+                _ => (Workspace::Chat, SettingsSection::Provider),
+            };
+
         Self {
             core: services.core,
             events: services.events,
@@ -317,7 +332,8 @@ impl CakifyApp {
             mcp_name_editor,
             mcp_target_editor,
             mcp_args_editor,
-            panel: Panel::None,
+            workspace,
+            settings_section,
             mcp_transport: McpTransport::Stdio,
             mcp_servers: services
                 .mcp_servers
@@ -701,7 +717,8 @@ impl CakifyApp {
             return;
         }
         if !self.provider_router.is_configured() {
-            self.panel = Panel::Provider;
+            self.workspace = Workspace::Settings;
+            self.settings_section = SettingsSection::Provider;
             self.status = "请先保存 Provider 配置".into();
             cx.notify();
             return;
@@ -717,7 +734,8 @@ impl CakifyApp {
         }
         let model = self.model_editor.read(cx).text(cx);
         if model.trim().is_empty() {
-            self.panel = Panel::Provider;
+            self.workspace = Workspace::Settings;
+            self.settings_section = SettingsSection::Provider;
             self.status = "模型 ID 不能为空".into();
             cx.notify();
             return;
@@ -806,20 +824,24 @@ impl CakifyApp {
     }
 
     fn toggle_provider(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
-        self.panel = if self.panel == Panel::Provider {
-            Panel::None
-        } else {
-            Panel::Provider
-        };
+        self.workspace = Workspace::Settings;
+        self.settings_section = SettingsSection::Provider;
         cx.notify();
     }
 
     fn toggle_mcp(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
-        self.panel = if self.panel == Panel::Mcp {
-            Panel::None
-        } else {
-            Panel::Mcp
-        };
+        self.workspace = Workspace::Settings;
+        self.settings_section = SettingsSection::Mcp;
+        cx.notify();
+    }
+
+    fn open_settings(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
+        self.workspace = Workspace::Settings;
+        cx.notify();
+    }
+
+    fn close_settings(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
+        self.workspace = Workspace::Chat;
         cx.notify();
     }
 
@@ -888,7 +910,6 @@ impl CakifyApp {
                     self.provider_profile = Some(profile);
                     self.key_editor.update(cx, |editor, cx| editor.clear(cx));
                     self.status = "Provider 已保存".into();
-                    self.panel = Panel::None;
                 }
                 Err(error) => self.status = error.into(),
             },
@@ -1094,7 +1115,7 @@ impl CakifyApp {
                     .text_lg()
                     .cursor_pointer()
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::new_conversation))
-                    .child("+"),
+                    .child(icon(IconName::Plus, 18.0, rgb(0xffffff))),
             )
             .child(div().h(px(10.0)))
             .child(
@@ -1107,15 +1128,11 @@ impl CakifyApp {
                     .justify_center()
                     .rounded(px(10.0))
                     .text_size(px(17.0))
-                    .text_color(if self.panel == Panel::Provider {
-                        accent
-                    } else {
-                        muted
-                    })
+                    .text_color(muted)
                     .cursor_pointer()
                     .hover(|style| style.bg(selected))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
-                    .child("◈"),
+                    .child(icon(IconName::Blocks, 18.0, muted)),
             )
             .child(
                 div()
@@ -1127,19 +1144,16 @@ impl CakifyApp {
                     .justify_center()
                     .rounded(px(10.0))
                     .text_size(px(18.0))
-                    .text_color(if self.panel == Panel::Mcp {
-                        accent
-                    } else {
-                        muted
-                    })
+                    .text_color(muted)
                     .cursor_pointer()
                     .hover(|style| style.bg(selected))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
-                    .child("⌁"),
+                    .child(icon(IconName::Cable, 18.0, muted)),
             )
             .child(div().flex_1())
             .child(
                 div()
+                    .id("settings-rail")
                     .w(px(36.0))
                     .h(px(36.0))
                     .flex()
@@ -1148,7 +1162,10 @@ impl CakifyApp {
                     .rounded(px(10.0))
                     .text_color(muted)
                     .text_size(px(16.0))
-                    .child("⋯"),
+                    .cursor_pointer()
+                    .hover(|style| style.bg(selected))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::open_settings))
+                    .child(icon(IconName::Settings, 18.0, muted)),
             );
         let list = div()
             .w(px(214.0))
@@ -1187,7 +1204,7 @@ impl CakifyApp {
                     .gap_2()
                     .text_sm()
                     .text_color(muted)
-                    .child("⌕")
+                    .child(icon(IconName::Search, 16.0, muted))
                     .child("搜索会话"),
             )
             .child(
@@ -1212,7 +1229,7 @@ impl CakifyApp {
                     .gap_2()
                     .cursor_pointer()
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::new_conversation))
-                    .child(conversation_glyph(accent, "✦"))
+                    .child(conversation_icon(accent, IconName::Sparkles))
                     .child(
                         div()
                             .flex()
@@ -1247,16 +1264,11 @@ impl CakifyApp {
                     .items_center()
                     .gap_2()
                     .text_sm()
-                    .text_color(if self.panel == Panel::Provider {
-                        accent
-                    } else {
-                        muted
-                    })
+                    .text_color(muted)
                     .cursor_pointer()
-                    .when(self.panel == Panel::Provider, |view| view.bg(selected))
                     .hover(|style| style.bg(selected))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
-                    .child(conversation_glyph(accent, "◈"))
+                    .child(conversation_icon(accent, IconName::Blocks))
                     .child("Provider 设置"),
             )
             .child(
@@ -1269,16 +1281,11 @@ impl CakifyApp {
                     .items_center()
                     .gap_2()
                     .text_sm()
-                    .text_color(if self.panel == Panel::Mcp {
-                        accent
-                    } else {
-                        muted
-                    })
+                    .text_color(muted)
                     .cursor_pointer()
-                    .when(self.panel == Panel::Mcp, |view| view.bg(selected))
                     .hover(|style| style.bg(selected))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
-                    .child(conversation_glyph(accent, "⌁"))
+                    .child(conversation_icon(accent, IconName::Cable))
                     .child("MCP 工具"),
             )
             .child(div().flex_1())
@@ -1292,6 +1299,170 @@ impl CakifyApp {
                     .child(format!("Core r{}", self.revision)),
             );
         div().h_full().flex().child(rail).child(list)
+    }
+
+    fn render_settings_sidebar(&self, cx: &mut Context<Self>) -> Div {
+        let rail_surface = rgb(0xf1f3f8);
+        let list_surface = rgb(0xf8f9fc);
+        let border = rgb(0xe1e4ec);
+        let text = rgb(0x262a34);
+        let muted = rgb(0x7b8190);
+        let selected = rgb(0xe7ebf6);
+        let accent = rgb(0x5368a5);
+        let rail = div()
+            .w(px(56.0))
+            .h_full()
+            .flex()
+            .flex_col()
+            .items_center()
+            .bg(rail_surface)
+            .border_r_1()
+            .border_color(border)
+            .py_3()
+            .child(brand_mark(30.0))
+            .child(div().h(px(18.0)))
+            .child(
+                div()
+                    .id("settings-back-rail")
+                    .w(px(36.0))
+                    .h(px(36.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(10.0))
+                    .text_color(accent)
+                    .text_lg()
+                    .cursor_pointer()
+                    .hover(|style| style.bg(selected))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::close_settings))
+                    .child(icon(IconName::ArrowLeft, 18.0, accent)),
+            )
+            .child(div().flex_1())
+            .child(
+                div()
+                    .w(px(8.0))
+                    .h(px(8.0))
+                    .rounded(px(99.0))
+                    .bg(if self.provider_router.is_configured() {
+                        rgb(0x1b986b)
+                    } else {
+                        rgb(0xd7a13e)
+                    }),
+            );
+        let navigation = div()
+            .w(px(224.0))
+            .h_full()
+            .flex()
+            .flex_col()
+            .bg(list_surface)
+            .border_r_1()
+            .border_color(border)
+            .px_3()
+            .py_3()
+            .text_color(text)
+            .child(
+                div()
+                    .h(px(34.0))
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .child("设置"),
+                    )
+                    .child(div().text_xs().text_color(muted).child("Cakify")),
+            )
+            .child(
+                div()
+                    .id("settings-back")
+                    .mt_4()
+                    .h(px(38.0))
+                    .rounded(px(9.0))
+                    .px_2()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .text_sm()
+                    .text_color(muted)
+                    .cursor_pointer()
+                    .hover(|style| style.bg(selected))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::close_settings))
+                    .child(conversation_icon(accent, IconName::ArrowLeft))
+                    .child("返回聊天"),
+            )
+            .child(
+                div()
+                    .mt_6()
+                    .mb_2()
+                    .px_1()
+                    .text_xs()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(muted)
+                    .child("连接与工具"),
+            )
+            .child(
+                div()
+                    .id("settings-provider")
+                    .h(px(44.0))
+                    .rounded(px(9.0))
+                    .px_2()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .text_sm()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(if self.settings_section == SettingsSection::Provider {
+                        accent
+                    } else {
+                        text
+                    })
+                    .cursor_pointer()
+                    .when(self.settings_section == SettingsSection::Provider, |view| {
+                        view.bg(selected)
+                    })
+                    .hover(|style| style.bg(selected))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
+                    .child(conversation_icon(accent, IconName::Blocks))
+                    .child("模型服务"),
+            )
+            .child(
+                div()
+                    .id("settings-mcp")
+                    .h(px(44.0))
+                    .rounded(px(9.0))
+                    .px_2()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .text_sm()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(if self.settings_section == SettingsSection::Mcp {
+                        accent
+                    } else {
+                        text
+                    })
+                    .cursor_pointer()
+                    .when(self.settings_section == SettingsSection::Mcp, |view| {
+                        view.bg(selected)
+                    })
+                    .hover(|style| style.bg(selected))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
+                    .child(conversation_icon(accent, IconName::Cable))
+                    .child("MCP 工具"),
+            )
+            .child(div().flex_1())
+            .child(
+                div()
+                    .border_t_1()
+                    .border_color(border)
+                    .pt_3()
+                    .text_xs()
+                    .text_color(muted)
+                    .child(format!("Core r{}", self.revision)),
+            );
+        div().h_full().flex().child(rail).child(navigation)
     }
 
     fn render_header(&self, cx: &mut Context<Self>) -> Div {
@@ -1324,7 +1495,7 @@ impl CakifyApp {
                             .justify_center()
                             .text_size(px(20.0))
                             .text_color(muted)
-                            .child("☰"),
+                            .child(icon(IconName::Menu, 20.0, muted)),
                     )
                     .child(
                         div()
@@ -1402,7 +1573,7 @@ impl CakifyApp {
                             .cursor_pointer()
                             .hover(|style| style.bg(hover))
                             .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
-                            .child("⚙"),
+                            .child(icon(IconName::Settings, 17.0, muted)),
                     ),
             )
     }
@@ -1540,7 +1711,7 @@ impl CakifyApp {
                         .line_height(px(22.0))
                         .child(message.content.clone()),
                 )
-                .child(conversation_glyph(accent, "我")),
+                .child(conversation_icon(accent, IconName::MessageSquare)),
             MessageRole::Assistant => {
                 let run_tools = message.run_id.map_or_else(Vec::new, |run_id| {
                     self.tool_calls
@@ -1555,7 +1726,7 @@ impl CakifyApp {
                     .items_start()
                     .gap_3()
                     .text_color(text)
-                    .child(conversation_glyph(accent, "C"));
+                    .child(conversation_icon(accent, IconName::Bot));
                 let mut content = div().flex_1().flex().flex_col().gap_3();
                 content = content.child(
                     div()
@@ -1609,7 +1780,14 @@ impl CakifyApp {
                                     .cursor_pointer()
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .on_mouse_up(MouseButton::Left, cx.listener(Self::retry_last))
-                                    .child("重试"),
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .gap_1()
+                                            .child(icon(IconName::RotateCcw, 14.0, muted))
+                                            .child("重试"),
+                                    ),
                             ),
                     );
                 }
@@ -1734,7 +1912,14 @@ impl CakifyApp {
                                     app.resolve_tool(run_id, deny_id.clone(), false, cx);
                                 }),
                             )
-                            .child("拒绝"),
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_1()
+                                    .child(icon(IconName::X, 14.0, danger))
+                                    .child("拒绝"),
+                            ),
                     )
                     .child(
                         div()
@@ -1755,7 +1940,14 @@ impl CakifyApp {
                                     app.resolve_tool(run_id, approve_id.clone(), true, cx);
                                 }),
                             )
-                            .child("允许"),
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_1()
+                                    .child(icon(IconName::Check, 14.0, rgb(0xffffff)))
+                                    .child("允许"),
+                            ),
                     ),
             );
         }
@@ -1769,10 +1961,10 @@ impl CakifyApp {
         let accent = rgb(0x5368a5);
         let muted = rgb(0x7b8190);
         let focus_handle = self.composer.read(cx).focus_handle.clone();
-        let send_label = if self.active_run.is_some() {
-            "■"
+        let send_icon = if self.active_run.is_some() {
+            IconName::Square
         } else {
-            "↑"
+            IconName::ArrowUp
         };
         div()
             .bg(surface)
@@ -1831,7 +2023,7 @@ impl CakifyApp {
                                     .text_size(px(18.0))
                                     .cursor_pointer()
                                     .on_mouse_up(MouseButton::Left, cx.listener(Self::send_click))
-                                    .child(send_label),
+                                    .child(icon(send_icon, 17.0, rgb(0xffffff))),
                             ),
                     )
                     .child(
@@ -1851,7 +2043,7 @@ impl CakifyApp {
                                     .cursor_pointer()
                                     .hover(|style| style.text_color(accent))
                                     .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
-                                    .child("⌁")
+                                    .child(icon(IconName::Cable, 14.0, muted))
                                     .child("工具"),
                             )
                             .child(div().text_color(rgb(0xa7acb7)).child("·"))
@@ -1872,338 +2064,589 @@ impl CakifyApp {
             )
     }
 
-    fn render_provider_panel(&self, cx: &mut Context<Self>) -> Div {
-        let surface = rgb(0xf8f9fc);
+    fn render_provider_settings(&self, cx: &mut Context<Self>) -> Div {
+        let surface = rgb(0xfbfbfd);
         let field = rgb(0xffffff);
         let border = rgb(0xdfe2ea);
         let text = rgb(0x262a34);
         let muted = rgb(0x7b8190);
         let accent = rgb(0x5368a5);
+        let status_color = if self.provider_router.is_configured() {
+            rgb(0x1b986b)
+        } else {
+            rgb(0xd7a13e)
+        };
         div()
-            .w(px(326.0))
+            .flex_1()
             .h_full()
             .flex()
             .flex_col()
             .bg(surface)
-            .border_l_1()
-            .border_color(border)
-            .p_4()
-            .gap_4()
+            .text_color(text)
             .child(
                 div()
+                    .h(px(64.0))
+                    .px_6()
                     .flex()
                     .items_center()
                     .justify_between()
+                    .border_b_1()
+                    .border_color(border)
                     .child(
                         div()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(text)
-                            .child("Provider 设置"),
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_lg()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("模型服务"),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(muted)
+                                    .child("OpenAI Compatible"),
+                            ),
                     )
                     .child(
                         div()
                             .flex()
                             .items_center()
                             .gap_2()
-                            .child(div().text_xs().text_color(muted).child(
-                                if self.provider_router.is_configured() {
-                                    "已配置"
-                                } else {
-                                    "未配置"
-                                },
+                            .text_sm()
+                            .text_color(status_color)
+                            .child(div().w(px(7.0)).h(px(7.0)).rounded(px(99.0)).bg(status_color))
+                            .child(if self.provider_router.is_configured() {
+                                "已配置"
+                            } else {
+                                "未配置"
+                            }),
+                    ),
+            )
+            .child(
+                div()
+                    .id("provider-settings-scroll")
+                    .flex_1()
+                    .overflow_y_scroll()
+                    .px_7()
+                    .py_6()
+                    .child(
+                        div()
+                            .w_full()
+                            .max_w(px(720.0))
+                            .mx_auto()
+                            .flex()
+                            .flex_col()
+                            .gap_5()
+                            .child(
+                                div()
+                                    .pb_5()
+                                    .border_b_1()
+                                    .border_color(border)
+                                    .flex()
+                                    .items_start()
+                                    .justify_between()
+                                    .gap_5()
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .flex()
+                                            .flex_col()
+                                            .gap_1()
+                                            .child(
+                                                div()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .child("默认聊天模型"),
+                                            )
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .text_color(muted)
+                                                    .child("用于新对话、重试和工具回填后的继续生成"),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .px_3()
+                                            .py_1()
+                                            .rounded(px(6.0))
+                                            .bg(rgb(0xeff1f7))
+                                            .text_xs()
+                                            .text_color(muted)
+                                            .child("全局"),
+                                    ),
+                            )
+                            .child(labeled_input(
+                                "API Endpoint",
+                                "provider-endpoint",
+                                self.endpoint_editor.clone(),
+                                field,
+                                border,
+                                cx,
+                            ))
+                            .child(labeled_input(
+                                "模型 ID",
+                                "provider-model",
+                                self.model_editor.clone(),
+                                field,
+                                border,
+                                cx,
+                            ))
+                            .child(labeled_input(
+                                "API Key",
+                                "provider-key",
+                                self.key_editor.clone(),
+                                field,
+                                border,
+                                cx,
                             ))
                             .child(
                                 div()
-                                    .id("close-provider")
-                                    .w(px(28.0))
-                                    .h(px(28.0))
                                     .flex()
                                     .items_center()
-                                    .justify_center()
-                                    .rounded(px(8.0))
-                                    .cursor_pointer()
-                                    .hover(|style| style.bg(rgb(0xe9ecf3)))
-                                    .on_mouse_up(
-                                        MouseButton::Left,
-                                        cx.listener(Self::toggle_provider),
+                                    .gap_2()
+                                    .text_xs()
+                                    .text_color(muted)
+                                    .child(icon(IconName::Shield, 14.0, muted))
+                                    .child("API Key 仅保存到 Windows Credential Manager"),
+                            )
+                            .child(
+                                div()
+                                    .pt_5()
+                                    .border_t_1()
+                                    .border_color(border)
+                                    .flex()
+                                    .items_center()
+                                    .justify_between()
+                                    .gap_4()
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(muted)
+                                            .child(self.status.clone()),
                                     )
-                                    .child("×"),
+                                    .child(
+                                        div()
+                                            .id("save-provider")
+                                            .w(px(132.0))
+                                            .rounded(px(6.0))
+                                            .bg(accent)
+                                            .text_color(rgb(0xffffff))
+                                            .py_2()
+                                            .text_sm()
+                                            .font_weight(FontWeight::SEMIBOLD)
+                                            .text_center()
+                                            .cursor_pointer()
+                                            .on_mouse_up(
+                                                MouseButton::Left,
+                                                cx.listener(Self::save_provider),
+                                            )
+                                            .child("保存配置"),
+                                    ),
                             ),
                     ),
             )
-            .child(labeled_input(
-                "Endpoint",
-                "provider-endpoint",
-                self.endpoint_editor.clone(),
-                field,
-                border,
-                cx,
-            ))
-            .child(labeled_input(
-                "模型 ID",
-                "provider-model",
-                self.model_editor.clone(),
-                field,
-                border,
-                cx,
-            ))
-            .child(labeled_input(
-                "API Key",
-                "provider-key",
-                self.key_editor.clone(),
-                field,
-                border,
-                cx,
-            ))
-            .child(
-                div()
-                    .text_xs()
-                    .text_color(muted)
-                    .child("API Key 保存到 Windows Credential Manager"),
-            )
-            .child(div().flex_1())
-            .child(
-                div()
-                    .id("save-provider")
-                    .rounded(px(5.0))
-                    .bg(accent)
-                    .text_color(rgb(0xffffff))
-                    .py_2()
-                    .text_sm()
-                    .text_center()
-                    .cursor_pointer()
-                    .on_mouse_up(MouseButton::Left, cx.listener(Self::save_provider))
-                    .child("保存"),
-            )
     }
 
-    fn render_mcp_panel(&self, cx: &mut Context<Self>) -> Div {
-        let surface = rgb(0xf8f9fc);
+    fn render_mcp_settings(&self, cx: &mut Context<Self>) -> Div {
+        let surface = rgb(0xfbfbfd);
         let field = rgb(0xffffff);
         let border = rgb(0xdfe2ea);
         let text = rgb(0x262a34);
         let muted = rgb(0x7b8190);
         let accent = rgb(0x5368a5);
-        let selected = rgb(0xe7ebf6);
         div()
-            .w(px(326.0))
+            .flex_1()
             .h_full()
             .flex()
             .flex_col()
             .bg(surface)
-            .border_l_1()
-            .border_color(border)
-            .p_4()
-            .gap_3()
+            .text_color(text)
             .child(
                 div()
+                    .h(px(64.0))
+                    .px_6()
                     .flex()
                     .items_center()
                     .justify_between()
-                    .child(
-                        div()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(text)
-                            .child("MCP Servers"),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(muted)
-                                    .child(format!("{} 个", self.mcp_servers.len())),
-                            )
-                            .child(
-                                div()
-                                    .id("close-mcp")
-                                    .w(px(28.0))
-                                    .h(px(28.0))
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .rounded(px(8.0))
-                                    .cursor_pointer()
-                                    .hover(|style| style.bg(rgb(0xe9ecf3)))
-                                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
-                                    .child("×"),
-                            ),
-                    ),
-            )
-            .children(self.mcp_servers.iter().enumerate().map(|(index, server)| {
-                let toggle_id = server.id.clone();
-                let delete_id = server.id.clone();
-                let next_enabled = !server.enabled;
-                let expected_updated_at = server.updated_at;
-                div()
-                    .id(("mcp-server", index))
                     .border_b_1()
                     .border_color(border)
-                    .py_3()
                     .child(
                         div()
                             .flex()
-                            .items_center()
-                            .justify_between()
+                            .flex_col()
+                            .gap_1()
                             .child(
                                 div()
-                                    .text_sm()
+                                    .text_lg()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .child(server.name.clone()),
+                                    .child("MCP 工具"),
                             )
                             .child(
                                 div()
                                     .text_xs()
                                     .text_color(muted)
-                                    .child(mcp_connection_label(server)),
+                                    .child("Model Context Protocol"),
                             ),
                     )
-                    .child(div().mt_1().text_xs().text_color(muted).child(format!(
-                        "{} · {}",
-                        match server.transport {
-                            McpTransport::Stdio => "stdio",
-                            McpTransport::Http => "HTTP",
-                        },
-                        server.target
-                    )))
-                    .when(
-                        matches!(&server.connection, McpConnectionState::Failed(_)),
-                        |view| {
-                            let McpConnectionState::Failed(message) = &server.connection else {
-                                return view;
-                            };
-                            view.child(
-                                div()
-                                    .id(("mcp-connection-error", index))
-                                    .mt_1()
-                                    .max_h(px(54.0))
-                                    .overflow_y_scroll()
-                                    .text_xs()
-                                    .text_color(rgb(0xa13d32))
-                                    .child(message.clone()),
-                            )
-                        },
-                    )
                     .child(
                         div()
-                            .mt_2()
-                            .flex()
-                            .justify_end()
-                            .gap_3()
-                            .child(
-                                div()
-                                    .id(("delete-mcp", index))
-                                    .text_xs()
-                                    .text_color(rgb(0xa13d32))
-                                    .cursor_pointer()
-                                    .on_mouse_up(
-                                        MouseButton::Left,
-                                        cx.listener(move |app, _, _, cx| {
-                                            app.delete_mcp_server(delete_id.clone(), cx);
-                                        }),
-                                    )
-                                    .child("删除"),
-                            )
-                            .child(
-                                div()
-                                    .id(("toggle-mcp", index))
-                                    .text_xs()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(accent)
-                                    .cursor_pointer()
-                                    .on_mouse_up(
-                                        MouseButton::Left,
-                                        cx.listener(move |app, _, _, cx| {
-                                            app.set_mcp_server_enabled(
-                                                toggle_id.clone(),
-                                                next_enabled,
-                                                expected_updated_at,
-                                                cx,
-                                            );
-                                        }),
-                                    )
-                                    .child(if server.enabled { "停用" } else { "启用" }),
-                            ),
-                    )
-            }))
-            .child(div().flex_1())
-            .child(labeled_input(
-                "名称",
-                "mcp-name",
-                self.mcp_name_editor.clone(),
-                field,
-                border,
-                cx,
-            ))
-            .child(labeled_input(
-                "目标",
-                "mcp-target",
-                self.mcp_target_editor.clone(),
-                field,
-                border,
-                cx,
-            ))
-            .when(self.mcp_transport == McpTransport::Stdio, |view| {
-                view.child(labeled_input(
-                    "参数（JSON 数组）",
-                    "mcp-args",
-                    self.mcp_args_editor.clone(),
-                    field,
-                    border,
-                    cx,
-                ))
-            })
-            .child(
-                div()
-                    .flex()
-                    .gap_1()
-                    .child(
-                        div()
-                            .id("mcp-stdio")
-                            .flex_1()
-                            .rounded(px(5.0))
-                            .py_2()
-                            .text_sm()
-                            .text_center()
-                            .cursor_pointer()
-                            .when(self.mcp_transport == McpTransport::Stdio, |style| {
-                                style.bg(selected)
-                            })
-                            .on_mouse_up(MouseButton::Left, cx.listener(Self::select_stdio))
-                            .child("stdio"),
-                    )
-                    .child(
-                        div()
-                            .id("mcp-http")
-                            .flex_1()
-                            .rounded(px(5.0))
-                            .py_2()
-                            .text_sm()
-                            .text_center()
-                            .cursor_pointer()
-                            .when(self.mcp_transport == McpTransport::Http, |style| {
-                                style.bg(selected)
-                            })
-                            .on_mouse_up(MouseButton::Left, cx.listener(Self::select_http))
-                            .child("HTTP"),
+                            .px_3()
+                            .py_1()
+                            .rounded(px(6.0))
+                            .bg(rgb(0xeff1f7))
+                            .text_xs()
+                            .text_color(muted)
+                            .child(format!("{} 个 Server", self.mcp_servers.len())),
                     ),
             )
             .child(
                 div()
-                    .id("add-mcp-server")
-                    .rounded(px(5.0))
-                    .border_1()
-                    .border_color(accent)
-                    .text_color(accent)
-                    .py_2()
-                    .text_sm()
-                    .text_center()
-                    .cursor_pointer()
-                    .on_mouse_up(MouseButton::Left, cx.listener(Self::add_mcp_server))
-                    .child("添加 Server"),
+                    .id("mcp-settings-scroll")
+                    .flex_1()
+                    .overflow_y_scroll()
+                    .px_7()
+                    .py_6()
+                    .child(
+                        div()
+                            .w_full()
+                            .max_w(px(760.0))
+                            .mx_auto()
+                            .flex()
+                            .flex_col()
+                            .gap_6()
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_3()
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .items_end()
+                                            .justify_between()
+                                            .child(
+                                                div()
+                                                    .flex()
+                                                    .flex_col()
+                                                    .gap_1()
+                                                    .child(
+                                                        div()
+                                                            .font_weight(FontWeight::SEMIBOLD)
+                                                            .child("已添加的服务器"),
+                                                    )
+                                                    .child(
+                                                        div()
+                                                            .text_sm()
+                                                            .text_color(muted)
+                                                            .child("启用后，工具会加入下一次模型请求"),
+                                                    ),
+                                            )
+                                            .child(
+                                                div()
+                                                    .text_xs()
+                                                    .text_color(muted)
+                                                    .child(format!("{} 个", self.mcp_servers.len())),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .w_full()
+                                            .border_t_1()
+                                            .border_color(border)
+                                            .when(self.mcp_servers.is_empty(), |view| {
+                                                view.child(
+                                                    div()
+                                                        .py_6()
+                                                        .text_sm()
+                                                        .text_color(muted)
+                                                        .child("还没有 MCP Server"),
+                                                )
+                                            })
+                                            .children(self.mcp_servers.iter().enumerate().map(
+                                                |(index, server)| {
+                                                    let toggle_id = server.id.clone();
+                                                    let delete_id = server.id.clone();
+                                                    let next_enabled = !server.enabled;
+                                                    let expected_updated_at = server.updated_at;
+                                                    div()
+                                                        .id(("mcp-server", index))
+                                                        .border_b_1()
+                                                        .border_color(border)
+                                                        .py_4()
+                                                        .flex()
+                                                        .items_start()
+                                                        .justify_between()
+                                                        .gap_5()
+                                                        .child(
+                                                            div()
+                                                                .flex_1()
+                                                                .flex()
+                                                                .flex_col()
+                                                                .gap_1()
+                                                                .child(
+                                                                    div()
+                                                                        .flex()
+                                                                        .items_center()
+                                                                        .gap_2()
+                                                                        .child(
+                                                                            div()
+                                                                                .text_sm()
+                                                                                .font_weight(
+                                                                                    FontWeight::SEMIBOLD,
+                                                                                )
+                                                                                .child(
+                                                                                    server.name.clone(),
+                                                                                ),
+                                                                        )
+                                                                        .child(
+                                                                            div()
+                                                                                .text_xs()
+                                                                                .text_color(muted)
+                                                                                .child(
+                                                                                    mcp_connection_label(
+                                                                                        server,
+                                                                                    ),
+                                                                                ),
+                                                                        ),
+                                                                )
+                                                                .child(
+                                                                    div()
+                                                                        .text_xs()
+                                                                        .text_color(muted)
+                                                                        .child(format!(
+                                                                            "{} · {}",
+                                                                            match server.transport {
+                                                                                McpTransport::Stdio => "stdio",
+                                                                                McpTransport::Http => "HTTP",
+                                                                            },
+                                                                            server.target
+                                                                        )),
+                                                                )
+                                                                .when(
+                                                                    matches!(
+                                                                        &server.connection,
+                                                                        McpConnectionState::Failed(_)
+                                                                    ),
+                                                                    |view| {
+                                                                        let McpConnectionState::Failed(
+                                                                            message,
+                                                                        ) = &server.connection
+                                                                        else {
+                                                                            return view;
+                                                                        };
+                                                                        view.child(
+                                                                            div()
+                                                                                .id((
+                                                                                    "mcp-connection-error",
+                                                                                    index,
+                                                                                ))
+                                                                                .mt_1()
+                                                                                .max_h(px(54.0))
+                                                                                .overflow_y_scroll()
+                                                                                .text_xs()
+                                                                                .text_color(rgb(
+                                                                                    0xa13d32,
+                                                                                ))
+                                                                                .child(
+                                                                                    message.clone(),
+                                                                                ),
+                                                                        )
+                                                                    },
+                                                                ),
+                                                        )
+                                                        .child(
+                                                            div()
+                                                                .flex()
+                                                                .items_center()
+                                                                .gap_3()
+                                                                .child(
+                                                                    div()
+                                                                        .id(("toggle-mcp", index))
+                                                                        .text_xs()
+                                                                        .font_weight(
+                                                                            FontWeight::SEMIBOLD,
+                                                                        )
+                                                                        .text_color(accent)
+                                                                        .cursor_pointer()
+                                                                        .on_mouse_up(
+                                                                            MouseButton::Left,
+                                                                            cx.listener(
+                                                                                move |app, _, _, cx| {
+                                                                                    app.set_mcp_server_enabled(
+                                                                                        toggle_id.clone(),
+                                                                                        next_enabled,
+                                                                                        expected_updated_at,
+                                                                                        cx,
+                                                                                    );
+                                                                                },
+                                                                            ),
+                                                                        )
+                                                                        .child(if server.enabled {
+                                                                            "停用"
+                                                                        } else {
+                                                                            "启用"
+                                                                        }),
+                                                                )
+                                                                .child(
+                                                                    div()
+                                                                        .id(("delete-mcp", index))
+                                                                        .text_xs()
+                                                                        .text_color(rgb(0xa13d32))
+                                                                        .cursor_pointer()
+                                                                        .on_mouse_up(
+                                                                            MouseButton::Left,
+                                                                            cx.listener(
+                                                                                move |app, _, _, cx| {
+                                                                                    app.delete_mcp_server(
+                                                                                        delete_id.clone(),
+                                                                                        cx,
+                                                                                    );
+                                                                                },
+                                                                            ),
+                                                                        )
+                                                                        .child("删除"),
+                                                                ),
+                                                        )
+                                                },
+                                            )),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .pt_6()
+                                    .border_t_1()
+                                    .border_color(border)
+                                    .flex()
+                                    .flex_col()
+                                    .gap_4()
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .flex_col()
+                                            .gap_1()
+                                            .child(
+                                                div()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .child("添加服务器"),
+                                            )
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .text_color(muted)
+                                                    .child("支持本地 stdio 与 Streamable HTTP"),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .gap_1()
+                                            .p_1()
+                                            .rounded(px(7.0))
+                                            .bg(rgb(0xf0f2f6))
+                                            .child(
+                                                div()
+                                                    .id("mcp-stdio")
+                                                    .flex_1()
+                                                    .rounded(px(5.0))
+                                                    .py_2()
+                                                    .text_sm()
+                                                    .text_center()
+                                                    .cursor_pointer()
+                                                    .when(
+                                                        self.mcp_transport == McpTransport::Stdio,
+                                                        |style| style.bg(field),
+                                                    )
+                                                    .on_mouse_up(
+                                                        MouseButton::Left,
+                                                        cx.listener(Self::select_stdio),
+                                                    )
+                                                    .child("stdio"),
+                                            )
+                                            .child(
+                                                div()
+                                                    .id("mcp-http")
+                                                    .flex_1()
+                                                    .rounded(px(5.0))
+                                                    .py_2()
+                                                    .text_sm()
+                                                    .text_center()
+                                                    .cursor_pointer()
+                                                    .when(
+                                                        self.mcp_transport == McpTransport::Http,
+                                                        |style| style.bg(field),
+                                                    )
+                                                    .on_mouse_up(
+                                                        MouseButton::Left,
+                                                        cx.listener(Self::select_http),
+                                                    )
+                                                    .child("Streamable HTTP"),
+                                            ),
+                                    )
+                                    .child(labeled_input(
+                                        "名称",
+                                        "mcp-name",
+                                        self.mcp_name_editor.clone(),
+                                        field,
+                                        border,
+                                        cx,
+                                    ))
+                                    .child(labeled_input(
+                                        "命令或 URL",
+                                        "mcp-target",
+                                        self.mcp_target_editor.clone(),
+                                        field,
+                                        border,
+                                        cx,
+                                    ))
+                                    .when(
+                                        self.mcp_transport == McpTransport::Stdio,
+                                        |view| {
+                                            view.child(labeled_input(
+                                                "参数（JSON 数组）",
+                                                "mcp-args",
+                                                self.mcp_args_editor.clone(),
+                                                field,
+                                                border,
+                                                cx,
+                                            ))
+                                        },
+                                    )
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .justify_between()
+                                            .gap_4()
+                                            .child(
+                                                div()
+                                                    .text_xs()
+                                                    .text_color(muted)
+                                                    .child(self.status.clone()),
+                                            )
+                                            .child(
+                                                div()
+                                                    .id("add-mcp-server")
+                                                    .w(px(148.0))
+                                                    .rounded(px(6.0))
+                                                    .bg(accent)
+                                                    .text_color(rgb(0xffffff))
+                                                    .py_2()
+                                                    .text_sm()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .text_center()
+                                                    .cursor_pointer()
+                                                    .on_mouse_up(
+                                                        MouseButton::Left,
+                                                        cx.listener(Self::add_mcp_server),
+                                                    )
+                                                    .child("添加 Server"),
+                                            ),
+                                    ),
+                            ),
+                    ),
             )
     }
 }
@@ -2216,22 +2659,25 @@ impl Render for CakifyApp {
             .bg(rgb(0xfbfbfd))
             .text_color(rgb(0x262a34))
             .on_action(cx.listener(Self::submit_from_keyboard))
-            .child(self.render_sidebar(cx))
-            .child(
-                div()
-                    .flex_1()
-                    .h_full()
-                    .flex()
-                    .flex_col()
-                    .child(self.render_header(cx))
-                    .child(self.render_messages(cx))
-                    .child(self.render_composer(cx)),
-            )
-            .when(self.panel == Panel::Provider, |view| {
-                view.child(self.render_provider_panel(cx))
+            .when(self.workspace == Workspace::Chat, |view| {
+                view.child(self.render_sidebar(cx)).child(
+                    div()
+                        .flex_1()
+                        .h_full()
+                        .flex()
+                        .flex_col()
+                        .child(self.render_header(cx))
+                        .child(self.render_messages(cx))
+                        .child(self.render_composer(cx)),
+                )
             })
-            .when(self.panel == Panel::Mcp, |view| {
-                view.child(self.render_mcp_panel(cx))
+            .when(self.workspace == Workspace::Settings, |view| {
+                view.child(self.render_settings_sidebar(cx)).child(
+                    match self.settings_section {
+                        SettingsSection::Provider => self.render_provider_settings(cx),
+                        SettingsSection::Mcp => self.render_mcp_settings(cx),
+                    },
+                )
             })
     }
 }
@@ -2287,7 +2733,7 @@ fn brand_mark(size: f32) -> Div {
         )
 }
 
-fn conversation_glyph(color: gpui::Rgba, label: &'static str) -> Div {
+fn conversation_icon(color: gpui::Rgba, name: IconName) -> Div {
     div()
         .w(px(28.0))
         .h(px(28.0))
@@ -2299,7 +2745,7 @@ fn conversation_glyph(color: gpui::Rgba, label: &'static str) -> Div {
         .text_size(px(12.0))
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(color)
-        .child(label)
+        .child(icon(name, 16.0, color))
 }
 
 fn labeled_input(
