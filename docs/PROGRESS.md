@@ -1,14 +1,15 @@
 # Cakify 进度记录
 
 > 本文件是项目状态的单一事实来源。
-> 最后更新：2026-08-18（Asia/Shanghai）
+> 最后更新：2026-08-19（Asia/Shanghai）
 > 当前阶段：M2/M3 - 聊天垂直切片
-> 当前状态：RELEASE_PIPELINE_PENDING_VALIDATION
+> 当前状态：CHAT_AGENT_LOOP_AND_RELEASE_PENDING
 
 ## 1. 当前快照
 
 - 工作目录：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`。
+- 睡前源码/文档基线：`d7575d7c9d2b7bd92d00dc091be6b9d26ab6e067`；工作树干净并与 `origin/main` 一致。
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
 - M0 最终 runtime 验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
@@ -30,6 +31,8 @@
 - 组件决定：M0 不引入 `gpui-component`；直接使用 GPUI primitives，见 ADR 0002。
 - 历史 benchmark：完整移入 `archi/framework-benchmark-2026-08/`。
 - 许可证：尚未选择，仓库仍没有 `LICENSE`。
+- Release `32160832215` 已按用户睡前要求取消，结论为 `cancelled`；此前 `32159139587` 为 `failure`。两次都不能视为发布成功，当前没有 tag、Release 或可交付安装包。
+- 2026-08-19 睡前核对：仓库为 `PRIVATE`，没有 queued/in_progress Actions；未遗留公开状态或后台构建。
 
 ## 2.1 当前聊天垂直切片（首个预览已验证）
 
@@ -37,6 +40,7 @@
 - 新增 `crates/cakify-provider`：OpenAI-compatible SSE adapter、HTTPS/loopback endpoint 校验、禁用重定向、SecretStore 按请求读取 API Key、脱敏 HTTP 错误和 parser 契约测试源码。
 - GPUI desktop 已接入官方 GPUI editor 示例改造的多行 composer、Enter 发送/Shift+Enter 换行、消息时间线、流式 assistant 更新、停止/重试、CommonMark 基础 block/code rendering。
 - Provider 面板可以保存 endpoint/model/API Key；API Key 走 Windows Credential Manager，profile 走 SQLite。MCP 面板可以维护 stdio/HTTP server 草稿，工具审批行可以显示允许/拒绝状态。
+- 2026-08-19 源码审计确认：正常发送路径仍传入空 `tools`，工具批准目前只改变 UI/事件状态，不会执行工具并把结果续交模型；MCP server 目前只是进程内草稿，不能连接、发现或调用工具，也没有持久化。以上均不得描述为“工具/MCP 已完成”。
 - 当前明确未声称完成：未使用真实用户 API Key 做在线模型 smoke；中文/日文物理 IME selection/clipboard 尚未验收；MCP `rmcp` 连接/进程 Job Object 尚未接入；消息尚未接 storage actor 做持久化；MCP 草稿尚未持久化。
 
 ## 2. 当前产品决定
@@ -129,9 +133,10 @@
 
 下一位执行者不要重做选型，直接把已验证预览推进到日常可用：
 
-1. 先检查 GitHub Actions/runner 状态和 `32160832215` 日志；不要重跑已取消的旧 commit。
-2. 在 PRIVATE 下修复或确认后，按 8 月闭环重新 dispatch `Release`，输入 `v0.1.0-pre.1`；成功应生成安装版、便携 ZIP、独立 EXE 与 SHA256SUMS，并自动创建 Pre-release/tag。
-3. Release 和资产独立核对、无活动任务并恢复 PRIVATE 后，再继续消息持久化、会话 CRUD、`rmcp` 与 Job Object。
+1. 实现最小但真实的工具闭环：正常请求携带受限工具定义，Core 等待审批，允许后执行内置安全工具，把 tool result 追加回对话并继续模型生成；拒绝、失败、取消和最大轮数都必须有测试。
+2. 把 MCP 草稿升级为可管理、可持久化的 server 配置，再接官方 Rust MCP SDK `rmcp` 的 stdio/Streamable HTTP；stdio 子进程纳入 Windows Job Object，禁止任意 shell 默认执行。
+3. 通过 Product validate 与 Windows runtime smoke 后，再从最新 main 运行统一 Release `v0.1.0-pre.1`，核对安装版、便携 ZIP、独立 EXE、SHA256SUMS、tag 和 Pre-release；不要重跑已取消的旧 commit。
+4. 后续继续消息持久化、会话 CRUD、物理 IME 与长列表门。
 
 ## 8. 性能与质量门
 

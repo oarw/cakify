@@ -1,8 +1,8 @@
 # Cakify 跨供应商交接文档
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
-> 最后更新：2026-08-18（Asia/Shanghai）
-> 交接状态：首个聊天预览已验证；统一 Release/安装器流水线源码已推送，但 `v0.1.0-pre.1` 尚未发布，下一步先闭合 Release run。
+> 最后更新：2026-08-19（Asia/Shanghai）
+> 交接状态：首个聊天预览已验证；工具/MCP 仍未形成真实执行闭环，统一 Release/安装器流水线也尚未成功发布。
 
 ## 1. 五分钟上下文
 
@@ -39,7 +39,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 - 路径：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`
-- 当前 HEAD：Release tag 检查修复提交为 `52d122a76e0dd29dee97c64d2f99aa868de23a10`；文档提交后以 `git rev-parse HEAD` 为准。
+- 睡前基线 HEAD：`d7575d7c9d2b7bd92d00dc091be6b9d26ab6e067`；本次交接文档提交后以 `git rev-parse HEAD` 为准。
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
 - Product validate 已验证源码提交：`cf822f00f9958111973dc7e93903a1515f9726db`
@@ -191,12 +191,13 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
 - 当前 milestone：M2/M3 聊天垂直切片；M0 与 M1 SecretStore 已闭合
-- 当前正在做：GPUI composer/消息列表、OpenAI-compatible SSE、Markdown、工具审批/MCP UI
+- 当前正在做：把工具审批 UI 接成真实工具执行/模型续写闭环，并把 MCP 进程内草稿升级为可管理、可持久化、可连接的 server
 - 最近成功 Actions：Product validate `32153002500`、Windows runtime smoke `32154636851`
 - 本轮 Actions：聊天切片全量验证与三轮原生窗口 smoke 均通过，artifact/截图已核对，仓库已恢复 PRIVATE
-- 精确下一动作：检查取消的 Release `32160832215` 为什么长期停在 workspace check，再从最新 main 重新 dispatch `Release`/`v0.1.0-pre.1`；成功后核对安装版、便携版、独立 EXE、checksums、tag 和 Pre-release
+- 精确下一动作：先让正常发送携带受限工具定义，并在 Core 实现“模型请求工具 -> 用户审批 -> 安全执行 -> tool result 回填 -> 模型续写”的完整测试闭环；随后接 `rmcp` 和 MCP 配置持久化，通过 Product validate/runtime smoke 后再从最新 main 发布 `v0.1.0-pre.1`
 - 需要用户决定：项目许可证；M7 签名/发行渠道。8 月受控 visibility 闭环已有持续授权，不再逐次询问
-- 已知风险：`v0.1.0-pre.1` 尚未发布；安装器/发布 job 尚未实际跑到；未使用真实用户 Key 做在线 Provider smoke；MCP/消息持久化/IME 尚未闭合；EXE 与安装器未签名
+- 已知风险：正常发送当前仍传空工具定义，批准事件不会执行工具；MCP 仅为内存草稿；`v0.1.0-pre.1` 尚未发布，Release `32160832215` 已取消、`32159139587` 失败；未使用真实用户 Key 做在线 Provider smoke；消息持久化/IME 尚未闭合；EXE 与安装器未签名
+- 睡前安全状态：仓库 `PRIVATE`，无 queued/in_progress Actions，工作树在写入本交接前为干净状态；本轮没有启动新 workflow
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
 
 交接时用实际 `git rev-parse HEAD` 更新或解释 HEAD；不要让文档中的工作前基线冒充最新提交。
