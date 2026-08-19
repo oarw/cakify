@@ -2161,7 +2161,7 @@ impl CakifyApp {
                                                 div().text_sm().text_color(muted).child(
                                                     "用于新对话、重试和工具回填后的继续生成",
                                                 ),
-                                            )
+                                            ),
                                     )
                                     .child(
                                         div()
