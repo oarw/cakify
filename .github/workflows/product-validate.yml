@@ -2,6 +2,12 @@ name: Product validate
 
 on:
   workflow_dispatch:
+    inputs:
+      refresh_lockfile:
+        description: Refresh Cargo.lock before validation
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -34,6 +40,11 @@ jobs:
         run: |
           rustc -Vv
           cargo -V
+
+      - name: Refresh dependency lockfile
+        if: ${{ inputs.refresh_lockfile }}
+        shell: pwsh
+        run: cargo generate-lockfile
 
       - name: Record dependency tree and enforce license boundary
         shell: pwsh
@@ -79,6 +90,10 @@ jobs:
       - name: Run MCP server persistence contract tests
         shell: pwsh
         run: cargo test --package cakify-storage --test mcp_server_contract --locked
+
+      - name: Run MCP runtime contract tests
+        shell: pwsh
+        run: cargo test --package cakify-mcp --locked
 
       - name: Run tool approval loop contract tests
         shell: pwsh

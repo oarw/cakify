@@ -1,13 +1,17 @@
 mod composer;
 mod markdown;
 
-use std::{sync::Arc, time::SystemTime};
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    time::SystemTime,
+};
 
 use cakify_core::{
     builtin_tool_definitions, put_then_commit_reference, AppCommand, AppEvent, BuiltinToolExecutor,
     ConversationId, CoreEvents, CoreRuntime, RequestId, RunId, SecretId, SecretInput, SecretStore,
-    ToolCall, Usage,
+    ToolCall, ToolExecutionError, ToolExecutor, Usage, CURRENT_TIME_TOOL_NAME,
 };
+use cakify_mcp::{McpEvent, McpEvents, McpHandle, McpRuntime, McpServerConfig};
 use cakify_platform_windows::{app_data_paths, CredentialManagerSecretStore};
 use cakify_provider::{OpenAiCompatibleProvider, OpenAiConfig, ProviderRouter};
 use cakify_storage::{
@@ -28,9 +32,31 @@ const WINDOW_HEIGHT: f32 = 620.0;
 const PROVIDER_ID: &str = "default-openai-compatible";
 const PROVIDER_SECRET_ID: &str = "Cakify/provider/default/api-key";
 
+struct DesktopToolExecutor {
+    mcp: McpHandle,
+}
+
+impl ToolExecutor for DesktopToolExecutor {
+    fn execute(
+        &self,
+        name: &str,
+        arguments_json: &str,
+        cancellation: Arc<AtomicBool>,
+    ) -> Result<String, ToolExecutionError> {
+        if name == CURRENT_TIME_TOOL_NAME {
+            BuiltinToolExecutor.execute(name, arguments_json, cancellation)
+        } else {
+            self.mcp.execute(name, arguments_json, cancellation)
+        }
+    }
+}
+
 struct DesktopServices {
     core: CoreRuntime,
     events: CoreEvents,
+    mcp_runtime: McpRuntime,
+    mcp: McpHandle,
+    mcp_events: McpEvents,
     storage_actor: StorageActor,
     storage: StorageHandle,
     secrets: Arc<dyn SecretStore>,
@@ -56,8 +82,21 @@ impl DesktopServices {
         let mcp_servers = storage
             .list_mcp_servers()
             .map_err(|error| error.to_string())?;
+        let mcp_runtime = McpRuntime::start().map_err(|error| error.to_string())?;
+        let mcp = mcp_runtime.handle();
+        let mcp_events = mcp_runtime.events();
 
-        let startup_status = if let Some(profile) = &provider_profile {
+        let mut mcp_startup_error = None;
+        for server in mcp_servers.iter().filter(|server| server.enabled) {
+            let result = McpServerConfig::try_from(server)
+                .map_err(|error| error.to_string())
+                .and_then(|config| mcp.connect(config).map_err(|error| error.to_string()));
+            if let Err(error) = result {
+                mcp_startup_error = Some(format!("{}：{error}", server.display_name));
+            }
+        }
+
+        let mut startup_status = if let Some(profile) = &provider_profile {
             match provider_from_profile(profile, secrets.clone()) {
                 Ok(provider) => {
                     provider_router.set(provider);
@@ -68,9 +107,12 @@ impl DesktopServices {
         } else {
             "配置 Provider 后即可开始对话".to_owned()
         };
+        if let Some(error) = mcp_startup_error {
+            startup_status = format!("MCP 启动失败：{error}");
+        }
         let core = CoreRuntime::start_with_provider_and_tools(
             provider_router.clone(),
-            Arc::new(BuiltinToolExecutor),
+            Arc::new(DesktopToolExecutor { mcp: mcp.clone() }),
         )
         .map_err(|error| error.to_string())?;
         let events = core.events();
@@ -78,6 +120,9 @@ impl DesktopServices {
         Ok(Self {
             core,
             events,
+            mcp_runtime,
+            mcp,
+            mcp_events,
             storage_actor,
             storage,
             secrets,
@@ -149,6 +194,14 @@ enum McpTransport {
     Http,
 }
 
+#[derive(Clone, Eq, PartialEq)]
+enum McpConnectionState {
+    Disabled,
+    Connecting,
+    Connected { tool_count: usize },
+    Failed(String),
+}
+
 struct McpServerUi {
     id: String,
     name: String,
@@ -156,11 +209,15 @@ struct McpServerUi {
     transport: McpTransport,
     enabled: bool,
     updated_at: i64,
+    connection: McpConnectionState,
 }
 
 struct CakifyApp {
     core: CoreRuntime,
     events: CoreEvents,
+    _mcp_runtime: McpRuntime,
+    mcp: McpHandle,
+    mcp_events: McpEvents,
     _storage_actor: StorageActor,
     storage: StorageHandle,
     secrets: Arc<dyn SecretStore>,
@@ -233,6 +290,9 @@ impl CakifyApp {
         Self {
             core: services.core,
             events: services.events,
+            _mcp_runtime: services.mcp_runtime,
+            mcp: services.mcp,
+            mcp_events: services.mcp_events,
             _storage_actor: services.storage_actor,
             storage: services.storage,
             secrets: services.secrets,
@@ -266,8 +326,63 @@ impl CakifyApp {
 
     fn start(&mut self, cx: &mut Context<Self>) {
         self.start_event_bridge(cx);
+        self.start_mcp_event_bridge(cx);
         let _ = self.core.handle().try_dispatch(AppCommand::Bootstrap);
         self.request_new_conversation();
+    }
+
+    fn start_mcp_event_bridge(&mut self, cx: &mut Context<Self>) {
+        let events = self.mcp_events.receiver();
+        cx.spawn(async move |this, cx| {
+            while let Ok(event) = events.recv().await {
+                if this
+                    .update(cx, |app, cx| {
+                        app.apply_mcp_event(event);
+                        cx.notify();
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        })
+        .detach();
+    }
+
+    fn apply_mcp_event(&mut self, event: McpEvent) {
+        let (server_id, connection, status) = match event {
+            McpEvent::ServerConnecting { server_id } => (
+                server_id,
+                McpConnectionState::Connecting,
+                "MCP Server 正在连接".to_owned(),
+            ),
+            McpEvent::ServerConnected {
+                server_id,
+                tool_count,
+            } => (
+                server_id,
+                McpConnectionState::Connected { tool_count },
+                format!("MCP 已连接，发现 {tool_count} 个工具"),
+            ),
+            McpEvent::ServerFailed { server_id, message } => (
+                server_id,
+                McpConnectionState::Failed(message.clone()),
+                format!("MCP 连接失败：{message}"),
+            ),
+            McpEvent::ServerDisconnected { server_id } => (
+                server_id,
+                McpConnectionState::Disabled,
+                "MCP Server 已断开".to_owned(),
+            ),
+        };
+        if let Some(server) = self
+            .mcp_servers
+            .iter_mut()
+            .find(|server| server.id == server_id)
+        {
+            server.connection = connection;
+            self.status = status.into();
+        }
     }
 
     fn start_event_bridge(&mut self, cx: &mut Context<Self>) {
@@ -616,12 +731,14 @@ impl CakifyApp {
         self.pending_assistant = Some(self.messages.len() - 1);
         self.last_prompt = Some(text.clone());
 
+        let mut tools = builtin_tool_definitions();
+        tools.extend(self.mcp.tool_definitions());
         match self.core.handle().try_dispatch(AppCommand::SubmitDraft {
             request_id,
             conversation_id,
             model,
             text,
-            tools: builtin_tool_definitions(),
+            tools,
             temperature: None,
         }) {
             Ok(()) => {
@@ -809,6 +926,13 @@ impl CakifyApp {
         expected_updated_at: i64,
         cx: &mut Context<Self>,
     ) {
+        if !enabled {
+            if let Err(error) = self.mcp.disconnect(id.clone()) {
+                self.status = format!("无法断开 MCP Server：{error}").into();
+                cx.notify();
+                return;
+            }
+        }
         let now = match next_timestamp(expected_updated_at) {
             Ok(now) => now,
             Err(error) => {
@@ -824,14 +948,32 @@ impl CakifyApp {
             updated_at: now,
         }) {
             Ok(stored) => {
-                if let Some(server) = self.mcp_servers.iter_mut().find(|server| server.id == id) {
-                    *server = mcp_record_to_ui(stored);
-                }
-                self.status = if enabled {
-                    "MCP Server 配置已启用；连接器待接入".into()
+                let dispatch_error = if enabled {
+                    McpServerConfig::try_from(&stored)
+                        .map_err(|error| error.to_string())
+                        .and_then(|config| {
+                            self.mcp
+                                .connect(config)
+                                .map_err(|error| error.to_string())
+                        })
+                        .err()
                 } else {
-                    "MCP Server 已停用".into()
+                    None
                 };
+                let mut replacement = mcp_record_to_ui(stored);
+                if let Some(error) = dispatch_error {
+                    replacement.connection = McpConnectionState::Failed(error.clone());
+                    self.status = format!("MCP Server 已启用但连接失败：{error}").into();
+                } else {
+                    self.status = if enabled {
+                        "MCP Server 已启用，正在连接".into()
+                    } else {
+                        "MCP Server 已停用".into()
+                    };
+                }
+                if let Some(server) = self.mcp_servers.iter_mut().find(|server| server.id == id) {
+                    *server = replacement;
+                }
             }
             Err(error) => self.status = error.to_string().into(),
         }
@@ -839,6 +981,11 @@ impl CakifyApp {
     }
 
     fn delete_mcp_server(&mut self, id: String, cx: &mut Context<Self>) {
+        if let Err(error) = self.mcp.disconnect(id.clone()) {
+            self.status = format!("无法断开 MCP Server：{error}").into();
+            cx.notify();
+            return;
+        }
         match self.storage.delete_mcp_server(&id) {
             Ok(()) => {
                 self.mcp_servers.retain(|server| server.id != id);
@@ -1501,11 +1648,12 @@ impl CakifyApp {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child(server.name.clone()),
                             )
-                            .child(div().text_xs().text_color(muted).child(if server.enabled {
-                                "已启用 · 未连接"
-                            } else {
-                                "已停用"
-                            })),
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(muted)
+                                    .child(mcp_connection_label(server)),
+                            ),
                     )
                     .child(div().mt_1().text_xs().text_color(muted).child(format!(
                         "{} · {}",
@@ -1515,6 +1663,23 @@ impl CakifyApp {
                         },
                         server.target
                     )))
+                    .when(
+                        matches!(&server.connection, McpConnectionState::Failed(_)),
+                        |view| {
+                            let McpConnectionState::Failed(message) = &server.connection else {
+                                return view;
+                            };
+                            view.child(
+                                div()
+                                    .mt_1()
+                                    .max_h(px(54.0))
+                                    .overflow_y_scroll()
+                                    .text_xs()
+                                    .text_color(rgb(0xa13d32))
+                                    .child(message.clone()),
+                            )
+                        },
+                    )
                     .child(
                         div()
                             .mt_2()
@@ -1842,6 +2007,26 @@ fn mcp_record_to_ui(record: McpServerRecord) -> McpServerUi {
         },
         enabled: record.enabled,
         updated_at: record.updated_at,
+        connection: if record.enabled {
+            McpConnectionState::Connecting
+        } else {
+            McpConnectionState::Disabled
+        },
+    }
+}
+
+fn mcp_connection_label(server: &McpServerUi) -> String {
+    match &server.connection {
+        McpConnectionState::Disabled => {
+            if server.enabled {
+                "已启用 · 未连接".to_owned()
+            } else {
+                "已停用".to_owned()
+            }
+        }
+        McpConnectionState::Connecting => "连接中".to_owned(),
+        McpConnectionState::Connected { tool_count } => format!("已连接 · {tool_count} 工具"),
+        McpConnectionState::Failed(_) => "连接失败".to_owned(),
     }
 }
 

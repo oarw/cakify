@@ -177,13 +177,16 @@ impl ToolExecutor for McpHandle {
         }
         let (reply, receiver) = mpsc::sync_channel(1);
         self.commands
-            .send(Command::Execute {
+            .try_send(Command::Execute {
                 name: name.to_owned(),
                 arguments_json: arguments_json.to_owned(),
                 cancellation: cancellation.clone(),
                 reply,
             })
-            .map_err(|_| ToolExecutionError::new("MCP client 已停止"))?;
+            .map_err(|error| match error {
+                TrySendError::Full(_) => ToolExecutionError::new("MCP 命令队列繁忙"),
+                TrySendError::Disconnected(_) => ToolExecutionError::new("MCP client 已停止"),
+            })?;
         loop {
             if cancellation.load(Ordering::Acquire) {
                 return Err(ToolExecutionError::new("MCP 工具调用已取消"));

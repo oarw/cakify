@@ -34,7 +34,7 @@
 - Release `32160832215` 已按用户睡前要求取消，结论为 `cancelled`；此前 `32159139587` 为 `failure`。两次都不能视为发布成功，当前没有 tag、Release 或可交付安装包。
 - 2026-08-19 睡前核对：仓库为 `PRIVATE`，没有 queued/in_progress Actions；未遗留公开状态或后台构建。
 - 2026-08-19 已实现待验证源码：正常聊天请求携带受限内置工具定义；Core 在审批期间保持 run 存活，批准后执行、回填标准 assistant tool-call/tool-result 消息并继续模型流，UI 显示执行中/成功/失败结果；安全上限覆盖参数、输出与最多四轮工具调用。
-- MCP server 草稿已改接 SQLite actor：支持 stdio/Streamable HTTP 类型化配置、稳定列表、重启恢复、启停、删除、乐观并发和远程 HTTPS/敏感字段校验；当前仍未接 `rmcp` 传输，启用状态不冒充已连接。
+- MCP server 已接 SQLite actor，并新增待验证的 `rmcp` runtime/desktop 接线：启动时连接已启用 Server，事件驱动“连接中/已连接/失败/停用”，聊天请求动态合并已发现工具，调用仍复用逐次审批；stdio 使用 process-wrap Job Object。当前尚未更新锁文件或经 Actions 编译，不得描述为已通过。
 - Product validate `32222027498` 因 rustfmt 失败；按 artifact 精确格式化后，`32222398127` 通过依赖边界与格式，在 workspace check 暴露 `repository.rs` 的 SQLite 查询迭代器 E0597，后续测试/Clippy/build 均未运行。保存前已按诊断改为先收集 rows，但尚未经 Actions 验证。
 - 睡前保存了 `crates/cakify-mcp` WIP：固定 `rmcp 3.1.0`、`tokio 1.53.1` 与 `process-wrap 9.1.0`，已写 stdio/Streamable HTTP actor、工具发现/命名/调用、超时/取消和 Windows Job Object 方向。该 crate 尚未更新 `Cargo.lock`、尚未接入 desktop 生命周期/UI，也从未被 Actions 编译，不得描述为 MCP 已完成。
 
