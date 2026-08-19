@@ -3,49 +3,48 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-19（Asia/Shanghai）
 > 当前阶段：M2/M3 - 聊天垂直切片
-> 当前状态：MCP_RUNTIME_WIP_SAVED_PENDING_CI
+> 当前状态：MCP_PROVIDER_COMPOSER_VALIDATED
 
 ## 1. 当前快照
 
 - 工作目录：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`。
-- 睡前源码/文档基线：`d7575d7c9d2b7bd92d00dc091be6b9d26ab6e067`；工作树干净并与 `origin/main` 一致。
+- 本轮已验证源码提交：`a1233f18e31022042236d056faa4376e33639ea7`；文档提交后以实际 HEAD 为准。
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
 - M0 最终 runtime 验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：`PRIVATE`；聊天切片 Product validate `32153002500` 与 runtime smoke `32154636851` 完成后确认无 queued/in_progress，已恢复并复核。
-- 最近成功 Actions：Product validate `32153002500` 与 Windows runtime smoke `32154636851`，均验证 commit `cf822f00f9958111973dc7e93903a1515f9726db`。
-- 本轮 Actions：聊天切片通过 fmt/check/全量 tests、全部 storage/repository/provider/secret contracts、Clippy、release build；随后三轮真实 Windows 窗口 smoke 全部通过。
+- 仓库可见性：`PRIVATE`；本轮 Product validate `32229464063` 与 runtime smoke `32231259895` 完成后确认无 queued/in_progress，已恢复并复核。
+- 最近成功 Actions：Product validate `32229464063` 与 Windows runtime smoke `32231259895`，均验证 commit `a1233f18e31022042236d056faa4376e33639ea7`。
+- 本轮 Actions：输入/IME 状态、Markdown、Provider 流协议、工具闭环和 MCP runtime 通过 fmt/check/全量 tests、全部专项 contracts、Clippy、release build；随后三轮真实 Windows 窗口 smoke 全部通过。
 - Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0，因此内存证据无效。
 - Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；但截图显示窗口底部约 27 px 被任务栏遮挡，因此当时没有作为最终 M0 验收。
 - Runtime smoke 第三轮 `32093988986` 三轮窗口都完整位于工作区，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留；M0 已关闭。
 - 根 `.github/workflows/product-validate.yml`：已创建且只有 `workflow_dispatch`，push 不会自动触发。
 - 根 `.github/workflows/windows-runtime-smoke.yml`：只有 `workflow_dispatch`；完整可见、内存、进程树和退出硬门已在最终 run 通过。
-- 产品源码：根 Cargo workspace 包含 desktop、core、platform-windows、provider 和 storage；首个聊天垂直切片已通过 Actions 编译、测试、release build 与窗口 smoke。
+- 产品源码：根 Cargo workspace 包含 desktop、core、platform-windows、provider、storage 和 mcp；当前聊天/工具/MCP 垂直切片已通过 Actions 编译、测试、release build 与窗口 smoke。
 - M1 源码：SQLite foundation、conversation/message/part/run repository、crash recovery、Provider profile CRUD 和 SecretStore 生命周期均已通过 Product validate；Windows CredMan、DPAPI current-user adapter、密文文件和 synthetic contracts 已闭合。live backup/restore 暂缓，先完成用户明确要求的聊天垂直切片。
 - M1 依赖：固定 `rusqlite 0.40.2`、`sha2 0.10.9`，并把锁文件中已有的 `url 2.5.8` 设为 storage 直接依赖做 endpoint 结构化解析；最终依赖树未发现 GPL AI 业务 crate、向量库或密钥库越界包。
-- 产品构建状态：本机没有编译/测试；Actions 已生成首个聊天预览 EXE。聊天 UI 三次窗口 ready 为 `204.960/127.486/163.278 ms`，空闲 Working Set 为 `38.863/36.164/36.309 MiB`，均完整可见、单进程并正常退出；IME 保持独立物理机门。
+- 产品构建状态：本机没有编译/测试；Actions 已生成 10,628,096-byte release EXE。当前 UI 三次窗口 ready 为 `157.840/129.433/129.622 ms`，空闲 Working Set 为 `39.293/36.758/36.734 MiB`，均完整可见、单进程并正常退出；物理 IME 仍是独立人工门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
-- 本次公开前审计与 visibility 闭环：已完成，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
+- 本次公开前审计与 visibility 闭环：未发现新增实质风险；只运行 Product validate 与 Windows runtime smoke，核对产物后仓库已恢复 PRIVATE。
 - 组件决定：M0 不引入 `gpui-component`；直接使用 GPUI primitives，见 ADR 0002。
 - 历史 benchmark：完整移入 `archi/framework-benchmark-2026-08/`。
 - 许可证：尚未选择，仓库仍没有 `LICENSE`。
 - Release `32160832215` 已按用户睡前要求取消，结论为 `cancelled`；此前 `32159139587` 为 `failure`。两次都不能视为发布成功，当前没有 tag、Release 或可交付安装包。
 - 2026-08-19 睡前核对：仓库为 `PRIVATE`，没有 queued/in_progress Actions；未遗留公开状态或后台构建。
-- 2026-08-19 已实现待验证源码：正常聊天请求携带受限内置工具定义；Core 在审批期间保持 run 存活，批准后执行、回填标准 assistant tool-call/tool-result 消息并继续模型流，UI 显示执行中/成功/失败结果；安全上限覆盖参数、输出与最多四轮工具调用。
-- MCP server 已接 SQLite actor，并新增待验证的 `rmcp` runtime/desktop 接线：启动时连接已启用 Server，事件驱动“连接中/已连接/失败/停用”，聊天请求动态合并已发现工具，调用仍复用逐次审批；stdio 使用 process-wrap Job Object。当前尚未更新锁文件或经 Actions 编译，不得描述为已通过。
-- Product validate `32222027498` 因 rustfmt 失败；按 artifact 精确格式化后，`32222398127` 通过依赖边界与格式，在 workspace check 暴露 `repository.rs` 的 SQLite 查询迭代器 E0597，后续测试/Clippy/build 均未运行。保存前已按诊断改为先收集 rows，但尚未经 Actions 验证。
-- 睡前保存了 `crates/cakify-mcp` WIP：固定 `rmcp 3.1.0`、`tokio 1.53.1` 与 `process-wrap 9.1.0`，已写 stdio/Streamable HTTP actor、工具发现/命名/调用、超时/取消和 Windows Job Object 方向。该 crate 尚未更新 `Cargo.lock`、尚未接入 desktop 生命周期/UI，也从未被 Actions 编译，不得描述为 MCP 已完成。
+- 2026-08-19 工具闭环已验证：正常聊天请求携带受限工具定义；Core 在审批期间保持 run 存活，批准后执行、回填标准 assistant tool-call/tool-result 消息并继续模型流，UI 显示审批/执行/结果；安全上限覆盖参数、输出与最多四轮工具调用。
+- MCP server 已接 SQLite actor、`rmcp 3.1.0` async actor 和 desktop 生命周期：支持 stdio/Streamable HTTP、工具发现/稳定命名/执行路由、连接 generation、并发门、超时/取消与 Windows Job Object 兜底；配置、路由和生命周期 contracts 已在 Actions 通过。
+- Provider 真实 loopback HTTP 契约、请求/流式读取上限、多索引 tool delta、usage/finish、异常 EOF 和错误脱敏均已通过；已知残余是 blocking reqwest 在 DNS/connect/无数据读取期间只能受请求超时约束，后续应迁移 async transport 才能即时取消。
 
 ## 2.1 当前聊天垂直切片（首个预览已验证）
 
 - Core 已从 fake draft 状态回执升级为带对话历史的 `ChatProvider` 边界，支持文本 delta 合并、usage/finish、取消、失败、工具调用 delta 和审批事件。
 - 新增 `crates/cakify-provider`：OpenAI-compatible SSE adapter、HTTPS/loopback endpoint 校验、禁用重定向、SecretStore 按请求读取 API Key、脱敏 HTTP 错误和 parser 契约测试源码。
 - GPUI desktop 已接入官方 GPUI editor 示例改造的多行 composer、Enter 发送/Shift+Enter 换行、消息时间线、流式 assistant 更新、停止/重试、CommonMark 基础 block/code rendering。
-- Provider 面板可以保存 endpoint/model/API Key；API Key 走 Windows Credential Manager，profile 走 SQLite。MCP 面板可以维护 stdio/HTTP server 草稿，工具审批行可以显示允许/拒绝状态。
-- 2026-08-19 源码审计确认：正常发送路径仍传入空 `tools`，工具批准目前只改变 UI/事件状态，不会执行工具并把结果续交模型；MCP server 目前只是进程内草稿，不能连接、发现或调用工具，也没有持久化。以上均不得描述为“工具/MCP 已完成”。
-- 当前明确未声称完成：未使用真实用户 API Key 做在线模型 smoke；中文/日文物理 IME selection/clipboard 尚未验收；MCP `rmcp` 连接/进程 Job Object 尚未接入；消息尚未接 storage actor 做持久化；MCP 草稿尚未持久化。
+- Provider 面板可以保存 endpoint/model/API Key；API Key 走 Windows Credential Manager，profile 走 SQLite。MCP 面板可以持久化、启停并连接 stdio/HTTP server，发现的工具进入逐次审批闭环。
+- Composer 已实现 selection/clipboard/鼠标拖选、多行导航和 GPUI marked-text/UTF-16 IME 接口；Markdown 支持基础块、代码、表格、任务项、受限链接及危险 scheme/远程图片降级。
+- 当前明确未声称完成：未使用真实用户 API Key 做在线模型 smoke；微软拼音/日文 IME、候选窗、高 DPI 拖选和系统剪贴板尚未做物理机验收；消息尚未接 storage actor 持久化；真实 stdio MCP 进程树清理与远程 MCP 认证仍需后续 runtime/互操作验证。
 
 ## 2. 当前产品决定
 
@@ -129,18 +128,18 @@
 - [x] 实现 Credential Manager/DPAPI SecretStore；Product validate `32127969715` 的 lifecycle、CredMan、DPAPI round-trip/tamper、Clippy、release build 全部通过。
 - [x] 实现聊天纵向切片、流式 fake/provider Core 边界与取消/重试。
 - [x] 实现 OpenAI-compatible SSE provider；尚缺使用真实用户 Key 的在线 smoke。
-- [ ] 实现 Agent/tool approval/Job Object。
-- [ ] 实现 MCP stdio/Streamable HTTP。
+- [x] 实现 Agent/tool approval/Job Object 基础闭环；真实第三方 stdio 工具进程树仍需互操作 smoke。
+- [x] 实现 MCP stdio/Streamable HTTP 基础运行时；远程认证与工具变更通知待后续完善。
 - [ ] 实现轻量产品完善与发布流程。
 
 ## 7. 精确下一步
 
 下一位执行者不要重做选型，直接把已验证预览推进到日常可用：
 
-1. 先续完 `crates/cakify-mcp` WIP：核对 rmcp/process-wrap API，接入 desktop 生命周期、连接状态和工具定义/执行路由，并让 workflow 生成新的 `Cargo.lock` artifact；不要假定当前 WIP 可编译。
-2. 用 Product validate 验证工具闭环、MCP persistence 和 MCP runtime，按 CI 的 rustfmt/编译/测试/Clippy 结果修到全绿；重点复核 `repository.rs` E0597 修复与 stdio Job Object 进程树清理。
-3. 完成 Windows runtime smoke 后，再从最新 main 运行统一 Release `v0.1.0-pre.1`，核对安装版、便携 ZIP、独立 EXE、SHA256SUMS、tag 和 Pre-release；不要重跑已取消的旧 commit。
-4. 后续继续消息持久化、会话 CRUD、物理 IME 与长列表门。
+1. 优先接消息持久化与会话 CRUD，让发送、流式增量、工具结果、失败/取消和重启恢复真正落入现有 storage actor。
+2. 增加微软拼音/日文 IME、候选窗、高 DPI 拖选、剪贴板和超过三行 composer 的 Windows 物理机门；同时实现长消息虚拟列表。
+3. 为 Provider 改造可即时取消的 async transport；为 MCP 增加协议取消、状态快照/重同步、工具列表变更通知、远程认证与真实 stdio 进程树 smoke。
+4. 以上日常可用门闭合后，再从最新 main 运行统一 Release `v0.1.0-pre.1`，核对安装版、便携 ZIP、独立 EXE、SHA256SUMS、tag 和 Pre-release。
 
 ## 8. 性能与质量门
 
@@ -172,6 +171,10 @@
 - `SIGNING_PENDING`：签名证书、MSIX/安装器和更新通道未决定，安排在 M7。
 
 ## 10. Actions 事实记录
+
+- [Product validate #32229464063](https://github.com/oarw/cakify/actions/runs/32229464063)：`success`，commit `a1233f18e31022042236d056faa4376e33639ea7`，job `95996012638`，artifact `product-validation-32229464063`（ID `9357175604`，digest `sha256:0ce96aba1d9f96b7d6bff4685c4ee52ae090e8ac35749c08c7cac3a1db3668b5`）。fmt/check/全量 tests、storage/repository/provider/MCP/tool/secret contracts、Clippy、release build 和上传全部通过；EXE 10,628,096 bytes，SHA-256 `E5CA7F9A4B15F207958BF3FE79ADDF8B866C67B50E8F5B51632F0638B09FB965`，`NotSigned`。artifact `Cargo.lock` 与仓库 Git blob hash 同为 `ccc0f13d3549baed4bbde7542a77c4fa95e15915`，依赖树中 Electron/Tauri/WebView2/CEF/Chromium 命中 0。
+- [Windows runtime smoke #32231259895](https://github.com/oarw/cakify/actions/runs/32231259895)：`success`，同一 commit，job `96001355368`，artifact `windows-runtime-smoke-32231259895`（ID `9357552182`，digest `sha256:e0c15eb062fe2c463b3bd182f7fbde30031ce6ac6e2e0fc02b7a5b9f025ae192`）。三轮窗口 ready `129.433-157.840 ms`，idle Working Set `36.734-39.293 MiB`，完整可见、单进程、exit 0 且无残留；result JSON SHA-256 `42E38F8E6900B6A0303387AD667B367F5617CA2548644231390F2EBB11B29960`，截图 SHA-256 `EB8543F1FBFCA1FEF85CE20831E46FFEE3647B3F50E85555887A026AD86744F6`，已独立核对。
+- 本轮停止前确认 queued/in_progress 为 0，随后恢复并复核仓库 `PRIVATE`。
 
 - [历史 benchmark Validate #32017467536](https://github.com/oarw/cakify/actions/runs/32017467536)：`success`，commit `40209896dca0009b747efc51ac885bed32b81f25`，artifact `cargo-lock-32017467536`。GitHub 曾因短暂复用 workflow 路径而改变其显示名；它不是产品 M0 run。
 - [Benchmark candidates #32017470781](https://github.com/oarw/cakify/actions/runs/32017470781)：`success`，同一 commit，artifacts `benchmark-{gpui,avalonia,flutter,tauri}-32017470781`。
@@ -212,14 +215,14 @@
 
 ## 11. 进度日志
 
-### 2026-08-19：工具执行闭环与 MCP 持久化源码
+### 2026-08-19：工具执行、MCP、Provider 与输入链路通过验证
 
 - 扩展 Chat Completions 消息模型，独立表示 assistant `tool_calls` 与带 `tool_call_id` 的 tool result；OpenAI-compatible adapter 可直接编码第二轮请求。
 - Core 为每个 active run 建立有界审批通道，支持多工具乱序审批、拒绝回执、取消轮询、执行状态事件、输出/参数上限和最多四轮调用；内置 `get_current_time` 只读取系统时间，不启动 shell、文件或网络。
 - GPUI 正常发送路径不再传空工具列表；工具卡展示审批、执行中、完成、失败和结果，run 只在模型续写完成后结束。
 - MCP 配置使用现有 `mcp_servers` 表和单 writer actor，新增创建/读取/列表/启停/删除 contract；远程 HTTP 限制为 HTTPS（loopback 可 HTTP），配置递归拒绝 credential-bearing key。
-- 本机只做源码与 diff 静态检查；尚未运行 rustfmt、编译、测试、Clippy 或产品构建，以上必须等 Product validate 实证，`rmcp` 实际连接仍为下一步。
-- Product validate `32222027498` 验证提交 `c8200421e7b4bfd6b8ffd12e5082df4abe757add`：依赖树/许可证边界通过，rustfmt 门失败，编译与测试未执行；已下载并应用 runner 生成的纯格式补丁，等待第二轮。
+- 三个并行子任务分别收口 Composer/Markdown、Provider 流协议和 MCP runtime；主线按 Actions 诊断修复锁文件、格式和少量类型/API 问题。
+- Product validate `32229464063` 与 Windows runtime smoke `32231259895` 在同一提交全绿，产物、锁文件、依赖边界、结构化指标和截图均已独立核对；本机未运行项目编译、测试或 GUI。
 
 ### 2026-08-16 至 2026-08-17：框架筛选
 
