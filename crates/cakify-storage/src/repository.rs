@@ -276,9 +276,10 @@ pub(crate) fn list_mcp_servers(
          FROM mcp_servers
          ORDER BY display_name COLLATE NOCASE, id",
     )?;
-    statement
+    let stored_servers = statement
         .query_map([], map_stored_mcp_server)?
-        .collect::<Result<Vec<_>, _>>()?
+        .collect::<Result<Vec<_>, _>>()?;
+    stored_servers
         .into_iter()
         .map(stored_mcp_server_into_record)
         .collect()

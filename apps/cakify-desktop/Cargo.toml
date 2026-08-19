@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 cakify-core = { path = "../../crates/cakify-core" }
+cakify-mcp = { path = "../../crates/cakify-mcp" }
 cakify-platform-windows = { path = "../../crates/cakify-platform-windows" }
 cakify-provider = { path = "../../crates/cakify-provider" }
 cakify-storage = { path = "../../crates/cakify-storage" }

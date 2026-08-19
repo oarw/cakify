@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-19（Asia/Shanghai）
 > 当前阶段：M2/M3 - 聊天垂直切片
-> 当前状态：TOOL_LOOP_AND_MCP_PERSISTENCE_PENDING_CI
+> 当前状态：MCP_RUNTIME_WIP_SAVED_PENDING_CI
 
 ## 1. 当前快照
 
@@ -35,6 +35,8 @@
 - 2026-08-19 睡前核对：仓库为 `PRIVATE`，没有 queued/in_progress Actions；未遗留公开状态或后台构建。
 - 2026-08-19 已实现待验证源码：正常聊天请求携带受限内置工具定义；Core 在审批期间保持 run 存活，批准后执行、回填标准 assistant tool-call/tool-result 消息并继续模型流，UI 显示执行中/成功/失败结果；安全上限覆盖参数、输出与最多四轮工具调用。
 - MCP server 草稿已改接 SQLite actor：支持 stdio/Streamable HTTP 类型化配置、稳定列表、重启恢复、启停、删除、乐观并发和远程 HTTPS/敏感字段校验；当前仍未接 `rmcp` 传输，启用状态不冒充已连接。
+- Product validate `32222027498` 因 rustfmt 失败；按 artifact 精确格式化后，`32222398127` 通过依赖边界与格式，在 workspace check 暴露 `repository.rs` 的 SQLite 查询迭代器 E0597，后续测试/Clippy/build 均未运行。保存前已按诊断改为先收集 rows，但尚未经 Actions 验证。
+- 睡前保存了 `crates/cakify-mcp` WIP：固定 `rmcp 3.1.0`、`tokio 1.53.1` 与 `process-wrap 9.1.0`，已写 stdio/Streamable HTTP actor、工具发现/命名/调用、超时/取消和 Windows Job Object 方向。该 crate 尚未更新 `Cargo.lock`、尚未接入 desktop 生命周期/UI，也从未被 Actions 编译，不得描述为 MCP 已完成。
 
 ## 2.1 当前聊天垂直切片（首个预览已验证）
 
@@ -135,8 +137,8 @@
 
 下一位执行者不要重做选型，直接把已验证预览推进到日常可用：
 
-1. 先用 Product validate 验证当前工具闭环和 MCP persistence 源码，按 CI 的 rustfmt/编译/测试/Clippy 结果修到全绿，不能以静态检查代替。
-2. 接官方 Rust MCP SDK `rmcp` 的 stdio/Streamable HTTP，把发现的工具合并进请求和现有审批执行器；stdio 子进程纳入 Windows Job Object，禁止任意 shell 默认执行。
+1. 先续完 `crates/cakify-mcp` WIP：核对 rmcp/process-wrap API，接入 desktop 生命周期、连接状态和工具定义/执行路由，并让 workflow 生成新的 `Cargo.lock` artifact；不要假定当前 WIP 可编译。
+2. 用 Product validate 验证工具闭环、MCP persistence 和 MCP runtime，按 CI 的 rustfmt/编译/测试/Clippy 结果修到全绿；重点复核 `repository.rs` E0597 修复与 stdio Job Object 进程树清理。
 3. 完成 Windows runtime smoke 后，再从最新 main 运行统一 Release `v0.1.0-pre.1`，核对安装版、便携 ZIP、独立 EXE、SHA256SUMS、tag 和 Pre-release；不要重跑已取消的旧 commit。
 4. 后续继续消息持久化、会话 CRUD、物理 IME 与长列表门。
 

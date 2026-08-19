@@ -2,7 +2,7 @@
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
 > 最后更新：2026-08-19（Asia/Shanghai）
-> 交接状态：首个聊天预览已验证；工具/MCP 仍未形成真实执行闭环，统一 Release/安装器流水线也尚未成功发布。
+> 交接状态：工具执行闭环与 MCP 持久化已有源码；MCP runtime 为睡前保存的未编译 WIP，统一 Release/安装器流水线仍未成功发布。
 
 ## 1. 五分钟上下文
 
@@ -45,7 +45,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - Product validate 已验证源码提交：`cf822f00f9958111973dc7e93903a1515f9726db`
 - M0 runtime 最终验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - Remote：`https://github.com/oarw/cakify.git`
-- Visibility：`PRIVATE`
+- Visibility：停止工作前必须以 GitHub 实际值为准；本次保存会在确认无活动任务后恢复 `PRIVATE`。
 - 最近 Product validate：`32153002500`，目标 HEAD `cf822f00f9958111973dc7e93903a1515f9726db`，全量验证与 release artifact 已通过并核对。
 - 根产品 Cargo workspace 已建立，成员为 desktop、core、platform-windows、provider、storage；聊天切片已通过 Actions 与真实窗口 smoke。
 - GPUI 空窗口和 fake Core bridge 已通过 Actions 的 fmt/check/tests/Clippy/release build 与最终 runtime smoke；三轮窗口完整可见，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留。
@@ -56,6 +56,8 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - 产品 `Cargo.lock` 已提交；聊天预览 artifact 含 release EXE、依赖树和三份 migration，详见第 12 节。
 - 本轮 Product validate 与 runtime smoke 的 public -> Actions -> private 已闭环，见 `docs/PUBLIC-ACTIONS-AUDIT.md`；仓库已恢复 PRIVATE。
 - 仓库没有 LICENSE。
+- 2026-08-19 最新两轮 Product validate：`32222027498` rustfmt 失败；格式修复提交上的 `32222398127` 在 workspace check 因 `crates/cakify-storage/src/repository.rs:279` 的 E0597 失败，测试/Clippy/build 未执行。保存前已按编译器诊断改为先收集查询结果，但尚未复验。
+- 当前未验证 WIP 新增 `crates/cakify-mcp`，计划用 `rmcp 3.1.0` + Tokio actor 支持 stdio/Streamable HTTP，并用 process-wrap Job Object 管理 Windows 子进程。它尚缺 `Cargo.lock` 更新、desktop 接线和任何 Actions 编译证据；接手时先检查实际 diff/HEAD，不要把 WIP 当成成品。
 
 接手后先执行只读检查：`git status --short --branch`、`git rev-parse HEAD`、`git remote -v`、`gh repo view ... --json visibility,isPrivate`、`gh run list`。实际状态优先于本文。
 
