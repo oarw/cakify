@@ -93,7 +93,7 @@ impl TryFrom<&McpServerRecord> for McpServerConfig {
                                 .map(str::to_owned)
                                 .ok_or(McpConfigError::InvalidStoredConfig)
                         })
-                        .collect::<Result<Vec<_>, _>>(),
+                        .collect::<Result<Vec<_>, _>>()?,
                     Some(_) => return Err(McpConfigError::InvalidStoredConfig),
                 };
                 if args.len() > MAX_ARGUMENTS
@@ -850,8 +850,7 @@ async fn execute_tool(
     }
     let arguments = serde_json::from_str::<Value>(&arguments_json)
         .ok()
-        .and_then(Value::as_object)
-        .cloned()
+        .and_then(|value| value.as_object().cloned())
         .ok_or_else(|| ToolExecutionError::new("MCP 工具参数不是 JSON object"))?;
     let call =
         peer.call_tool(CallToolRequestParams::new(route.remote_name).with_arguments(arguments));
