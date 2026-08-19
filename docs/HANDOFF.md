@@ -2,7 +2,7 @@
 
 > 用途：新的 AI 模型、供应商或工程师开始前必须完整阅读。
 > 最后更新：2026-08-19（Asia/Shanghai）
-> 交接状态：`v0.1.0-pre.1` 已由统一 Release 流水线发布，安装版、便携版、独立 EXE 与校验文件可下载；继续推进消息持久化、会话 CRUD 与物理 IME。
+> 交接状态：`v0.1.0-pre.2` 已由统一 Release 流水线发布，包含新聊天工作台 UI 与应用图标，安装版、便携版、独立 EXE 与校验文件可下载；继续推进消息持久化、会话 CRUD 与物理 IME。
 
 ## 1. 五分钟上下文
 
@@ -39,28 +39,28 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 - 路径：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`
-- 本轮 UI/UX 与图标已验证源码 HEAD：`79997ef6febc72e6e445900ca6d2419c5f3ce4a9`；本次交接文档提交后以 `git rev-parse HEAD` 为准。本轮没有发布新版本，现有 prerelease 仍指向 `ae14994930c61eff61c33d51bee6974447e9192a`。
+- 本轮 UI/UX 与图标源码 HEAD：`79997ef6febc72e6e445900ca6d2419c5f3ce4a9`；自动发版规则随 `f7b862bc7a5cf8f338e098b85813ed1e6fc62368` 一并发布为 `v0.1.0-pre.2`。本次交接文档提交后以 `git rev-parse HEAD` 为准。
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
 - Product validate/runtime 已验证源码提交：`79997ef6febc72e6e445900ca6d2419c5f3ce4a9`
-- Release 已验证源码提交：`ae14994930c61eff61c33d51bee6974447e9192a`
+- Release 已验证源码提交：`f7b862bc7a5cf8f338e098b85813ed1e6fc62368`
 - M0 runtime 最终验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - Remote：`https://github.com/oarw/cakify.git`
-- Visibility：`PRIVATE`；UI/UX 验证闭环完成后已确认无 queued/in_progress 并恢复、复核。
+- Visibility：`PRIVATE`；Release `32262223258` 完成后已确认无 queued/in_progress 并恢复、复核。
 - 最近 Product validate：`32257944799`，目标 HEAD `79997ef6febc72e6e445900ca6d2419c5f3ce4a9`，全量验证与 release artifact 已通过并核对。
 - 根产品 Cargo workspace 已建立，成员为 desktop、core、platform-windows、provider、storage、mcp；聊天、工具与 MCP 切片已通过 Actions 与真实窗口 smoke。
 - GPUI 空窗口和 fake Core bridge 已通过 Actions 的 fmt/check/tests/Clippy/release build 与最终 runtime smoke；三轮窗口完整可见，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留。
 - 旧 benchmark 完整归档在 `archi/framework-benchmark-2026-08/`。
 - 根 `.github/workflows/product-validate.yml` 只有 `workflow_dispatch`；push 不会自动运行。
-- 最近实际成功 run：Windows runtime smoke `32259992090`；同一提交的 Product validate `32257944799` 也已通过。没有触发 Release。
+- 最近实际成功 run：Release `32262223258`；完整验证、安装器 smoke、打包、校验与发布均通过。
 - Runtime smoke 前两轮分别暴露无效内存聚合与任务栏遮挡；第三轮全部硬门通过。本机始终未编译/测试/运行产品。
 - 产品 `Cargo.lock` 已提交；最新 Product validate artifact 含 11,015,680-byte release EXE、依赖树和三份 migration，详见第 12 节。
 - 本轮 UI/UX 验证的 public -> Actions -> private 已闭环；仓库已恢复并复核为 PRIVATE。
-- 已发布 prerelease：<https://github.com/oarw/cakify/releases/tag/v0.1.0-pre.1>。安装后三轮 ready `115.879-147.114 ms`、idle Working Set `36.867-39.223 MiB`，完整可见、单进程、正常退出，安装/卸载 exit code 均为 0。
+- 已发布 prerelease：<https://github.com/oarw/cakify/releases/tag/v0.1.0-pre.2>。安装后三轮 ready `125.365-158.572 ms`、idle Working Set `39.918-44.312 MiB`，完整可见、单进程、正常退出，安装/卸载 exit code 均为 0。
 - 仓库没有 LICENSE。
 - `crates/cakify-mcp` 已固定 `rmcp 3.1.0`，实现 async actor、stdio/Streamable HTTP、工具发现/路由、并发与生命周期边界，stdio 使用 process-wrap Job Object/KillOnDrop；配置、路由、取消与生命周期 tests 已通过。
 - Composer 已实现 selection、clipboard、鼠标拖选、多行导航和 marked-text/UTF-16 IME 接口；Provider 已通过真实 loopback HTTP、工具回填、有界 SSE 与错误脱敏契约。物理 IME、真实第三方 MCP 和真实用户 API Key 仍未验收。
-- 用户已明确撤销“Release/发包需另行确认”的旧约束：可交付功能完成并验证后必须自动发预览版。当前工作台 UI/UX 与图标正在发布 `v0.1.0-pre.2`；若交接时尚未完成，先续跑/修复同一 Release 闭环，不要再次询问是否发版。
+- 用户已明确撤销“Release/发包需另行确认”的旧约束：可交付功能完成并验证后必须自动发预览版。工作台 UI/UX 与图标已发布为 `v0.1.0-pre.2`；后续继续沿用同一规则，不要再次询问是否发版。
 
 接手后先执行只读检查：`git status --short --branch`、`git rev-parse HEAD`、`git remote -v`、`gh repo view ... --json visibility,isPrivate`、`gh run list`。实际状态优先于本文。
 
@@ -168,6 +168,7 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 
 ## 12. Actions 记录
 
+- Release：<https://github.com/oarw/cakify/actions/runs/32262223258>，success，commit `f7b862bc7a5cf8f338e098b85813ed1e6fc62368`，jobs `96097954192`/`96103368765`，artifact `release-candidate-32262223258`（ID `9369327744`，digest `sha256:65c64751dbca93e315d0b33a3ab5e57dee12e9ca5dca1fc976b3ecdfb90f743c`）。安装器、便携 ZIP、独立 EXE 和校验文件已发布到 <https://github.com/oarw/cakify/releases/tag/v0.1.0-pre.2>；三项分发资产已独立下载并与 `SHA256SUMS.txt` 匹配，安装/三轮启动/卸载与截图均已核对，仓库已恢复 PRIVATE。
 - Product validate：<https://github.com/oarw/cakify/actions/runs/32257944799>，success，commit `79997ef6febc72e6e445900ca6d2419c5f3ce4a9`，job `96084032514`，artifact `product-validation-32257944799`（ID `9367654858`，digest `sha256:d1a294897137076e7486e23bd8985d0cbdaf5ced365a00a60e9321b637ac59b6`）。fmt/check/全量与专项 tests/Clippy/release build 全绿；EXE 11,015,680 bytes，SHA-256 `57DECF7E704DE0311EEB7CBA36B9253E4AF4CEB12F37CE38D1DBEC8452AED190`，`NotSigned`，锁文件规范化匹配仓库，EXE 关联图标已提取查看。
 - Windows runtime smoke：<https://github.com/oarw/cakify/actions/runs/32259992090>，success，同一 commit，job `96090679510`，artifact `windows-runtime-smoke-32259992090`（ID `9368112302`，digest `sha256:2f555408e24881dad67ceb58336a2c497ae50f39c0996c44cfe249eb4e76d196`）。三轮 ready `113.600-149.608 ms`，idle Working Set `39.879-44.285 MiB`，完整可见、单进程、正常退出且无残留；截图中 UI 无遮挡。
 - 本轮四个中间失败 run 为 `32256003025`/`32256461763`/`32256869809`/`32257241135`，分别对应 rustfmt、解析闭合、runner 格式与 GPUI ElementId 类型问题，后续均在同一修复闭环关闭。恢复前 queued/in_progress 为 0，当前仓库 `PRIVATE`，本轮没有 Release。
@@ -197,18 +198,18 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`
 - Product validate/runtime 已验证提交：`79997ef6febc72e6e445900ca6d2419c5f3ce4a9`
-- Release 已验证提交：`ae14994930c61eff61c33d51bee6974447e9192a`
+- Release 已验证提交：`f7b862bc7a5cf8f338e098b85813ed1e6fc62368`
 - M0 runtime 最终验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
 - 当前 milestone：M2/M3 聊天垂直切片；M0 与 M1 SecretStore 已闭合
 - 当前正在做：聊天工作台 UI/UX 与 Cakify 应用图标已完成并验证；下一项是消息持久化与会话 CRUD
-- 最近成功 Actions：Product validate `32257944799`、Windows runtime smoke `32259992090`
-- 本轮 Actions：全量验证、Release EXE、三轮原生窗口 smoke、artifact、截图与 EXE 关联图标均已核对；没有发布新版本，仓库已恢复 PRIVATE
+- 最近成功 Actions：Release `32262223258`
+- 本轮 Actions：完整验证、Release EXE、安装器、安装后三轮原生窗口 smoke、卸载、artifact、截图、哈希与 GitHub Release 均已核对；`v0.1.0-pre.2` 可下载，仓库已恢复 PRIVATE
 - 精确下一动作：接消息持久化与会话 CRUD，让发送、流式增量、工具结果、失败/取消和重启恢复落入现有 storage actor；随后补物理 IME/长列表和 Provider/MCP 取消硬化
 - 需要用户决定：项目许可证；M7 签名/发行渠道。8 月受控 visibility 闭环已有持续授权，不再逐次询问
 - 已知风险：blocking Provider 在无网络数据期间不能即时取消；MCP 尚缺协议取消/状态重同步/工具变化通知/远程认证和真实第三方互操作；未使用真实用户 Key 做在线 smoke；消息持久化/物理 IME 未闭合；EXE 与安装器未签名
-- 安全状态：仓库 `PRIVATE`，无 queued/in_progress Actions；`v0.1.0-pre.1` prerelease 已发布且资产可由授权账号下载
+- 安全状态：仓库 `PRIVATE`，无 queued/in_progress Actions；`v0.1.0-pre.2` prerelease 已发布且资产可由授权账号下载
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
 
 交接时用实际 `git rev-parse HEAD` 更新或解释 HEAD；不要让文档中的工作前基线冒充最新提交。

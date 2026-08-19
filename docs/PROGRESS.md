@@ -3,20 +3,20 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-19（Asia/Shanghai）
 > 当前阶段：M2/M3 - 聊天垂直切片
-> 当前状态：V0_1_0_PRE_1_RELEASED
+> 当前状态：V0_1_0_PRE_2_RELEASED
 
 ## 1. 当前快照
 
 - 工作目录：`C:\Users\admin\Desktop\code\cakify`
 - 分支：`main`，跟踪 `origin/main`。
-- 本轮 UI/UX 与图标已验证源码提交：`79997ef6febc72e6e445900ca6d2419c5f3ce4a9`；文档提交后以实际 HEAD 为准。当前预发布仍指向 `ae14994930c61eff61c33d51bee6974447e9192a`，本轮没有发布新版本。
+- 本轮 UI/UX 与图标源码提交：`79997ef6febc72e6e445900ca6d2419c5f3ce4a9`；自动发版规则随目标提交 `f7b862bc7a5cf8f338e098b85813ed1e6fc62368` 一并发布为 `v0.1.0-pre.2`。文档提交后以实际 HEAD 为准。
 - M1 开始前源码基线 HEAD：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - M0 产品源码提交：`07643ab45f1eaabfa6e44d5a57116496ad1c25d2`（`feat: bootstrap GPUI product workspace`）。
 - M0 最终 runtime 验证提交：`a1f10429a7f48b5a7ca5968976676d6e2594554d`。
 - GitHub remote：`https://github.com/oarw/cakify.git`。
-- 仓库可见性：`PRIVATE`；UI/UX 验证闭环完成并核对后确认无 queued/in_progress，已恢复并复核。
-- 最近成功 Actions：Windows runtime smoke `32259992090`；同一提交的 Product validate `32257944799` 也已通过。
-- 本轮 Actions：commit `79997ef6febc72e6e445900ca6d2419c5f3ce4a9` 的完整 fmt/check/tests/专项 contracts/Clippy/release build、三轮原生窗口 smoke 与 artifact 上传全部通过；未触发 Release 或发布包。
+- 仓库可见性：`PRIVATE`；Release `32262223258` 发布并核对后确认无 queued/in_progress，已恢复并复核。
+- 最近成功 Actions：Release `32262223258`，目标 commit `f7b862bc7a5cf8f338e098b85813ed1e6fc62368`，已自动发布 `v0.1.0-pre.2`。
+- 本轮 Actions：完整 fmt/check/tests/专项 contracts/Clippy/release build、安装器构建、安装后三轮原生窗口 smoke、卸载、打包、校验与 GitHub Release 发布全部通过。
 - Runtime smoke 首轮 `32037554962` 的窗口、单进程与 WM_CLOSE 退出通过，但汇总层把真实进程内存错误写成 0，因此内存证据无效。
 - Runtime smoke 第二轮 `32038434473` 取得三轮非零内存、单进程、标题和正常退出证据；但截图显示窗口底部约 27 px 被任务栏遮挡，因此当时没有作为最终 M0 验收。
 - Runtime smoke 第三轮 `32093988986` 三轮窗口都完整位于工作区，空闲整树 Working Set `35.477-37.121 MiB`，默认子进程 0，正常退出且无残留；M0 已关闭。
@@ -25,13 +25,13 @@
 - 产品源码：根 Cargo workspace 包含 desktop、core、platform-windows、provider、storage 和 mcp；当前聊天/工具/MCP 垂直切片已通过 Actions 编译、测试、release build 与窗口 smoke。
 - M1 源码：SQLite foundation、conversation/message/part/run repository、crash recovery、Provider profile CRUD 和 SecretStore 生命周期均已通过 Product validate；Windows CredMan、DPAPI current-user adapter、密文文件和 synthetic contracts 已闭合。live backup/restore 暂缓，先完成用户明确要求的聊天垂直切片。
 - M1 依赖：固定 `rusqlite 0.40.2`、`sha2 0.10.9`，并把锁文件中已有的 `url 2.5.8` 设为 storage 直接依赖做 endpoint 结构化解析；最终依赖树未发现 GPL AI 业务 crate、向量库或密钥库越界包。
-- 产品构建状态：本机没有编译/测试；Actions 已生成并发布 10,628,096-byte 单文件 EXE、5,244,655-byte 安装器和 4,605,322-byte 便携 ZIP。安装后三次窗口 ready 为 `147.114/115.879/136.894 ms`，空闲 Working Set 为 `39.223/36.949/36.867 MiB`，均完整可见、单进程、正常退出并成功卸载；物理 IME 仍是独立人工门。
+- 产品构建状态：本机没有编译/测试；Actions 已生成并发布 11,015,680-byte 单文件 EXE、5,250,449-byte 安装器和 4,616,245-byte 便携 ZIP。安装后三次窗口 ready 为 `158.572/129.847/125.365 ms`，空闲 Working Set 为 `44.312/39.918/39.973 MiB`，均完整可见、单进程、正常退出并成功卸载；物理 IME 仍是独立人工门。
 - 产品计划：Markdown 架构/安全/路线图/来源和离线 HTML 已写入。
 - 本次公开前审计与 visibility 闭环：未发现新增实质风险；只运行 UI/UX 所需 Product validate 与 Windows runtime smoke，核对产物、截图与 EXE 图标后仓库已恢复 PRIVATE。
 - 组件决定：M0 不引入 `gpui-component`；直接使用 GPUI primitives，见 ADR 0002。
 - 历史 benchmark：完整移入 `archi/framework-benchmark-2026-08/`。
 - 许可证：尚未选择，仓库仍没有 `LICENSE`。
-- Pre-release `v0.1.0-pre.1` 已发布：<https://github.com/oarw/cakify/releases/tag/v0.1.0-pre.1>，含安装版、便携 ZIP、独立 EXE 与 `SHA256SUMS.txt`；tag 精确指向 `ae14994930c61eff61c33d51bee6974447e9192a`。
+- Pre-release `v0.1.0-pre.2` 已发布：<https://github.com/oarw/cakify/releases/tag/v0.1.0-pre.2>，含安装版、便携 ZIP、独立 EXE 与 `SHA256SUMS.txt`；tag 精确指向 `f7b862bc7a5cf8f338e098b85813ed1e6fc62368`。
 - 2026-08-19 睡前核对：仓库为 `PRIVATE`，没有 queued/in_progress Actions；未遗留公开状态或后台构建。
 - 2026-08-19 工具闭环已验证：正常聊天请求携带受限工具定义；Core 在审批期间保持 run 存活，批准后执行、回填标准 assistant tool-call/tool-result 消息并继续模型流，UI 显示审批/执行/结果；安全上限覆盖参数、输出与最多四轮工具调用。
 - MCP server 已接 SQLite actor、`rmcp 3.1.0` async actor 和 desktop 生命周期：支持 stdio/Streamable HTTP、工具发现/稳定命名/执行路由、连接 generation、并发门、超时/取消与 Windows Job Object 兜底；配置、路由和生命周期 contracts 已在 Actions 通过。
@@ -125,6 +125,7 @@
 - [x] 新增 tag/手动触发的统一 Release workflow、Inno Setup 当前用户安装器与安装/运行/卸载 smoke；源码提交 `25e4b5e`，tag 检查修复提交 `52d122a`。
 - [x] 发布 `v0.1.0-pre.1`：Release `32249902570` 全绿并自动创建 prerelease；三项分发资产已独立下载并与 `SHA256SUMS.txt` 全部匹配，安装/三轮启动/退出/卸载证据与截图已核对。
 - [x] 完成聊天工作台 UI/UX 与应用图标；Product validate `32257944799`、Windows runtime smoke `32259992090`、截图和 EXE 关联图标均已核对。
+- [x] 自动发布 `v0.1.0-pre.2`：Release `32262223258` 全绿，安装版/便携版/独立 EXE/校验文件可下载，资产哈希与安装运行证据已独立核对。
 
 ## 6. 尚未完成
 
@@ -175,10 +176,13 @@
 
 ## 10. Actions 事实记录
 
+- [Release #32262223258](https://github.com/oarw/cakify/actions/runs/32262223258)：`success`，commit `f7b862bc7a5cf8f338e098b85813ed1e6fc62368`，jobs `96097954192`/`96103368765`，artifact `release-candidate-32262223258`（ID `9369327744`，digest `sha256:65c64751dbca93e315d0b33a3ab5e57dee12e9ca5dca1fc976b3ecdfb90f743c`）。完整验证、安装器、安装后三轮窗口、卸载、打包、校验和 publish 全部通过；Release 为 <https://github.com/oarw/cakify/releases/tag/v0.1.0-pre.2>。
+- 发布资产已独立下载并与 `SHA256SUMS.txt` 匹配：安装器 5,250,449 bytes / `467aefb63944031a2609e38e74a2116100e8152d8bb96a2b2b269fa3d9f6027b`，便携 ZIP 4,616,245 bytes / `dcf7da5ba46cf162fab732a797cb7ba3d8ea1090c06b9f589330be1221cf51ce`，独立 EXE 11,015,680 bytes / `6f864a629795b2f37d257767bb2d955e6f42327c008acd9f49605c9e7fd360d6`。安装/卸载 exit code 均为 0；三轮 ready `125.365-158.572 ms`、idle Working Set `39.918-44.312 MiB`、单进程、完整可见、正常退出。result JSON SHA-256 `160555A4788F2337BBB8B0AA8F42C1E4B866036C2F2D3A92346B2181E325E0E6`，截图 SHA-256 `66B998810DF4200B7C30D89B266EB978EFD611B4B1B946346CAAB096261869C1`。
+- 发布完成后确认 queued/in_progress 为 0，仓库已恢复并复核为 `PRIVATE`。当前预览仍未签名，Windows 可能显示信誉提示。
 - [Product validate #32257944799](https://github.com/oarw/cakify/actions/runs/32257944799)：`success`，commit `79997ef6febc72e6e445900ca6d2419c5f3ce4a9`，job `96084032514`，artifact `product-validation-32257944799`（ID `9367654858`，digest `sha256:d1a294897137076e7486e23bd8985d0cbdaf5ced365a00a60e9321b637ac59b6`）。fmt/check/全量 tests、storage/repository/provider/MCP/tool/secret contracts、Clippy、release build 与上传全部通过；EXE 11,015,680 bytes，SHA-256 `57DECF7E704DE0311EEB7CBA36B9253E4AF4CEB12F37CE38D1DBEC8452AED190`，`NotSigned`。锁文件规范化换行后与仓库一致；EXE 可提取 32×32 关联图标，已独立查看并确认与新标记一致。
 - [Windows runtime smoke #32259992090](https://github.com/oarw/cakify/actions/runs/32259992090)：`success`，同一 commit，job `96090679510`，artifact `windows-runtime-smoke-32259992090`（ID `9368112302`，digest `sha256:2f555408e24881dad67ceb58336a2c497ae50f39c0996c44cfe249eb4e76d196`）。三轮窗口 ready `113.600-149.608 ms`，idle Working Set `39.879-44.285 MiB`，peak `42.879-44.289 MiB`，窗口完整可见、单进程、exit 0 且无残留；截图中双层侧栏、状态头、空状态建议与 composer 无遮挡。result JSON SHA-256 `AA7B256AEB8B268326B650700E5512985AAB0A4601727ED4065322CADA6E6079`，截图 SHA-256 `2F092241CB1CD8CE8A1CB72B5004F7FAB8DA30019EC6D0441B0FC5C34C090C55`。
 - 本轮修复过程中的 Product validate `32256003025`/`32256461763`/`32256869809`/`32257241135` 均准确记录为 `failure`：依次发现 build script rustfmt 差异、`main.rs` 缺失容器闭合导致的解析错误、runner rustfmt 差异，以及 suggestion ID 使用了不受支持的 `(&str, &str)`。对应 artifact ID 为 `9366338558`/`9366502714`/`9366691406`/`9366915900`；后续提交逐项修复，没有把跳过的测试或构建写成通过。
-- 本轮停止前确认 queued/in_progress 为 0，随后恢复并复核仓库 `PRIVATE`；没有触发 Release、创建 tag 或发布新包。
+- UI/UX 独立验证阶段停止前曾确认 queued/in_progress 为 0 并恢复仓库 `PRIVATE`；该阶段没有触发 Release，随后已按自动发版规则执行 Release `32262223258`。
 - [Release #32249902570](https://github.com/oarw/cakify/actions/runs/32249902570)：`success`，commit `ae14994930c61eff61c33d51bee6974447e9192a`，jobs `96058366384`/`96062786058`，artifact `release-candidate-32249902570`（ID `9364501538`，digest `sha256:f3f2824997a8b152fa8566793b75353cb3712456eb1ec8b6ed25dfee6a9ff4e1`）。全门、安装器、安装/三轮启动/卸载、打包、校验与自动发布均通过；prerelease 为 <https://github.com/oarw/cakify/releases/tag/v0.1.0-pre.1>。
 - Release `32234680916`：`failure`，commit `99d0ad3ca4279388306c9ad97b123309488abd28`，artifact `release-candidate-32234680916`（ID `9358929639`，digest `sha256:6f2116379f45aae86ca9eaa9a924652c667535ff127ad84ab42b37fdd2157ca9`）；Inno runner 缺少可选中文语言文件，未发布。
 - Release `32236125389`：`failure`，commit `b62f3ab8d95a7175506096b4c44b92ed1fed1628`，artifact `release-candidate-32236125389`（ID `9359437277`，digest `sha256:de5520e43e4f766e38875181e3f2aee7e275f2bbf039944ab221c33d47215a2a`）；安装器已生成，但绝对诊断路径被重复拼接，未发布。
@@ -229,7 +233,7 @@
 
 - 用户撤销“Release/发包需另行确认”的旧约束；完成可交付源码或产品功能后，执行者必须自动 commit/push、完成必要验证、递增预览版本并发布安装器、便携 ZIP、独立 EXE 与校验文件。
 - 文档-only、测试-only、CI-only 或用户明确不发版的改动仍可只推送；安全泄露、许可证冲突、数据破坏风险、正式稳定版语义或长期公开仍需先停下处理或确认。
-- 当前聊天工作台 UI/UX 与图标属于可交付产品功能，因此继续自动发布 `v0.1.0-pre.2`，不再停留在验证 artifact。
+- 当前聊天工作台 UI/UX 与图标属于可交付产品功能，已自动发布为 `v0.1.0-pre.2`；安装器、便携 ZIP、独立 EXE 和校验文件均可下载。
 
 ### 2026-08-19：聊天工作台 UI/UX 与应用图标源码
 
