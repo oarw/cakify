@@ -473,7 +473,7 @@ fn cancelled() -> ProviderError {
 mod tests {
     use std::{collections::HashMap, io::Cursor, sync::Mutex};
 
-    use cakify_core::{ChatMessage, ChatRole, SecretError, SecretInput, SecretValue};
+    use cakify_core::{ChatMessage, SecretError, SecretInput, SecretValue};
 
     use super::*;
 
@@ -529,10 +529,7 @@ mod tests {
     fn request_body_encodes_messages_and_validated_tools() {
         let request = ChatRequest {
             model: "test-model".to_owned(),
-            messages: vec![ChatMessage {
-                role: ChatRole::User,
-                content: "hello".to_owned(),
-            }],
+            messages: vec![ChatMessage::user("hello")],
             tools: vec![cakify_core::ToolDefinition {
                 name: "clock".to_owned(),
                 description: "read time".to_owned(),

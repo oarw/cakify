@@ -4,12 +4,14 @@ mod markdown;
 use std::{sync::Arc, time::SystemTime};
 
 use cakify_core::{
-    put_then_commit_reference, AppCommand, AppEvent, ConversationId, CoreEvents, CoreRuntime,
-    RequestId, RunId, SecretId, SecretInput, SecretStore, ToolCall, Usage,
+    builtin_tool_definitions, put_then_commit_reference, AppCommand, AppEvent,
+    BuiltinToolExecutor, ConversationId, CoreEvents, CoreRuntime, RequestId, RunId, SecretId,
+    SecretInput, SecretStore, ToolCall, Usage,
 };
 use cakify_platform_windows::{app_data_paths, CredentialManagerSecretStore};
 use cakify_provider::{OpenAiCompatibleProvider, OpenAiConfig, ProviderRouter};
 use cakify_storage::{
+    McpServerRecord, McpServerStatusUpdate, McpTransport as StoredMcpTransport, NewMcpServer,
     NewProviderProfile, ProviderProfileRecord, ProviderProfileUpdate, StorageActor, StorageConfig,
     StorageError, StorageHandle,
 };
@@ -34,6 +36,7 @@ struct DesktopServices {
     secrets: Arc<dyn SecretStore>,
     provider_router: Arc<ProviderRouter>,
     provider_profile: Option<ProviderProfileRecord>,
+    mcp_servers: Vec<McpServerRecord>,
     data_root: String,
     startup_status: String,
 }
@@ -50,6 +53,9 @@ impl DesktopServices {
         let provider_profile = storage
             .get_provider_profile(PROVIDER_ID)
             .map_err(|error| error.to_string())?;
+        let mcp_servers = storage
+            .list_mcp_servers()
+            .map_err(|error| error.to_string())?;
 
         let startup_status = if let Some(profile) = &provider_profile {
             match provider_from_profile(profile, secrets.clone()) {
@@ -62,8 +68,11 @@ impl DesktopServices {
         } else {
             "配置 Provider 后即可开始对话".to_owned()
         };
-        let core = CoreRuntime::start_with_provider(provider_router.clone())
-            .map_err(|error| error.to_string())?;
+        let core = CoreRuntime::start_with_provider_and_tools(
+            provider_router.clone(),
+            Arc::new(BuiltinToolExecutor),
+        )
+        .map_err(|error| error.to_string())?;
         let events = core.events();
 
         Ok(Self {
@@ -74,6 +83,7 @@ impl DesktopServices {
             secrets,
             provider_router,
             provider_profile,
+            mcp_servers,
             data_root: paths.root.display().to_string(),
             startup_status,
         })
@@ -116,6 +126,9 @@ enum ToolApprovalState {
     Streaming,
     AwaitingApproval,
     Approved,
+    Executing,
+    Complete,
+    Failed,
     Denied,
 }
 
@@ -126,6 +139,7 @@ struct UiToolCall {
     id: String,
     name: String,
     arguments_json: String,
+    output: Option<String>,
     state: ToolApprovalState,
 }
 
@@ -136,10 +150,12 @@ enum McpTransport {
 }
 
 struct McpServerUi {
+    id: String,
     name: String,
     target: String,
     transport: McpTransport,
     enabled: bool,
+    updated_at: i64,
 }
 
 struct CakifyApp {
@@ -230,7 +246,11 @@ impl CakifyApp {
             mcp_target_editor,
             panel: Panel::None,
             mcp_transport: McpTransport::Stdio,
-            mcp_servers: Vec::new(),
+            mcp_servers: services
+                .mcp_servers
+                .into_iter()
+                .map(mcp_record_to_ui)
+                .collect(),
             messages: Vec::new(),
             tool_calls: Vec::new(),
             status: services.startup_status.into(),
@@ -378,6 +398,55 @@ impl CakifyApp {
                     };
                 }
             }
+            AppEvent::ToolExecutionStarted {
+                run_id,
+                tool_call_id,
+                revision,
+            } => {
+                self.revision = revision;
+                if let Some(call) = self
+                    .tool_calls
+                    .iter_mut()
+                    .find(|call| call.run_id == run_id && call.id == tool_call_id)
+                {
+                    call.state = ToolApprovalState::Executing;
+                }
+                self.status = "正在执行工具".into();
+            }
+            AppEvent::ToolExecutionCompleted {
+                run_id,
+                tool_call_id,
+                output,
+                revision,
+            } => {
+                self.revision = revision;
+                if let Some(call) = self
+                    .tool_calls
+                    .iter_mut()
+                    .find(|call| call.run_id == run_id && call.id == tool_call_id)
+                {
+                    call.state = ToolApprovalState::Complete;
+                    call.output = Some(output);
+                }
+                self.status = "工具执行完成，模型继续生成".into();
+            }
+            AppEvent::ToolExecutionFailed {
+                run_id,
+                tool_call_id,
+                message,
+                revision,
+            } => {
+                self.revision = revision;
+                if let Some(call) = self
+                    .tool_calls
+                    .iter_mut()
+                    .find(|call| call.run_id == run_id && call.id == tool_call_id)
+                {
+                    call.state = ToolApprovalState::Failed;
+                    call.output = Some(message);
+                }
+                self.status = "工具执行失败，错误已回填模型".into();
+            }
             AppEvent::RunCompleted {
                 run_id,
                 usage,
@@ -455,6 +524,7 @@ impl CakifyApp {
             id: String::new(),
             name: String::new(),
             arguments_json: String::new(),
+            output: None,
             state: ToolApprovalState::Streaming,
         });
         self.tool_calls.last_mut().expect("inserted tool call")
@@ -551,7 +621,7 @@ impl CakifyApp {
             conversation_id,
             model,
             text,
-            tools: Vec::new(),
+            tools: builtin_tool_definitions(),
             temperature: None,
         }) {
             Ok(()) => {
@@ -702,17 +772,82 @@ impl CakifyApp {
             cx.notify();
             return;
         }
-        self.mcp_servers.push(McpServerUi {
-            name,
-            target,
-            transport: self.mcp_transport,
-            enabled: false,
-        });
+        let now = match unix_millis() {
+            Ok(now) => now,
+            Err(error) => {
+                self.status = error.into();
+                cx.notify();
+                return;
+            }
+        };
+        let id = format!("mcp-{now}-{}", self.mcp_servers.len());
+        let input = match self.mcp_transport {
+            McpTransport::Stdio => NewMcpServer::stdio(id, name, target, now),
+            McpTransport::Http => NewMcpServer::streamable_http(id, name, target, now),
+        };
+        let stored = match self.storage.create_mcp_server(input) {
+            Ok(stored) => stored,
+            Err(error) => {
+                self.status = error.to_string().into();
+                cx.notify();
+                return;
+            }
+        };
+        self.mcp_servers.push(mcp_record_to_ui(stored));
         self.mcp_name_editor
             .update(cx, |editor, cx| editor.clear(cx));
         self.mcp_target_editor
             .update(cx, |editor, cx| editor.clear(cx));
-        self.status = "MCP Server 草稿已添加；连接器尚未启用".into();
+        self.status = "MCP Server 已保存；启用后连接".into();
+        cx.notify();
+    }
+
+    fn set_mcp_server_enabled(
+        &mut self,
+        id: String,
+        enabled: bool,
+        expected_updated_at: i64,
+        cx: &mut Context<Self>,
+    ) {
+        let now = match next_timestamp(expected_updated_at) {
+            Ok(now) => now,
+            Err(error) => {
+                self.status = error.into();
+                cx.notify();
+                return;
+            }
+        };
+        match self
+            .storage
+            .set_mcp_server_enabled(McpServerStatusUpdate {
+                id: id.clone(),
+                enabled,
+                expected_updated_at,
+                updated_at: now,
+            }) {
+            Ok(stored) => {
+                if let Some(server) = self.mcp_servers.iter_mut().find(|server| server.id == id) {
+                    *server = mcp_record_to_ui(stored);
+                }
+                self.status = if enabled {
+                    "MCP Server 配置已启用；连接器待接入".into()
+                } else {
+                    "MCP Server 已停用".into()
+                };
+            }
+            Err(error) => self.status = error.to_string().into(),
+        }
+        cx.notify();
+    }
+
+    fn delete_mcp_server(&mut self, id: String, cx: &mut Context<Self>) {
+        match self.storage.delete_mcp_server(&id) {
+            Ok(()) => {
+                self.mcp_servers.retain(|server| server.id != id);
+                self.status = "MCP Server 已删除".into();
+            }
+            Err(error) => self.status = error.to_string().into(),
+        }
         cx.notify();
     }
 
@@ -733,7 +868,7 @@ impl CakifyApp {
             }) {
             Ok(()) => {
                 self.status = if approved {
-                    "已允许工具调用，等待执行器".into()
+                    "已允许工具调用，等待执行".into()
                 } else {
                     "已拒绝工具调用".into()
                 };
@@ -1031,7 +1166,10 @@ impl CakifyApp {
         let state = match call.state {
             ToolApprovalState::Streaming => "接收参数",
             ToolApprovalState::AwaitingApproval => "等待审批",
-            ToolApprovalState::Approved => "已允许，等待执行器",
+            ToolApprovalState::Approved => "已允许，等待执行",
+            ToolApprovalState::Executing => "执行中",
+            ToolApprovalState::Complete => "已完成",
+            ToolApprovalState::Failed => "执行失败",
             ToolApprovalState::Denied => "已拒绝",
         };
         let mut view = div()
@@ -1078,6 +1216,24 @@ impl CakifyApp {
                         call.arguments_json.clone()
                     }),
             );
+        if let Some(output) = &call.output {
+            view = view.child(
+                div()
+                    .max_h(px(140.0))
+                    .overflow_y_scroll()
+                    .border_t_1()
+                    .border_color(border)
+                    .pt_2()
+                    .text_xs()
+                    .font_family("Cascadia Mono")
+                    .text_color(if call.state == ToolApprovalState::Failed {
+                        danger
+                    } else {
+                        text
+                    })
+                    .child(output.clone()),
+            );
+        }
         if call.state == ToolApprovalState::AwaitingApproval {
             let approve_id = call.id.clone();
             let deny_id = call.id.clone();
@@ -1327,6 +1483,10 @@ impl CakifyApp {
                     ),
             )
             .children(self.mcp_servers.iter().enumerate().map(|(index, server)| {
+                let toggle_id = server.id.clone();
+                let delete_id = server.id.clone();
+                let next_enabled = !server.enabled;
+                let expected_updated_at = server.updated_at;
                 div()
                     .id(("mcp-server", index))
                     .border_b_1()
@@ -1343,11 +1503,16 @@ impl CakifyApp {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child(server.name.clone()),
                             )
-                            .child(div().text_xs().text_color(muted).child(if server.enabled {
-                                "已启用"
-                            } else {
-                                "未连接"
-                            })),
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(muted)
+                                    .child(if server.enabled {
+                                        "已启用 · 未连接"
+                                    } else {
+                                        "已停用"
+                                    }),
+                            ),
                     )
                     .child(div().mt_1().text_xs().text_color(muted).child(format!(
                         "{} · {}",
@@ -1357,6 +1522,47 @@ impl CakifyApp {
                         },
                         server.target
                     )))
+                    .child(
+                        div()
+                            .mt_2()
+                            .flex()
+                            .justify_end()
+                            .gap_3()
+                            .child(
+                                div()
+                                    .id(("delete-mcp", index))
+                                    .text_xs()
+                                    .text_color(rgb(0xa13d32))
+                                    .cursor_pointer()
+                                    .on_mouse_up(
+                                        MouseButton::Left,
+                                        cx.listener(move |app, _, _, cx| {
+                                            app.delete_mcp_server(delete_id.clone(), cx);
+                                        }),
+                                    )
+                                    .child("删除"),
+                            )
+                            .child(
+                                div()
+                                    .id(("toggle-mcp", index))
+                                    .text_xs()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(accent)
+                                    .cursor_pointer()
+                                    .on_mouse_up(
+                                        MouseButton::Left,
+                                        cx.listener(move |app, _, _, cx| {
+                                            app.set_mcp_server_enabled(
+                                                toggle_id.clone(),
+                                                next_enabled,
+                                                expected_updated_at,
+                                                cx,
+                                            );
+                                        }),
+                                    )
+                                    .child(if server.enabled { "停用" } else { "启用" }),
+                            ),
+                    )
             }))
             .child(div().flex_1())
             .child(labeled_input(
@@ -1631,12 +1837,36 @@ fn provider_from_profile(
         .map_err(|error| error.to_string())
 }
 
+fn mcp_record_to_ui(record: McpServerRecord) -> McpServerUi {
+    let target = record
+        .target()
+        .unwrap_or_else(|| "配置不可用".to_owned());
+    McpServerUi {
+        id: record.id,
+        name: record.display_name,
+        target,
+        transport: match record.transport {
+            StoredMcpTransport::Stdio => McpTransport::Stdio,
+            StoredMcpTransport::StreamableHttp => McpTransport::Http,
+        },
+        enabled: record.enabled,
+        updated_at: record.updated_at,
+    }
+}
+
 fn unix_millis() -> Result<i64, String> {
     let millis = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|error| error.to_string())?
         .as_millis();
     i64::try_from(millis).map_err(|_| "系统时间超出范围".to_owned())
+}
+
+fn next_timestamp(expected: i64) -> Result<i64, String> {
+    let minimum = expected
+        .checked_add(1)
+        .ok_or_else(|| "配置时间戳超出范围".to_owned())?;
+    unix_millis().map(|now| now.max(minimum))
 }
 
 fn format_usage(usage: &Usage) -> String {

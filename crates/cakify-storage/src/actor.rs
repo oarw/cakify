@@ -9,8 +9,9 @@ use rusqlite::Connection;
 
 use crate::{
     migration, repository, ConversationPage, ConversationQuery, ConversationRecord,
-    ConversationThread, CrashRecoveryReport, DeletedProviderProfile, NewConversation, NewMessage,
-    NewProviderModel, NewProviderProfile, NewRun, ProviderModelRecord, ProviderProfileRecord,
+    ConversationThread, CrashRecoveryReport, DeletedProviderProfile, McpServerRecord,
+    McpServerStatusUpdate, NewConversation, NewMcpServer, NewMessage, NewProviderModel,
+    NewProviderProfile, NewRun, ProviderModelRecord, ProviderProfileRecord,
     ProviderProfileStatusUpdate, ProviderProfileUpdate, RunRecord, RunUpdate, StorageError,
     TextCheckpoint, LATEST_SCHEMA_VERSION,
 };
@@ -120,6 +121,38 @@ impl StorageHandle {
         id: &str,
     ) -> Result<DeletedProviderProfile, StorageError> {
         self.request(|reply| Command::DeleteProviderProfile {
+            id: id.to_owned(),
+            reply,
+        })
+    }
+
+    pub fn create_mcp_server(
+        &self,
+        input: NewMcpServer,
+    ) -> Result<McpServerRecord, StorageError> {
+        self.request(|reply| Command::CreateMcpServer { input, reply })
+    }
+
+    pub fn get_mcp_server(&self, id: &str) -> Result<Option<McpServerRecord>, StorageError> {
+        self.request(|reply| Command::GetMcpServer {
+            id: id.to_owned(),
+            reply,
+        })
+    }
+
+    pub fn list_mcp_servers(&self) -> Result<Vec<McpServerRecord>, StorageError> {
+        self.request(|reply| Command::ListMcpServers { reply })
+    }
+
+    pub fn set_mcp_server_enabled(
+        &self,
+        input: McpServerStatusUpdate,
+    ) -> Result<McpServerRecord, StorageError> {
+        self.request(|reply| Command::SetMcpServerEnabled { input, reply })
+    }
+
+    pub fn delete_mcp_server(&self, id: &str) -> Result<(), StorageError> {
+        self.request(|reply| Command::DeleteMcpServer {
             id: id.to_owned(),
             reply,
         })
@@ -317,6 +350,25 @@ enum Command {
         id: String,
         reply: SyncSender<Result<DeletedProviderProfile, StorageError>>,
     },
+    CreateMcpServer {
+        input: NewMcpServer,
+        reply: SyncSender<Result<McpServerRecord, StorageError>>,
+    },
+    GetMcpServer {
+        id: String,
+        reply: SyncSender<Result<Option<McpServerRecord>, StorageError>>,
+    },
+    ListMcpServers {
+        reply: SyncSender<Result<Vec<McpServerRecord>, StorageError>>,
+    },
+    SetMcpServerEnabled {
+        input: McpServerStatusUpdate,
+        reply: SyncSender<Result<McpServerRecord, StorageError>>,
+    },
+    DeleteMcpServer {
+        id: String,
+        reply: SyncSender<Result<(), StorageError>>,
+    },
     CreateConversation {
         input: NewConversation,
         reply: SyncSender<Result<ConversationRecord, StorageError>>,
@@ -442,6 +494,24 @@ fn run_loop(mut connection: Connection, receiver: Receiver<Command>) {
             }
             Command::DeleteProviderProfile { id, reply } => {
                 let _ = reply.send(repository::delete_provider_profile(&mut connection, &id));
+            }
+            Command::CreateMcpServer { input, reply } => {
+                let _ = reply.send(repository::create_mcp_server(&mut connection, input));
+            }
+            Command::GetMcpServer { id, reply } => {
+                let _ = reply.send(repository::get_mcp_server(&connection, &id));
+            }
+            Command::ListMcpServers { reply } => {
+                let _ = reply.send(repository::list_mcp_servers(&connection));
+            }
+            Command::SetMcpServerEnabled { input, reply } => {
+                let _ = reply.send(repository::set_mcp_server_enabled(
+                    &mut connection,
+                    input,
+                ));
+            }
+            Command::DeleteMcpServer { id, reply } => {
+                let _ = reply.send(repository::delete_mcp_server(&mut connection, &id));
             }
             Command::CreateConversation { input, reply } => {
                 let _ = reply.send(repository::create_conversation(&mut connection, input));

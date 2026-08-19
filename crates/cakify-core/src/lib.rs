@@ -2,20 +2,27 @@
 
 mod chat;
 mod secret;
+mod tool;
 
 pub use chat::{
-    ChatMessage, ChatProvider, ChatRequest, ChatRole, MissingProvider, ProviderError,
-    ProviderErrorKind, ProviderStreamEvent, StreamSink, ToolDefinition, Usage,
+    ChatMessage, ChatProvider, ChatRequest, ChatRole, ChatToolCall, ChatToolFunction,
+    MissingProvider, ProviderError, ProviderErrorKind, ProviderStreamEvent, StreamSink,
+    ToolDefinition, Usage,
 };
 pub use secret::{
     delete_reference_then_secret, put_then_commit_reference, SecretError, SecretId, SecretInput,
     SecretLifecycleError, SecretStore, SecretValue,
 };
+pub use tool::{
+    builtin_tool_definitions, BuiltinToolExecutor, ToolExecutionError, ToolExecutor,
+    CURRENT_TIME_TOOL_NAME,
+};
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::{
         atomic::{AtomicBool, Ordering},
+        mpsc::{self, RecvTimeoutError, SyncSender},
         Arc, Mutex,
     },
     thread::{self, JoinHandle},
@@ -30,6 +37,11 @@ pub const COMMAND_CAPACITY: usize = 256;
 pub const EVENT_CAPACITY: usize = 1_024;
 const DELTA_FLUSH_INTERVAL: Duration = Duration::from_millis(24);
 const DELTA_FLUSH_BYTES: usize = 1_024;
+const APPROVAL_POLL_INTERVAL: Duration = Duration::from_millis(50);
+const APPROVAL_QUEUE_CAPACITY: usize = 64;
+const MAX_TOOL_ARGUMENT_BYTES: usize = 64 * 1_024;
+const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1_024;
+const MAX_TOOL_ROUNDS: usize = 4;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct RequestId(u64);
@@ -145,6 +157,23 @@ pub enum AppEvent {
         approved: bool,
         revision: u64,
     },
+    ToolExecutionStarted {
+        run_id: RunId,
+        tool_call_id: String,
+        revision: u64,
+    },
+    ToolExecutionCompleted {
+        run_id: RunId,
+        tool_call_id: String,
+        output: String,
+        revision: u64,
+    },
+    ToolExecutionFailed {
+        run_id: RunId,
+        tool_call_id: String,
+        message: String,
+        revision: u64,
+    },
     RunCompleted {
         conversation_id: ConversationId,
         run_id: RunId,
@@ -244,12 +273,19 @@ impl CoreRuntime {
     }
 
     pub fn start_with_provider(provider: Arc<dyn ChatProvider>) -> Result<Self, CoreStartError> {
+        Self::start_with_provider_and_tools(provider, Arc::new(tool::DisabledToolExecutor))
+    }
+
+    pub fn start_with_provider_and_tools(
+        provider: Arc<dyn ChatProvider>,
+        tool_executor: Arc<dyn ToolExecutor>,
+    ) -> Result<Self, CoreStartError> {
         let (commands, command_receiver) = async_channel::bounded(COMMAND_CAPACITY);
         let (events, event_receiver) = async_channel::bounded(EVENT_CAPACITY);
         let emitter = Arc::new(EventEmitter::new(events));
         let join = thread::Builder::new()
             .name("cakify-core".to_owned())
-            .spawn(move || run_loop(command_receiver, emitter, provider))
+            .spawn(move || run_loop(command_receiver, emitter, provider, tool_executor))
             .map_err(CoreStartError::Thread)?;
 
         Ok(Self {
@@ -304,13 +340,20 @@ impl EventEmitter {
 
 struct ActiveRun {
     cancellation: Arc<AtomicBool>,
+    approvals: SyncSender<ToolApproval>,
     worker: JoinHandle<()>,
+}
+
+struct ToolApproval {
+    tool_call_id: String,
+    approved: bool,
 }
 
 fn run_loop(
     commands: Receiver<AppCommand>,
     emitter: Arc<EventEmitter>,
     provider: Arc<dyn ChatProvider>,
+    tool_executor: Arc<dyn ToolExecutor>,
 ) {
     let history = Arc::new(Mutex::new(
         HashMap::<ConversationId, Vec<ChatMessage>>::new(),
@@ -363,12 +406,12 @@ fn run_loop(
 
                 let run_id = RunId::new(next_run);
                 next_run += 1;
-                let (messages, submitted_user) = match history.lock() {
+                let (messages, base_history_len) = match history.lock() {
                     Ok(mut history) => {
                         let messages = history.entry(conversation_id).or_default();
-                        let submitted_user = ChatMessage::user(text);
-                        messages.push(submitted_user.clone());
-                        (messages.clone(), submitted_user)
+                        let base_history_len = messages.len();
+                        messages.push(ChatMessage::user(text));
+                        (messages.clone(), base_history_len)
                     }
                     Err(_) => {
                         emitter.emit(AppEvent::RunFailed {
@@ -390,8 +433,11 @@ fn run_loop(
                 });
 
                 let cancellation = Arc::new(AtomicBool::new(false));
+                let (approvals, approval_receiver) =
+                    mpsc::sync_channel(APPROVAL_QUEUE_CAPACITY);
                 let worker = spawn_run(RunWorker {
                     provider: provider.clone(),
+                    tool_executor: tool_executor.clone(),
                     request: ChatRequest {
                         model,
                         messages,
@@ -403,12 +449,14 @@ fn run_loop(
                     cancellation: cancellation.clone(),
                     emitter: emitter.clone(),
                     history: history.clone(),
-                    submitted_user,
+                    base_history_len,
+                    approvals: approval_receiver,
                 });
                 active_runs.insert(
                     run_id,
                     ActiveRun {
                         cancellation,
+                        approvals,
                         worker,
                     },
                 );
@@ -423,12 +471,26 @@ fn run_loop(
                 tool_call_id,
                 approved,
             } => {
-                emitter.emit(AppEvent::ToolApprovalResolved {
-                    run_id,
-                    tool_call_id,
-                    approved,
-                    revision: 0,
-                });
+                let Some(run) = active_runs.get(&run_id) else {
+                    emitter.emit(AppEvent::Status {
+                        message: "工具调用已经结束".to_owned(),
+                        revision: 0,
+                    });
+                    continue;
+                };
+                if run
+                    .approvals
+                    .try_send(ToolApproval {
+                        tool_call_id,
+                        approved,
+                    })
+                    .is_err()
+                {
+                    emitter.emit(AppEvent::Status {
+                        message: "工具审批队列暂时不可用".to_owned(),
+                        revision: 0,
+                    });
+                }
             }
             AppCommand::Shutdown => {
                 for run in active_runs.values() {
@@ -458,13 +520,15 @@ fn prune_workers(active_runs: &mut HashMap<RunId, ActiveRun>) {
 
 struct RunWorker {
     provider: Arc<dyn ChatProvider>,
+    tool_executor: Arc<dyn ToolExecutor>,
     request: ChatRequest,
     conversation_id: ConversationId,
     run_id: RunId,
     cancellation: Arc<AtomicBool>,
     emitter: Arc<EventEmitter>,
     history: Arc<Mutex<HashMap<ConversationId, Vec<ChatMessage>>>>,
-    submitted_user: ChatMessage,
+    base_history_len: usize,
+    approvals: mpsc::Receiver<ToolApproval>,
 }
 
 fn spawn_run(input: RunWorker) -> JoinHandle<()> {
@@ -474,140 +538,386 @@ fn spawn_run(input: RunWorker) -> JoinHandle<()> {
         .expect("start provider worker")
 }
 
-#[derive(Default)]
 struct ToolCallBuffer {
+    ui_index: u32,
     id: String,
     name: String,
     arguments_json: String,
 }
 
 fn execute_run(input: RunWorker) {
-    let mut assistant_text = String::new();
-    let mut pending_text = String::new();
-    let mut last_flush = Instant::now();
-    let mut tool_calls = BTreeMap::<u32, ToolCallBuffer>::new();
-    let mut usage = None;
-    let mut finish_reason = None;
+    let mut request = input.request.clone();
+    let allowed_tools = request
+        .tools
+        .iter()
+        .map(|tool| tool.name.clone())
+        .collect::<HashSet<_>>();
+    let mut aggregate_usage = None;
+    let mut next_ui_index = 0_u32;
 
-    let result = input.provider.stream(
-        input.request.clone(),
-        input.cancellation.clone(),
-        &mut |event| {
-            if input.cancellation.load(Ordering::Acquire) {
-                return false;
-            }
-            match event {
-                ProviderStreamEvent::TextDelta(delta) => {
-                    assistant_text.push_str(&delta);
-                    pending_text.push_str(&delta);
-                    if pending_text.len() >= DELTA_FLUSH_BYTES
-                        || last_flush.elapsed() >= DELTA_FLUSH_INTERVAL
-                    {
-                        flush_text(&input, &mut pending_text);
-                        last_flush = Instant::now();
-                    }
+    for round in 0..=MAX_TOOL_ROUNDS {
+        let mut assistant_text = String::new();
+        let mut pending_text = String::new();
+        let mut last_flush = Instant::now();
+        let mut tool_calls = BTreeMap::<u32, ToolCallBuffer>::new();
+        let mut round_usage = None;
+        let mut finish_reason = None;
+
+        let result = input.provider.stream(
+            request.clone(),
+            input.cancellation.clone(),
+            &mut |event| {
+                if input.cancellation.load(Ordering::Acquire) {
+                    return false;
                 }
-                ProviderStreamEvent::ToolCallDelta {
-                    index,
-                    id,
-                    name,
-                    arguments_delta,
-                } => {
-                    flush_text(&input, &mut pending_text);
-                    let call = tool_calls.entry(index).or_default();
-                    if let Some(id) = &id {
-                        call.id = id.clone();
+                match event {
+                    ProviderStreamEvent::TextDelta(delta) => {
+                        assistant_text.push_str(&delta);
+                        pending_text.push_str(&delta);
+                        if pending_text.len() >= DELTA_FLUSH_BYTES
+                            || last_flush.elapsed() >= DELTA_FLUSH_INTERVAL
+                        {
+                            flush_text(&input, &mut pending_text);
+                            last_flush = Instant::now();
+                        }
                     }
-                    if let Some(name) = &name {
-                        call.name = name.clone();
-                    }
-                    call.arguments_json.push_str(&arguments_delta);
-                    input.emitter.emit(AppEvent::ToolCallDelta {
-                        run_id: input.run_id,
+                    ProviderStreamEvent::ToolCallDelta {
                         index,
                         id,
                         name,
                         arguments_delta,
-                        revision: 0,
-                    });
+                    } => {
+                        flush_text(&input, &mut pending_text);
+                        let call = tool_calls.entry(index).or_insert_with(|| {
+                            let ui_index = next_ui_index;
+                            next_ui_index = next_ui_index.saturating_add(1);
+                            ToolCallBuffer {
+                                ui_index,
+                                id: String::new(),
+                                name: String::new(),
+                                arguments_json: String::new(),
+                            }
+                        });
+                        if let Some(id) = &id {
+                            call.id = id.clone();
+                        }
+                        if let Some(name) = &name {
+                            call.name = name.clone();
+                        }
+                        call.arguments_json.push_str(&arguments_delta);
+                        input.emitter.emit(AppEvent::ToolCallDelta {
+                            run_id: input.run_id,
+                            index: call.ui_index,
+                            id,
+                            name,
+                            arguments_delta,
+                            revision: 0,
+                        });
+                    }
+                    ProviderStreamEvent::Usage(value) => round_usage = Some(value),
+                    ProviderStreamEvent::Finished { reason } => finish_reason = reason,
                 }
-                ProviderStreamEvent::Usage(value) => usage = Some(value),
-                ProviderStreamEvent::Finished { reason } => finish_reason = reason,
-            }
-            true
-        },
-    );
-    flush_text(&input, &mut pending_text);
+                true
+            },
+        );
+        flush_text(&input, &mut pending_text);
+        merge_usage(&mut aggregate_usage, round_usage);
 
-    if input.cancellation.load(Ordering::Acquire)
-        || result
-            .as_ref()
-            .is_err_and(|error| error.kind() == ProviderErrorKind::Cancelled)
-    {
-        remove_failed_turn(&input);
-        input.emitter.emit(AppEvent::RunCancelled {
-            conversation_id: input.conversation_id,
-            run_id: input.run_id,
-            revision: 0,
-        });
-        return;
-    }
-
-    if let Err(error) = result {
-        remove_failed_turn(&input);
-        input.emitter.emit(AppEvent::RunFailed {
-            conversation_id: input.conversation_id,
-            run_id: input.run_id,
-            kind: error.kind().as_str().to_owned(),
-            message: error.public_message().to_owned(),
-            revision: 0,
-        });
-        return;
-    }
-
-    if !assistant_text.is_empty() {
-        if let Ok(mut history) = input.history.lock() {
-            history
-                .entry(input.conversation_id)
-                .or_default()
-                .push(ChatMessage::assistant(assistant_text));
+        if input.cancellation.load(Ordering::Acquire)
+            || result
+                .as_ref()
+                .is_err_and(|error| error.kind() == ProviderErrorKind::Cancelled)
+        {
+            cancel_run(&input);
+            return;
         }
-    }
+        if let Err(error) = result {
+            fail_run(&input, error);
+            return;
+        }
 
-    for (index, call) in tool_calls {
-        let id = if call.id.is_empty() {
-            format!("tool-{}-{index}", input.run_id.value())
-        } else {
-            call.id
+        if tool_calls.is_empty() {
+            if !assistant_text.is_empty() {
+                append_history(&input, vec![ChatMessage::assistant(assistant_text)]);
+            }
+            input.emitter.emit(AppEvent::RunCompleted {
+                conversation_id: input.conversation_id,
+                run_id: input.run_id,
+                finish_reason,
+                usage: aggregate_usage,
+                revision: 0,
+            });
+            return;
+        }
+        if round == MAX_TOOL_ROUNDS {
+            fail_run(
+                &input,
+                ProviderError::new(
+                    ProviderErrorKind::Protocol,
+                    "工具调用轮数超过安全上限",
+                ),
+            );
+            return;
+        }
+
+        let calls = match finalize_tool_calls(&input, tool_calls, &allowed_tools) {
+            Ok(calls) => calls,
+            Err(error) => {
+                fail_run(&input, error);
+                return;
+            }
         };
-        input.emitter.emit(AppEvent::ToolApprovalRequested {
-            run_id: input.run_id,
-            call: ToolCall {
-                index,
-                id,
+        let assistant_message = ChatMessage::assistant_with_tool_calls(
+            assistant_text,
+            calls
+                .iter()
+                .map(|call| {
+                    ChatToolCall::function(
+                        call.id.clone(),
+                        call.name.clone(),
+                        call.arguments_json.clone(),
+                    )
+                })
+                .collect(),
+        );
+        append_history(&input, vec![assistant_message]);
+        for call in &calls {
+            input.emitter.emit(AppEvent::ToolApprovalRequested {
+                run_id: input.run_id,
+                call: call.clone(),
+                revision: 0,
+            });
+        }
+
+        let decisions = match wait_for_approvals(&input, &calls) {
+            Ok(decisions) => decisions,
+            Err(error) if error.kind() == ProviderErrorKind::Cancelled => {
+                cancel_run(&input);
+                return;
+            }
+            Err(error) => {
+                fail_run(&input, error);
+                return;
+            }
+        };
+        let mut tool_messages = Vec::with_capacity(calls.len());
+        for call in calls {
+            let approved = decisions.get(&call.id).copied().unwrap_or(false);
+            let output = if approved {
+                input.emitter.emit(AppEvent::ToolExecutionStarted {
+                    run_id: input.run_id,
+                    tool_call_id: call.id.clone(),
+                    revision: 0,
+                });
+                match input.tool_executor.execute(
+                    &call.name,
+                    &call.arguments_json,
+                    input.cancellation.clone(),
+                ) {
+                    Ok(output) if output.len() <= MAX_TOOL_OUTPUT_BYTES => {
+                        input.emitter.emit(AppEvent::ToolExecutionCompleted {
+                            run_id: input.run_id,
+                            tool_call_id: call.id.clone(),
+                            output: output.clone(),
+                            revision: 0,
+                        });
+                        output
+                    }
+                    Ok(_) => {
+                        let message = "工具输出超过安全上限".to_owned();
+                        input.emitter.emit(AppEvent::ToolExecutionFailed {
+                            run_id: input.run_id,
+                            tool_call_id: call.id.clone(),
+                            message: message.clone(),
+                            revision: 0,
+                        });
+                        serde_json::json!({ "error": message }).to_string()
+                    }
+                    Err(error) => {
+                        if input.cancellation.load(Ordering::Acquire) {
+                            cancel_run(&input);
+                            return;
+                        }
+                        let message = error.public_message().to_owned();
+                        input.emitter.emit(AppEvent::ToolExecutionFailed {
+                            run_id: input.run_id,
+                            tool_call_id: call.id.clone(),
+                            message: message.clone(),
+                            revision: 0,
+                        });
+                        serde_json::json!({ "error": message }).to_string()
+                    }
+                }
+            } else {
+                serde_json::json!({ "error": "user_denied" }).to_string()
+            };
+            tool_messages.push(ChatMessage::tool(call.id, output));
+        }
+        append_history(&input, tool_messages);
+        request.messages = match input.history.lock() {
+            Ok(history) => history
+                .get(&input.conversation_id)
+                .cloned()
+                .unwrap_or_default(),
+            Err(_) => {
+                fail_run(
+                    &input,
+                    ProviderError::new(
+                        ProviderErrorKind::Protocol,
+                        "对话历史暂时不可用",
+                    ),
+                );
+                return;
+            }
+        };
+    }
+}
+
+fn finalize_tool_calls(
+    input: &RunWorker,
+    tool_calls: BTreeMap<u32, ToolCallBuffer>,
+    allowed_tools: &HashSet<String>,
+) -> Result<Vec<ToolCall>, ProviderError> {
+    let mut ids = HashSet::new();
+    tool_calls
+        .into_values()
+        .map(|mut call| {
+            if call.id.is_empty() {
+                call.id = format!("tool-{}-{}", input.run_id.value(), call.ui_index);
+            }
+            if call.name.is_empty() || !allowed_tools.contains(&call.name) {
+                return Err(ProviderError::new(
+                    ProviderErrorKind::Protocol,
+                    "模型返回了未授权的工具调用",
+                ));
+            }
+            if !ids.insert(call.id.clone()) {
+                return Err(ProviderError::new(
+                    ProviderErrorKind::Protocol,
+                    "模型返回了重复的工具调用 ID",
+                ));
+            }
+            if call.arguments_json.is_empty() {
+                call.arguments_json = "{}".to_owned();
+            }
+            if call.arguments_json.len() > MAX_TOOL_ARGUMENT_BYTES
+                || !serde_json::from_str::<serde_json::Value>(&call.arguments_json)
+                    .is_ok_and(|value| value.is_object())
+            {
+                return Err(ProviderError::new(
+                    ProviderErrorKind::Protocol,
+                    "模型返回了无效或过大的工具参数",
+                ));
+            }
+            Ok(ToolCall {
+                index: call.ui_index,
+                id: call.id,
                 name: call.name,
                 arguments_json: call.arguments_json,
-            },
-            revision: 0,
-        });
-    }
+            })
+        })
+        .collect()
+}
 
-    input.emitter.emit(AppEvent::RunCompleted {
+fn wait_for_approvals(
+    input: &RunWorker,
+    calls: &[ToolCall],
+) -> Result<HashMap<String, bool>, ProviderError> {
+    let pending = calls
+        .iter()
+        .map(|call| call.id.as_str())
+        .collect::<HashSet<_>>();
+    let mut decisions = HashMap::new();
+    while decisions.len() < pending.len() {
+        if input.cancellation.load(Ordering::Acquire) {
+            return Err(ProviderError::new(
+                ProviderErrorKind::Cancelled,
+                "请求已取消",
+            ));
+        }
+        match input.approvals.recv_timeout(APPROVAL_POLL_INTERVAL) {
+            Ok(approval)
+                if pending.contains(approval.tool_call_id.as_str())
+                    && !decisions.contains_key(&approval.tool_call_id) =>
+            {
+                input.emitter.emit(AppEvent::ToolApprovalResolved {
+                    run_id: input.run_id,
+                    tool_call_id: approval.tool_call_id.clone(),
+                    approved: approval.approved,
+                    revision: 0,
+                });
+                decisions.insert(approval.tool_call_id, approval.approved);
+            }
+            Ok(_) | Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(ProviderError::new(
+                    ProviderErrorKind::Protocol,
+                    "工具审批通道已关闭",
+                ));
+            }
+        }
+    }
+    Ok(decisions)
+}
+
+fn merge_usage(aggregate: &mut Option<Usage>, next: Option<Usage>) {
+    let Some(next) = next else {
+        return;
+    };
+    let current = aggregate.get_or_insert(Usage {
+        input_tokens: None,
+        output_tokens: None,
+        total_tokens: None,
+    });
+    current.input_tokens = sum_optional(current.input_tokens, next.input_tokens);
+    current.output_tokens = sum_optional(current.output_tokens, next.output_tokens);
+    current.total_tokens = sum_optional(current.total_tokens, next.total_tokens);
+}
+
+fn sum_optional(left: Option<u64>, right: Option<u64>) -> Option<u64> {
+    match (left, right) {
+        (Some(left), Some(right)) => Some(left.saturating_add(right)),
+        (Some(value), None) | (None, Some(value)) => Some(value),
+        (None, None) => None,
+    }
+}
+
+fn append_history(input: &RunWorker, new_messages: Vec<ChatMessage>) {
+    if let Ok(mut history) = input.history.lock() {
+        history
+            .entry(input.conversation_id)
+            .or_default()
+            .extend(new_messages);
+    }
+}
+
+fn fail_run(input: &RunWorker, error: ProviderError) {
+    rollback_turn(input);
+    input.emitter.emit(AppEvent::RunFailed {
         conversation_id: input.conversation_id,
         run_id: input.run_id,
-        finish_reason,
-        usage,
+        kind: error.kind().as_str().to_owned(),
+        message: error.public_message().to_owned(),
         revision: 0,
     });
 }
 
-fn remove_failed_turn(input: &RunWorker) {
+fn cancel_run(input: &RunWorker) {
+    rollback_turn(input);
+    input.emitter.emit(AppEvent::RunCancelled {
+        conversation_id: input.conversation_id,
+        run_id: input.run_id,
+        revision: 0,
+    });
+}
+
+fn rollback_turn(input: &RunWorker) {
     if let Ok(mut history) = input.history.lock() {
         let Some(messages) = history.get_mut(&input.conversation_id) else {
             return;
         };
-        if messages.last() == Some(&input.submitted_user) {
-            messages.pop();
+        if messages.len() >= input.base_history_len {
+            messages.truncate(input.base_history_len);
         }
     }
 }
@@ -646,6 +956,15 @@ fn set_revision(event: &mut AppEvent, revision: u64) {
         | AppEvent::ToolApprovalResolved {
             revision: value, ..
         }
+        | AppEvent::ToolExecutionStarted {
+            revision: value, ..
+        }
+        | AppEvent::ToolExecutionCompleted {
+            revision: value, ..
+        }
+        | AppEvent::ToolExecutionFailed {
+            revision: value, ..
+        }
         | AppEvent::RunCompleted {
             revision: value, ..
         }
@@ -668,6 +987,8 @@ pub fn start_core() -> Result<CoreRuntime, CoreStartError> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicUsize;
+
     use super::*;
 
     struct FixtureProvider;
@@ -760,5 +1081,142 @@ mod tests {
             .expect_err("second command must observe backpressure");
         assert!(matches!(error, TrySendError::Full(AppCommand::Bootstrap)));
         drop(receiver);
+    }
+
+    struct ToolLoopProvider {
+        calls: AtomicUsize,
+    }
+
+    impl ChatProvider for ToolLoopProvider {
+        fn stream(
+            &self,
+            request: ChatRequest,
+            _cancellation: Arc<AtomicBool>,
+            sink: &mut StreamSink<'_>,
+        ) -> Result<(), ProviderError> {
+            match self.calls.fetch_add(1, Ordering::AcqRel) {
+                0 => {
+                    assert_eq!(request.tools, builtin_tool_definitions());
+                    assert_eq!(request.messages.len(), 1);
+                    assert!(sink(ProviderStreamEvent::ToolCallDelta {
+                        index: 0,
+                        id: Some("call-clock".to_owned()),
+                        name: Some(CURRENT_TIME_TOOL_NAME.to_owned()),
+                        arguments_delta: "{}".to_owned(),
+                    }));
+                    assert!(sink(ProviderStreamEvent::Finished {
+                        reason: Some("tool_calls".to_owned()),
+                    }));
+                }
+                1 => {
+                    assert_eq!(request.messages.len(), 3);
+                    let assistant = &request.messages[1];
+                    assert_eq!(assistant.role, ChatRole::Assistant);
+                    assert_eq!(assistant.tool_calls.len(), 1);
+                    assert_eq!(assistant.tool_calls[0].id, "call-clock");
+                    let tool = &request.messages[2];
+                    assert_eq!(tool.role, ChatRole::Tool);
+                    assert_eq!(tool.tool_call_id.as_deref(), Some("call-clock"));
+                    let output: serde_json::Value =
+                        serde_json::from_str(&tool.content).expect("tool output JSON");
+                    assert_eq!(output["timezone"], "UTC");
+                    assert!(sink(ProviderStreamEvent::TextDelta(
+                        "工具结果已回填".to_owned(),
+                    )));
+                    assert!(sink(ProviderStreamEvent::Finished {
+                        reason: Some("stop".to_owned()),
+                    }));
+                }
+                call => panic!("unexpected provider call {call}"),
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn approved_tool_executes_and_continues_the_model_turn() {
+        let provider = Arc::new(ToolLoopProvider {
+            calls: AtomicUsize::new(0),
+        });
+        let runtime = CoreRuntime::start_with_provider_and_tools(
+            provider.clone(),
+            Arc::new(BuiltinToolExecutor),
+        )
+        .expect("core thread");
+        let events = runtime.events();
+        assert!(matches!(
+            events.recv_blocking().expect("ready"),
+            AppEvent::CoreReady { .. }
+        ));
+        runtime
+            .handle()
+            .dispatch(AppCommand::CreateConversation {
+                request_id: RequestId::new(10),
+                title: "tools".to_owned(),
+            })
+            .expect("create conversation");
+        let conversation_id = match events.recv_blocking().expect("created") {
+            AppEvent::ConversationCreated {
+                conversation_id, ..
+            } => conversation_id,
+            event => panic!("unexpected event: {event:?}"),
+        };
+        runtime
+            .handle()
+            .dispatch(AppCommand::SubmitDraft {
+                request_id: RequestId::new(11),
+                conversation_id,
+                model: "fixture".to_owned(),
+                text: "现在几点".to_owned(),
+                tools: builtin_tool_definitions(),
+                temperature: None,
+            })
+            .expect("submit draft");
+
+        let run_id = match events.recv_blocking().expect("accepted") {
+            AppEvent::DraftAccepted { run_id, .. } => run_id,
+            event => panic!("unexpected event: {event:?}"),
+        };
+        assert!(matches!(
+            events.recv_blocking().expect("tool delta"),
+            AppEvent::ToolCallDelta { .. }
+        ));
+        assert!(matches!(
+            events.recv_blocking().expect("approval requested"),
+            AppEvent::ToolApprovalRequested { ref call, .. } if call.id == "call-clock"
+        ));
+        runtime
+            .handle()
+            .dispatch(AppCommand::ResolveToolApproval {
+                run_id,
+                tool_call_id: "call-clock".to_owned(),
+                approved: true,
+            })
+            .expect("approve tool");
+        assert!(matches!(
+            events.recv_blocking().expect("approval resolved"),
+            AppEvent::ToolApprovalResolved { approved: true, .. }
+        ));
+        assert!(matches!(
+            events.recv_blocking().expect("execution started"),
+            AppEvent::ToolExecutionStarted { .. }
+        ));
+        assert!(matches!(
+            events.recv_blocking().expect("execution completed"),
+            AppEvent::ToolExecutionCompleted { ref output, .. }
+                if output.contains("unix_milliseconds")
+        ));
+        assert!(matches!(
+            events.recv_blocking().expect("continued delta"),
+            AppEvent::AssistantDelta { ref delta, .. } if delta == "工具结果已回填"
+        ));
+        assert!(matches!(
+            events.recv_blocking().expect("completed"),
+            AppEvent::RunCompleted {
+                finish_reason: Some(ref reason),
+                ..
+            } if reason == "stop"
+        ));
+        assert_eq!(provider.calls.load(Ordering::Acquire), 2);
     }
 }

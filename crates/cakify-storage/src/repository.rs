@@ -7,10 +7,10 @@ use url::Url;
 use crate::{
     ConversationCursor, ConversationPage, ConversationQuery, ConversationRecord,
     ConversationThread, CrashRecoveryReport, DeletedProviderProfile, MessagePartKind,
-    MessagePartRecord, MessageRecord, MessageRole, NewConversation, NewMessage, NewProviderModel,
-    NewProviderProfile, NewRun, ProviderModelRecord, ProviderProfileRecord,
-    ProviderProfileStatusUpdate, ProviderProfileUpdate, RunRecord, RunStatus, RunUpdate,
-    StorageError, TextCheckpoint,
+    MessagePartRecord, MessageRecord, MessageRole, McpServerRecord, McpServerStatusUpdate,
+    McpTransport, NewConversation, NewMcpServer, NewMessage, NewProviderModel, NewProviderProfile,
+    NewRun, ProviderModelRecord, ProviderProfileRecord, ProviderProfileStatusUpdate,
+    ProviderProfileUpdate, RunRecord, RunStatus, RunUpdate, StorageError, TextCheckpoint,
 };
 
 pub(crate) fn create_provider_profile(
@@ -220,6 +220,120 @@ pub(crate) fn delete_provider_profile(
         id: id.to_owned(),
         credential_ref,
     })
+}
+
+pub(crate) fn create_mcp_server(
+    connection: &mut Connection,
+    input: NewMcpServer,
+) -> Result<McpServerRecord, StorageError> {
+    validate_new_mcp_server(&input)?;
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    transaction.execute(
+        "INSERT INTO mcp_servers(
+            id, display_name, transport, config_json, enabled, created_at, updated_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+        params![
+            &input.id,
+            &input.display_name,
+            input.transport.as_str(),
+            &input.config_json,
+            input.enabled,
+            input.created_at,
+        ],
+    )?;
+    let server = get_mcp_server(&transaction, &input.id)?.ok_or_else(|| {
+        StorageError::NotFound {
+            entity: "MCP server",
+            id: input.id.clone(),
+        }
+    })?;
+    transaction.commit()?;
+    Ok(server)
+}
+
+pub(crate) fn get_mcp_server(
+    connection: &Connection,
+    id: &str,
+) -> Result<Option<McpServerRecord>, StorageError> {
+    connection
+        .query_row(
+            "SELECT id, display_name, transport, config_json, enabled,
+                    capabilities_json, schema_hash, last_error, created_at, updated_at
+             FROM mcp_servers WHERE id = ?1",
+            params![id],
+            map_stored_mcp_server,
+        )
+        .optional()?
+        .map(stored_mcp_server_into_record)
+        .transpose()
+}
+
+pub(crate) fn list_mcp_servers(
+    connection: &Connection,
+) -> Result<Vec<McpServerRecord>, StorageError> {
+    let mut statement = connection.prepare(
+        "SELECT id, display_name, transport, config_json, enabled,
+                capabilities_json, schema_hash, last_error, created_at, updated_at
+         FROM mcp_servers
+         ORDER BY display_name COLLATE NOCASE, id",
+    )?;
+    statement
+        .query_map([], map_stored_mcp_server)?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(stored_mcp_server_into_record)
+        .collect()
+}
+
+pub(crate) fn set_mcp_server_enabled(
+    connection: &mut Connection,
+    input: McpServerStatusUpdate,
+) -> Result<McpServerRecord, StorageError> {
+    validate_required_text("mcp_server.id", &input.id, 128)?;
+    if input.expected_updated_at < 0 || input.updated_at <= input.expected_updated_at {
+        return Err(StorageError::InvalidInput {
+            field: "mcp_server.updated_at",
+            reason: "must be greater than the non-negative expected_updated_at".to_owned(),
+        });
+    }
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let changed = transaction.execute(
+        "UPDATE mcp_servers
+         SET enabled = ?2, updated_at = ?3, last_error = NULL
+         WHERE id = ?1 AND updated_at = ?4",
+        params![
+            &input.id,
+            input.enabled,
+            input.updated_at,
+            input.expected_updated_at,
+        ],
+    )?;
+    if changed == 0 {
+        return mcp_server_write_failure(&transaction, &input.id);
+    }
+    let server = get_mcp_server(&transaction, &input.id)?.ok_or_else(|| {
+        StorageError::NotFound {
+            entity: "MCP server",
+            id: input.id.clone(),
+        }
+    })?;
+    transaction.commit()?;
+    Ok(server)
+}
+
+pub(crate) fn delete_mcp_server(
+    connection: &mut Connection,
+    id: &str,
+) -> Result<(), StorageError> {
+    validate_required_text("mcp_server.id", id, 128)?;
+    let changed = connection.execute("DELETE FROM mcp_servers WHERE id = ?1", params![id])?;
+    if changed == 0 {
+        return Err(StorageError::NotFound {
+            entity: "MCP server",
+            id: id.to_owned(),
+        });
+    }
+    Ok(())
 }
 
 pub(crate) fn create_conversation(
@@ -892,6 +1006,73 @@ fn map_provider_profile(row: &Row<'_>) -> rusqlite::Result<ProviderProfileRecord
     })
 }
 
+struct StoredMcpServer {
+    id: String,
+    display_name: String,
+    transport: String,
+    config_json: String,
+    enabled: bool,
+    capabilities_json: Option<String>,
+    schema_hash: Option<String>,
+    last_error: Option<String>,
+    created_at: i64,
+    updated_at: i64,
+}
+
+fn map_stored_mcp_server(row: &Row<'_>) -> rusqlite::Result<StoredMcpServer> {
+    Ok(StoredMcpServer {
+        id: row.get(0)?,
+        display_name: row.get(1)?,
+        transport: row.get(2)?,
+        config_json: row.get(3)?,
+        enabled: row.get(4)?,
+        capabilities_json: row.get(5)?,
+        schema_hash: row.get(6)?,
+        last_error: row.get(7)?,
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
+    })
+}
+
+fn stored_mcp_server_into_record(
+    stored: StoredMcpServer,
+) -> Result<McpServerRecord, StorageError> {
+    Ok(McpServerRecord {
+        id: stored.id,
+        display_name: stored.display_name,
+        transport: McpTransport::from_storage(stored.transport)?,
+        config_json: stored.config_json,
+        enabled: stored.enabled,
+        capabilities_json: stored.capabilities_json,
+        schema_hash: stored.schema_hash,
+        last_error: stored.last_error,
+        created_at: stored.created_at,
+        updated_at: stored.updated_at,
+    })
+}
+
+fn mcp_server_write_failure<T>(
+    connection: &Connection,
+    id: &str,
+) -> Result<T, StorageError> {
+    let exists = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM mcp_servers WHERE id = ?1)",
+        params![id],
+        |row| row.get::<_, bool>(0),
+    )?;
+    if exists {
+        Err(StorageError::StaleWrite {
+            entity: "MCP server",
+            id: id.to_owned(),
+        })
+    } else {
+        Err(StorageError::NotFound {
+            entity: "MCP server",
+            id: id.to_owned(),
+        })
+    }
+}
+
 fn load_provider_models(
     connection: &Connection,
     provider_id: &str,
@@ -1040,6 +1221,82 @@ fn validate_new_provider_profile(input: &NewProviderProfile) -> Result<(), Stora
         });
     }
     validate_provider_models(&input.models)
+}
+
+fn validate_new_mcp_server(input: &NewMcpServer) -> Result<(), StorageError> {
+    validate_required_text("mcp_server.id", &input.id, 128)?;
+    validate_required_text("mcp_server.display_name", &input.display_name, 200)?;
+    if input.created_at < 0 {
+        return Err(StorageError::InvalidInput {
+            field: "mcp_server.created_at",
+            reason: "must be a non-negative Unix millisecond timestamp".to_owned(),
+        });
+    }
+    validate_non_secret_json_object("mcp_server.config_json", &input.config_json)?;
+    let config: Value = serde_json::from_str(&input.config_json)?;
+    match input.transport {
+        McpTransport::Stdio => {
+            let command = config
+                .get("command")
+                .and_then(Value::as_str)
+                .ok_or_else(|| StorageError::InvalidInput {
+                    field: "mcp_server.config_json.command",
+                    reason: "stdio config requires a command string".to_owned(),
+                })?;
+            validate_required_text("mcp_server.config_json.command", command, 4_096)?;
+            if let Some(args) = config.get("args") {
+                let args = args.as_array().ok_or_else(|| StorageError::InvalidInput {
+                    field: "mcp_server.config_json.args",
+                    reason: "must be an array of strings".to_owned(),
+                })?;
+                if args.len() > 128
+                    || args.iter().any(|value| {
+                        value.as_str().is_none_or(|argument| {
+                            argument.len() > 4_096 || argument.chars().any(char::is_control)
+                        })
+                    })
+                {
+                    return Err(StorageError::InvalidInput {
+                        field: "mcp_server.config_json.args",
+                        reason: "must contain at most 128 bounded string arguments".to_owned(),
+                    });
+                }
+            }
+        }
+        McpTransport::StreamableHttp => {
+            let endpoint = config.get("url").and_then(Value::as_str).ok_or_else(|| {
+                StorageError::InvalidInput {
+                    field: "mcp_server.config_json.url",
+                    reason: "Streamable HTTP config requires a URL string".to_owned(),
+                }
+            })?;
+            validate_required_text("mcp_server.config_json.url", endpoint, 2_048)?;
+            let parsed = Url::parse(endpoint).map_err(|_| StorageError::InvalidInput {
+                field: "mcp_server.config_json.url",
+                reason: "must be an absolute HTTP or HTTPS URL".to_owned(),
+            })?;
+            let loopback = matches!(
+                parsed.host_str(),
+                Some("localhost" | "127.0.0.1" | "[::1]" | "::1")
+            );
+            let secure_scheme =
+                parsed.scheme() == "https" || (parsed.scheme() == "http" && loopback);
+            if !parsed.has_host()
+                || !secure_scheme
+                || !parsed.username().is_empty()
+                || parsed.password().is_some()
+                || parsed.query().is_some()
+                || parsed.fragment().is_some()
+            {
+                return Err(StorageError::InvalidInput {
+                    field: "mcp_server.config_json.url",
+                    reason: "remote endpoints require HTTPS and must not embed credentials, query, or fragment"
+                        .to_owned(),
+                });
+            }
+        }
+    }
+    Ok(())
 }
 
 fn validate_provider_profile_update(input: &ProviderProfileUpdate) -> Result<(), StorageError> {

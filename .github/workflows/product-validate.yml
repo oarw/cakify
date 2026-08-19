@@ -76,6 +76,14 @@ jobs:
         shell: pwsh
         run: cargo test --package cakify-storage --test provider_profile_contract --locked
 
+      - name: Run MCP server persistence contract tests
+        shell: pwsh
+        run: cargo test --package cakify-storage --test mcp_server_contract --locked
+
+      - name: Run tool approval loop contract tests
+        shell: pwsh
+        run: cargo test --package cakify-core approved_tool_executes_and_continues_the_model_turn --locked
+
       - name: Run secret lifecycle contract tests
         shell: pwsh
         run: cargo test --package cakify-core secret::tests --locked

@@ -251,6 +251,112 @@ pub struct DeletedProviderProfile {
     pub credential_ref: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum McpTransport {
+    Stdio,
+    StreamableHttp,
+}
+
+impl McpTransport {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Stdio => "stdio",
+            Self::StreamableHttp => "streamable_http",
+        }
+    }
+
+    pub(crate) fn from_storage(value: String) -> Result<Self, StorageError> {
+        match value.as_str() {
+            "stdio" => Ok(Self::Stdio),
+            "streamable_http" => Ok(Self::StreamableHttp),
+            _ => Err(StorageError::InvalidStoredValue {
+                field: "mcp_servers.transport",
+                value,
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewMcpServer {
+    pub id: String,
+    pub display_name: String,
+    pub transport: McpTransport,
+    pub config_json: String,
+    pub enabled: bool,
+    pub created_at: i64,
+}
+
+impl NewMcpServer {
+    pub fn stdio(
+        id: impl Into<String>,
+        display_name: impl Into<String>,
+        command: impl Into<String>,
+        created_at: i64,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            display_name: display_name.into(),
+            transport: McpTransport::Stdio,
+            config_json: serde_json::json!({
+                "command": command.into(),
+                "args": [],
+            })
+            .to_string(),
+            enabled: false,
+            created_at,
+        }
+    }
+
+    pub fn streamable_http(
+        id: impl Into<String>,
+        display_name: impl Into<String>,
+        url: impl Into<String>,
+        created_at: i64,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            display_name: display_name.into(),
+            transport: McpTransport::StreamableHttp,
+            config_json: serde_json::json!({ "url": url.into() }).to_string(),
+            enabled: false,
+            created_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct McpServerRecord {
+    pub id: String,
+    pub display_name: String,
+    pub transport: McpTransport,
+    pub config_json: String,
+    pub enabled: bool,
+    pub capabilities_json: Option<String>,
+    pub schema_hash: Option<String>,
+    pub last_error: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+impl McpServerRecord {
+    pub fn target(&self) -> Option<String> {
+        let config: serde_json::Value = serde_json::from_str(&self.config_json).ok()?;
+        match self.transport {
+            McpTransport::Stdio => config.get("command")?.as_str().map(str::to_owned),
+            McpTransport::StreamableHttp => config.get("url")?.as_str().map(str::to_owned),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct McpServerStatusUpdate {
+    pub id: String,
+    pub enabled: bool,
+    pub expected_updated_at: i64,
+    pub updated_at: i64,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewConversation {
     pub id: String,

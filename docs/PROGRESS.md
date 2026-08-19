@@ -3,7 +3,7 @@
 > 本文件是项目状态的单一事实来源。
 > 最后更新：2026-08-19（Asia/Shanghai）
 > 当前阶段：M2/M3 - 聊天垂直切片
-> 当前状态：CHAT_AGENT_LOOP_AND_RELEASE_PENDING
+> 当前状态：TOOL_LOOP_AND_MCP_PERSISTENCE_PENDING_CI
 
 ## 1. 当前快照
 
@@ -33,6 +33,8 @@
 - 许可证：尚未选择，仓库仍没有 `LICENSE`。
 - Release `32160832215` 已按用户睡前要求取消，结论为 `cancelled`；此前 `32159139587` 为 `failure`。两次都不能视为发布成功，当前没有 tag、Release 或可交付安装包。
 - 2026-08-19 睡前核对：仓库为 `PRIVATE`，没有 queued/in_progress Actions；未遗留公开状态或后台构建。
+- 2026-08-19 已实现待验证源码：正常聊天请求携带受限内置工具定义；Core 在审批期间保持 run 存活，批准后执行、回填标准 assistant tool-call/tool-result 消息并继续模型流，UI 显示执行中/成功/失败结果；安全上限覆盖参数、输出与最多四轮工具调用。
+- MCP server 草稿已改接 SQLite actor：支持 stdio/Streamable HTTP 类型化配置、稳定列表、重启恢复、启停、删除、乐观并发和远程 HTTPS/敏感字段校验；当前仍未接 `rmcp` 传输，启用状态不冒充已连接。
 
 ## 2.1 当前聊天垂直切片（首个预览已验证）
 
@@ -133,9 +135,9 @@
 
 下一位执行者不要重做选型，直接把已验证预览推进到日常可用：
 
-1. 实现最小但真实的工具闭环：正常请求携带受限工具定义，Core 等待审批，允许后执行内置安全工具，把 tool result 追加回对话并继续模型生成；拒绝、失败、取消和最大轮数都必须有测试。
-2. 把 MCP 草稿升级为可管理、可持久化的 server 配置，再接官方 Rust MCP SDK `rmcp` 的 stdio/Streamable HTTP；stdio 子进程纳入 Windows Job Object，禁止任意 shell 默认执行。
-3. 通过 Product validate 与 Windows runtime smoke 后，再从最新 main 运行统一 Release `v0.1.0-pre.1`，核对安装版、便携 ZIP、独立 EXE、SHA256SUMS、tag 和 Pre-release；不要重跑已取消的旧 commit。
+1. 先用 Product validate 验证当前工具闭环和 MCP persistence 源码，按 CI 的 rustfmt/编译/测试/Clippy 结果修到全绿，不能以静态检查代替。
+2. 接官方 Rust MCP SDK `rmcp` 的 stdio/Streamable HTTP，把发现的工具合并进请求和现有审批执行器；stdio 子进程纳入 Windows Job Object，禁止任意 shell 默认执行。
+3. 完成 Windows runtime smoke 后，再从最新 main 运行统一 Release `v0.1.0-pre.1`，核对安装版、便携 ZIP、独立 EXE、SHA256SUMS、tag 和 Pre-release；不要重跑已取消的旧 commit。
 4. 后续继续消息持久化、会话 CRUD、物理 IME 与长列表门。
 
 ## 8. 性能与质量门
@@ -207,6 +209,14 @@
 - 结论：安全审计未发现阻止最终 runtime 临时公开的问题；运行、产物核对和恢复 PRIVATE 已闭环，详见 `docs/PUBLIC-ACTIONS-AUDIT.md`。
 
 ## 11. 进度日志
+
+### 2026-08-19：工具执行闭环与 MCP 持久化源码
+
+- 扩展 Chat Completions 消息模型，独立表示 assistant `tool_calls` 与带 `tool_call_id` 的 tool result；OpenAI-compatible adapter 可直接编码第二轮请求。
+- Core 为每个 active run 建立有界审批通道，支持多工具乱序审批、拒绝回执、取消轮询、执行状态事件、输出/参数上限和最多四轮调用；内置 `get_current_time` 只读取系统时间，不启动 shell、文件或网络。
+- GPUI 正常发送路径不再传空工具列表；工具卡展示审批、执行中、完成、失败和结果，run 只在模型续写完成后结束。
+- MCP 配置使用现有 `mcp_servers` 表和单 writer actor，新增创建/读取/列表/启停/删除 contract；远程 HTTP 限制为 HTTPS（loopback 可 HTTP），配置递归拒绝 credential-bearing key。
+- 本机只做源码与 diff 静态检查；尚未运行 rustfmt、编译、测试、Clippy 或产品构建，以上必须等 Product validate 实证，`rmcp` 实际连接仍为下一步。
 
 ### 2026-08-16 至 2026-08-17：框架筛选
 
