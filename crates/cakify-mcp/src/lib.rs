@@ -25,7 +25,7 @@ use process_wrap::tokio::{CreationFlags, JobObject};
 use rmcp::{
     model::{CallToolRequestParams, CallToolResult, ContentBlock, PaginatedRequestParams},
     service::{Peer, RunningService},
-    transport::{StreamableHttpClientTransport, TokioChildProcess, which_command},
+    transport::{which_command, StreamableHttpClientTransport, TokioChildProcess},
     RoleClient, ServiceExt,
 };
 use serde::Serialize;
@@ -85,16 +85,15 @@ impl TryFrom<&McpServerRecord> for McpServerConfig {
                 validate_required_text(&command, MAX_COMMAND_BYTES)?;
                 let args = match config.get("args") {
                     None => Vec::new(),
-                    Some(Value::Array(args)) => {
-                        args.iter()
-                            .map(|argument| {
-                                argument
-                                    .as_str()
-                                    .map(str::to_owned)
-                                    .ok_or(McpConfigError::InvalidStoredConfig)
-                            })
-                            .collect::<Result<Vec<_>, _>>()
-                    }
+                    Some(Value::Array(args)) => args
+                        .iter()
+                        .map(|argument| {
+                            argument
+                                .as_str()
+                                .map(str::to_owned)
+                                .ok_or(McpConfigError::InvalidStoredConfig)
+                        })
+                        .collect::<Result<Vec<_>, _>>(),
                     Some(_) => return Err(McpConfigError::InvalidStoredConfig),
                 };
                 if args.len() > MAX_ARGUMENTS
@@ -122,10 +121,7 @@ impl TryFrom<&McpServerRecord> for McpServerConfig {
 }
 
 fn validate_required_text(value: &str, max_bytes: usize) -> Result<(), McpConfigError> {
-    if value.trim().is_empty()
-        || value.len() > max_bytes
-        || value.chars().any(char::is_control)
-    {
+    if value.trim().is_empty() || value.len() > max_bytes || value.chars().any(char::is_control) {
         return Err(McpConfigError::InvalidStoredConfig);
     }
     Ok(())
@@ -167,10 +163,20 @@ pub enum McpConfigError {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum McpEvent {
-    ServerConnecting { server_id: String },
-    ServerConnected { server_id: String, tool_count: usize },
-    ServerFailed { server_id: String, message: String },
-    ServerDisconnected { server_id: String },
+    ServerConnecting {
+        server_id: String,
+    },
+    ServerConnected {
+        server_id: String,
+        tool_count: usize,
+    },
+    ServerFailed {
+        server_id: String,
+        message: String,
+    },
+    ServerDisconnected {
+        server_id: String,
+    },
 }
 
 #[derive(Debug, Error)]
@@ -219,10 +225,12 @@ impl McpHandle {
     }
 
     fn try_send(&self, command: Command) -> Result<(), McpDispatchError> {
-        self.commands.try_send(command).map_err(|error| match error {
-            TrySendError::Full(_) => McpDispatchError::Full,
-            TrySendError::Closed(_) => McpDispatchError::Closed,
-        })
+        self.commands
+            .try_send(command)
+            .map_err(|error| match error {
+                TrySendError::Full(_) => McpDispatchError::Full,
+                TrySendError::Closed(_) => McpDispatchError::Closed,
+            })
     }
 }
 
@@ -548,8 +556,7 @@ fn validate_server_config(config: &McpServerConfig) -> Result<(), String> {
                 .map_err(|_| "MCP stdio 命令不可用".to_owned())?;
             if args.len() > MAX_ARGUMENTS
                 || args.iter().any(|argument| {
-                    argument.len() > MAX_ARGUMENT_BYTES
-                        || argument.chars().any(char::is_control)
+                    argument.len() > MAX_ARGUMENT_BYTES || argument.chars().any(char::is_control)
                 })
             {
                 return Err("MCP stdio 参数超过安全上限".to_owned());
@@ -653,9 +660,7 @@ async fn close_clients(clients: Vec<Client>) {
             let _ = client.close_with_timeout(SHUTDOWN_TIMEOUT).await;
         });
     }
-    let close_all = async {
-        while let Some(_result) = closing.join_next().await {}
-    };
+    let close_all = async { while let Some(_result) = closing.join_next().await {} };
     if tokio::time::timeout(SHUTDOWN_TIMEOUT + Duration::from_millis(250), close_all)
         .await
         .is_err()
@@ -664,17 +669,15 @@ async fn close_clients(clients: Vec<Client>) {
     }
 }
 
-async fn connect_server(
-    config: &McpServerConfig,
-) -> Result<(Client, Vec<ToolRoute>), String> {
+async fn connect_server(config: &McpServerConfig) -> Result<(Client, Vec<ToolRoute>), String> {
     let connect = async {
         match &config.transport {
             McpTransportConfig::Stdio { command, args } => {
                 let workdir = mcp_working_directory(&config.id)?;
                 std::fs::create_dir_all(&workdir)
                     .map_err(|_| "无法创建 MCP 隔离工作目录".to_owned())?;
-                let mut process = which_command(command)
-                    .map_err(|_| "无法解析 MCP stdio 命令".to_owned())?;
+                let mut process =
+                    which_command(command).map_err(|_| "无法解析 MCP stdio 命令".to_owned())?;
                 process
                     .args(args)
                     .env_clear()
@@ -779,10 +782,10 @@ fn mcp_working_directory(server_id: &str) -> Result<PathBuf, String> {
     if base.as_os_str().is_empty() {
         return Err("MCP 隔离工作目录不可用".to_owned());
     }
-    Ok(base
-        .join("Cakify")
-        .join("mcp-work")
-        .join(format!("{:016x}", stable_route_hash(server_id, "workspace"))))
+    Ok(base.join("Cakify").join("mcp-work").join(format!(
+        "{:016x}",
+        stable_route_hash(server_id, "workspace")
+    )))
 }
 
 fn build_routes(
@@ -850,9 +853,8 @@ async fn execute_tool(
         .and_then(Value::as_object)
         .cloned()
         .ok_or_else(|| ToolExecutionError::new("MCP 工具参数不是 JSON object"))?;
-    let call = peer.call_tool(
-        CallToolRequestParams::new(route.remote_name).with_arguments(arguments),
-    );
+    let call =
+        peer.call_tool(CallToolRequestParams::new(route.remote_name).with_arguments(arguments));
     tokio::pin!(call);
     tokio::select! {
         result = &mut call => {
@@ -1064,10 +1066,7 @@ mod tests {
         assert!(first
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-')));
-        assert_eq!(
-            first,
-            "mcp_server_alpha_search_files_ac91c88a9c4c857a"
-        );
+        assert_eq!(first, "mcp_server_alpha_search_files_ac91c88a9c4c857a");
     }
 
     #[test]
@@ -1148,7 +1147,9 @@ mod tests {
             r#"{"command":"server.exe","args":["--stdio"]}"#,
         );
         assert_eq!(
-            McpServerConfig::try_from(&record).expect("typed config").transport,
+            McpServerConfig::try_from(&record)
+                .expect("typed config")
+                .transport,
             McpTransportConfig::Stdio {
                 command: "server.exe".to_owned(),
                 args: vec!["--stdio".to_owned()],
@@ -1260,7 +1261,10 @@ mod tests {
             ContentBlock::image("synthetic-base64", "image/png"),
         ];
         result.meta = Some(Default::default());
-        assert_eq!(project_tool_result(&result).expect("projection"), "visible text");
+        assert_eq!(
+            project_tool_result(&result).expect("projection"),
+            "visible text"
+        );
 
         result.is_error = Some(true);
         assert_eq!(

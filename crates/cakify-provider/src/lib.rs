@@ -260,9 +260,7 @@ impl OpenAiCompatibleProvider {
         }
         let body = Value::Object(body);
         let encoded_len = serde_json::to_vec(&body)
-            .map_err(|_| {
-                ProviderError::new(ProviderErrorKind::InvalidRequest, "无法编码聊天请求")
-            })?
+            .map_err(|_| ProviderError::new(ProviderErrorKind::InvalidRequest, "无法编码聊天请求"))?
             .len();
         if encoded_len > MAX_REQUEST_BODY_BYTES {
             return Err(ProviderError::new(
@@ -377,12 +375,13 @@ fn validate_messages(request: &ChatRequest) -> Result<usize, ProviderError> {
                     "助手工具调用参数过大",
                 ));
             }
-            let arguments: Value = serde_json::from_str(&tool_call.function.arguments).map_err(|_| {
-                ProviderError::new(
-                    ProviderErrorKind::InvalidRequest,
-                    "助手工具调用参数不是有效 JSON",
-                )
-            })?;
+            let arguments: Value =
+                serde_json::from_str(&tool_call.function.arguments).map_err(|_| {
+                    ProviderError::new(
+                        ProviderErrorKind::InvalidRequest,
+                        "助手工具调用参数不是有效 JSON",
+                    )
+                })?;
             if !arguments.is_object() {
                 return Err(ProviderError::new(
                     ProviderErrorKind::InvalidRequest,
@@ -650,10 +649,7 @@ fn read_bounded_line<R: BufRead>(
     }
 }
 
-fn dispatch_sse_data(
-    data: &str,
-    sink: &mut StreamSink<'_>,
-) -> Result<bool, ProviderError> {
+fn dispatch_sse_data(data: &str, sink: &mut StreamSink<'_>) -> Result<bool, ProviderError> {
     let payload: Value = serde_json::from_str(data).map_err(|_| {
         ProviderError::new(
             ProviderErrorKind::Protocol,
@@ -712,10 +708,7 @@ fn dispatch_sse_data(
     if let Some(content) = delta.and_then(|delta| delta.get("content")) {
         if !content.is_null() {
             let content = content.as_str().ok_or_else(|| {
-                ProviderError::new(
-                    ProviderErrorKind::Protocol,
-                    "Provider 返回了无效的文本增量",
-                )
+                ProviderError::new(ProviderErrorKind::Protocol, "Provider 返回了无效的文本增量")
             })?;
             if !content.is_empty() && !sink(ProviderStreamEvent::TextDelta(content.to_owned())) {
                 return Err(cancelled());
@@ -809,10 +802,7 @@ fn dispatch_sse_data(
             false
         } else {
             let reason = reason.as_str().ok_or_else(|| {
-                ProviderError::new(
-                    ProviderErrorKind::Protocol,
-                    "Provider 返回了无效的结束原因",
-                )
+                ProviderError::new(ProviderErrorKind::Protocol, "Provider 返回了无效的结束原因")
             })?;
             if !sink(ProviderStreamEvent::Finished {
                 reason: Some(reason.to_owned()),
@@ -840,10 +830,7 @@ fn map_stream_error(error: &Value) -> ProviderError {
         || marker.contains("unauthorized")
         || marker.contains("permission")
     {
-        ProviderError::new(
-            ProviderErrorKind::Authentication,
-            "Provider 拒绝了 API Key",
-        )
+        ProviderError::new(ProviderErrorKind::Authentication, "Provider 拒绝了 API Key")
     } else if marker.contains("rate") || marker.contains("quota") {
         ProviderError::new(
             ProviderErrorKind::RateLimited,
@@ -853,10 +840,7 @@ fn map_stream_error(error: &Value) -> ProviderError {
         || marker.contains("context_length")
         || marker.contains("request")
     {
-        ProviderError::new(
-            ProviderErrorKind::InvalidRequest,
-            "Provider 拒绝了聊天请求",
-        )
+        ProviderError::new(ProviderErrorKind::InvalidRequest, "Provider 拒绝了聊天请求")
     } else {
         ProviderError::new(
             ProviderErrorKind::Protocol,
@@ -866,31 +850,19 @@ fn map_stream_error(error: &Value) -> ProviderError {
 }
 
 fn event_too_large() -> ProviderError {
-    ProviderError::new(
-        ProviderErrorKind::Protocol,
-        "Provider 返回了过大的流式事件",
-    )
+    ProviderError::new(ProviderErrorKind::Protocol, "Provider 返回了过大的流式事件")
 }
 
 fn stream_too_large() -> ProviderError {
-    ProviderError::new(
-        ProviderErrorKind::Protocol,
-        "Provider 流式响应超过大小上限",
-    )
+    ProviderError::new(ProviderErrorKind::Protocol, "Provider 流式响应超过大小上限")
 }
 
 fn too_many_events() -> ProviderError {
-    ProviderError::new(
-        ProviderErrorKind::Protocol,
-        "Provider 返回了过多流式事件",
-    )
+    ProviderError::new(ProviderErrorKind::Protocol, "Provider 返回了过多流式事件")
 }
 
 fn request_too_large() -> ProviderError {
-    ProviderError::new(
-        ProviderErrorKind::InvalidRequest,
-        "聊天请求超过大小上限",
-    )
+    ProviderError::new(ProviderErrorKind::InvalidRequest, "聊天请求超过大小上限")
 }
 
 fn cancelled() -> ProviderError {
@@ -1023,8 +995,8 @@ mod tests {
             .expect("write provider response");
         });
 
-        let secret_id = SecretId::new("Cakify/provider/network-test/api-key")
-            .expect("synthetic secret id");
+        let secret_id =
+            SecretId::new("Cakify/provider/network-test/api-key").expect("synthetic secret id");
         let secrets = Arc::new(MemorySecrets::default());
         secrets
             .put(
@@ -1074,7 +1046,10 @@ mod tests {
         )));
         assert!(events.iter().any(|event| matches!(
             event,
-            ProviderStreamEvent::Usage(Usage { total_tokens: Some(3), .. })
+            ProviderStreamEvent::Usage(Usage {
+                total_tokens: Some(3),
+                ..
+            })
         )));
     }
 

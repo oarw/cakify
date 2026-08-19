@@ -781,9 +781,12 @@ dependencies = [
  "cakify-storage",
  "process-wrap",
  "rmcp",
+ "serde",
  "serde_json",
  "thiserror 2.0.20",
  "tokio",
+ "url",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -2329,7 +2332,7 @@ source = "git+https://github.com/zed-industries/zed?rev=b2d9c2e122fbc408d42276b4
 dependencies = [
  "anyhow",
  "log",
- "which",
+ "which 6.0.3",
 ]
 
 [[package]]
@@ -4858,6 +4861,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
+ "which 8.0.5",
 ]
 
 [[package]]
@@ -6841,6 +6845,15 @@ dependencies = [
  "home",
  "rustix 0.38.44",
  "winsafe",
+]
+
+[[package]]
+name = "which"
+version = "8.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f3ef584124b911bcc3875c2f1472e80f24361ceb789bd1c62b3e9a3df9ff43c"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

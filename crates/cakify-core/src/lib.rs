@@ -1282,8 +1282,8 @@ mod tests {
 
     #[test]
     fn excessive_tool_calls_fail_before_approval_or_execution() {
-        let runtime = CoreRuntime::start_with_provider(Arc::new(TooManyToolsProvider))
-            .expect("core thread");
+        let runtime =
+            CoreRuntime::start_with_provider(Arc::new(TooManyToolsProvider)).expect("core thread");
         let events = runtime.events();
         assert!(matches!(
             events.recv_blocking().expect("ready"),
@@ -1430,7 +1430,8 @@ mod tests {
         assert!(matches!(
             events.recv_blocking().expect("denial resolved"),
             AppEvent::ToolApprovalResolved {
-                approved: false, ..
+                approved: false,
+                ..
             }
         ));
         assert!(matches!(
