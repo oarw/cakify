@@ -1127,7 +1127,11 @@ impl CakifyApp {
                     .justify_center()
                     .rounded(px(10.0))
                     .text_size(px(18.0))
-                    .text_color(if self.panel == Panel::Mcp { accent } else { muted })
+                    .text_color(if self.panel == Panel::Mcp {
+                        accent
+                    } else {
+                        muted
+                    })
                     .cursor_pointer()
                     .hover(|style| style.bg(selected))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
@@ -1169,12 +1173,7 @@ impl CakifyApp {
                             .font_weight(FontWeight::SEMIBOLD)
                             .child("Cakify"),
                     )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(muted)
-                            .child("工作台"),
-                    ),
+                    .child(div().text_xs().text_color(muted).child("工作台")),
             )
             .child(
                 div()
@@ -1219,7 +1218,12 @@ impl CakifyApp {
                             .flex()
                             .flex_col()
                             .gap_1()
-                            .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child("新会话"))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("新会话"),
+                            )
                             .child(div().text_xs().text_color(muted).child(self.status.clone())),
                     ),
             )
@@ -1243,7 +1247,11 @@ impl CakifyApp {
                     .items_center()
                     .gap_2()
                     .text_sm()
-                    .text_color(if self.panel == Panel::Provider { accent } else { muted })
+                    .text_color(if self.panel == Panel::Provider {
+                        accent
+                    } else {
+                        muted
+                    })
                     .cursor_pointer()
                     .when(self.panel == Panel::Provider, |view| view.bg(selected))
                     .hover(|style| style.bg(selected))
@@ -1261,7 +1269,11 @@ impl CakifyApp {
                     .items_center()
                     .gap_2()
                     .text_sm()
-                    .text_color(if self.panel == Panel::Mcp { accent } else { muted })
+                    .text_color(if self.panel == Panel::Mcp {
+                        accent
+                    } else {
+                        muted
+                    })
                     .cursor_pointer()
                     .when(self.panel == Panel::Mcp, |view| view.bg(selected))
                     .hover(|style| style.bg(selected))
@@ -1320,7 +1332,12 @@ impl CakifyApp {
                             .items_center()
                             .gap_2()
                             .text_color(text)
-                            .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("新会话"))
+                            .child(
+                                div()
+                                    .text_lg()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("新会话"),
+                            )
                             .child(
                                 div()
                                     .px_2()
@@ -1331,24 +1348,20 @@ impl CakifyApp {
                                     .text_color(muted)
                                     .child("当前"),
                             ),
-                    )
+                    ),
             )
             .child(
                 div()
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(
-                        div()
-                            .w(px(7.0))
-                            .h(px(7.0))
-                            .rounded(px(99.0))
-                            .bg(if self.provider_router.is_configured() {
-                                rgb(0x1b986b)
-                            } else {
-                                rgb(0xd7a13e)
-                            }),
-                    )
+                    .child(div().w(px(7.0)).h(px(7.0)).rounded(px(99.0)).bg(
+                        if self.provider_router.is_configured() {
+                            rgb(0x1b986b)
+                        } else {
+                            rgb(0xd7a13e)
+                        },
+                    ))
                     .child(
                         div()
                             .flex()
@@ -1366,11 +1379,13 @@ impl CakifyApp {
                                         model
                                     }),
                             )
-                            .child(div().text_xs().text_color(muted).child(if self.provider_router.is_configured() {
-                                "Provider 已连接"
-                            } else {
-                                "需要配置 Provider"
-                            })),
+                            .child(div().text_xs().text_color(muted).child(
+                                if self.provider_router.is_configured() {
+                                    "Provider 已连接"
+                                } else {
+                                    "需要配置 Provider"
+                                },
+                            )),
                     )
                     .child(
                         div()
@@ -1423,23 +1438,16 @@ impl CakifyApp {
                                 .text_color(text)
                                 .child("从一个问题开始"),
                         )
+                        .child(div().text_sm().text_color(muted).child(
+                            if self.provider_router.is_configured() {
+                                "流式输出、工具审批和结果都会显示在这里"
+                            } else {
+                                "先配置一个 Provider，再开始你的第一段对话"
+                            },
+                        ))
                         .child(
-                            div()
-                                .text_sm()
-                                .text_color(muted)
-                                .child(if self.provider_router.is_configured() {
-                                    "流式输出、工具审批和结果都会显示在这里"
-                                } else {
-                                    "先配置一个 Provider，再开始你的第一段对话"
-                                }),
-                        )
-                        .child(
-                            div()
-                                .mt_4()
-                                .w_full()
-                                .flex()
-                                .gap_2()
-                                .children([
+                            div().mt_4().w_full().flex().gap_2().children(
+                                [
                                     ("总结这段内容", "把重点整理成清晰的要点"),
                                     ("解释一个概念", "用简单的方式拆解复杂问题"),
                                     ("帮我写一段代码", "从需求到可运行的实现"),
@@ -1463,7 +1471,12 @@ impl CakifyApp {
                                         .on_mouse_up(
                                             MouseButton::Left,
                                             cx.listener(move |app, event, window, cx| {
-                                                app.use_suggestion(prompt.clone(), event, window, cx);
+                                                app.use_suggestion(
+                                                    prompt.clone(),
+                                                    event,
+                                                    window,
+                                                    cx,
+                                                );
                                             }),
                                         )
                                         .child(
@@ -1475,8 +1488,8 @@ impl CakifyApp {
                                         )
                                         .child(div().text_xs().text_color(muted).child(detail))
                                 }),
+                            ),
                         ),
-                )
                 );
         }
 
@@ -1541,23 +1554,32 @@ impl CakifyApp {
                     .items_start()
                     .gap_3()
                     .text_color(text)
-                    .child(
-                        conversation_glyph(accent, "C")
-                    );
+                    .child(conversation_glyph(accent, "C"));
                 let mut content = div().flex_1().flex().flex_col().gap_3();
                 content = content.child(
                     div()
                         .flex()
                         .items_center()
                         .gap_2()
-                        .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).text_color(text).child("Cakify"))
-                        .child(div().text_xs().text_color(muted).child(match message.state {
-                            MessageState::Sending => "准备中",
-                            MessageState::Streaming => "正在生成",
-                            MessageState::Complete => "已完成",
-                            MessageState::Cancelled => "已停止",
-                            MessageState::Error => "需要处理",
-                        })),
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(text)
+                                .child("Cakify"),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(muted)
+                                .child(match message.state {
+                                    MessageState::Sending => "准备中",
+                                    MessageState::Streaming => "正在生成",
+                                    MessageState::Complete => "已完成",
+                                    MessageState::Cancelled => "已停止",
+                                    MessageState::Error => "需要处理",
+                                }),
+                        ),
                 );
                 if !message.content.is_empty() {
                     content = content.child(render_markdown(&message.content));
@@ -1594,7 +1616,8 @@ impl CakifyApp {
                     content = content.child(div().text_xs().text_color(muted).child("已停止"));
                 }
                 if let Some(usage) = &message.usage {
-                    content = content.child(div().text_xs().text_color(muted).child(format_usage(usage)));
+                    content =
+                        content.child(div().text_xs().text_color(muted).child(format_usage(usage)));
                 }
                 body = body.child(content);
                 body
@@ -1899,7 +1922,10 @@ impl CakifyApp {
                                     .rounded(px(8.0))
                                     .cursor_pointer()
                                     .hover(|style| style.bg(rgb(0xe9ecf3)))
-                                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
+                                    .on_mouse_up(
+                                        MouseButton::Left,
+                                        cx.listener(Self::toggle_provider),
+                                    )
                                     .child("×"),
                             ),
                     ),
