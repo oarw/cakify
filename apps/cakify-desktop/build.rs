@@ -101,10 +101,10 @@ fn rasterize(size: u32) -> Vec<u8> {
             let mut rgb_sum = [0_u32; 3];
             for sample_y in 0..SAMPLES {
                 for sample_x in 0..SAMPLES {
-                    let point_x = (x as f32 + (sample_x as f32 + 0.5) / SAMPLES as f32)
-                        / size as f32;
-                    let point_y = (y as f32 + (sample_y as f32 + 0.5) / SAMPLES as f32)
-                        / size as f32;
+                    let point_x =
+                        (x as f32 + (sample_x as f32 + 0.5) / SAMPLES as f32) / size as f32;
+                    let point_y =
+                        (y as f32 + (sample_y as f32 + 0.5) / SAMPLES as f32) / size as f32;
                     if let Some(color) = color_at(point_x, point_y) {
                         alpha_sum += 1;
                         for (sum, value) in rgb_sum.iter_mut().zip(color) {
@@ -145,7 +145,15 @@ fn color_at(x: f32, y: f32) -> Option<[u8; 3]> {
     None
 }
 
-fn rounded_rect_contains(x: f32, y: f32, left: f32, top: f32, width: f32, height: f32, radius: f32) -> bool {
+fn rounded_rect_contains(
+    x: f32,
+    y: f32,
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+    radius: f32,
+) -> bool {
     if !(left..=left + width).contains(&x) || !(top..=top + height).contains(&y) {
         return false;
     }
