@@ -39,6 +39,10 @@ const DELTA_FLUSH_INTERVAL: Duration = Duration::from_millis(24);
 const DELTA_FLUSH_BYTES: usize = 1_024;
 const APPROVAL_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const APPROVAL_QUEUE_CAPACITY: usize = 64;
+const MAX_ASSISTANT_BYTES: usize = 8 * 1_024 * 1_024;
+const MAX_TOOL_CALLS_PER_ROUND: usize = 16;
+const MAX_TOOL_CALL_ID_BYTES: usize = 512;
+const MAX_TOOL_NAME_BYTES: usize = 128;
 const MAX_TOOL_ARGUMENT_BYTES: usize = 64 * 1_024;
 const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1_024;
 const MAX_TOOL_ROUNDS: usize = 4;
@@ -561,6 +565,7 @@ fn execute_run(input: RunWorker) {
         let mut tool_calls = BTreeMap::<u32, ToolCallBuffer>::new();
         let mut round_usage = None;
         let mut finish_reason = None;
+        let mut protocol_issue = None;
 
         let result =
             input
@@ -569,8 +574,17 @@ fn execute_run(input: RunWorker) {
                     if input.cancellation.load(Ordering::Acquire) {
                         return false;
                     }
+                    if protocol_issue.is_some() {
+                        return false;
+                    }
                     match event {
                         ProviderStreamEvent::TextDelta(delta) => {
+                            if assistant_text.len().saturating_add(delta.len())
+                                > MAX_ASSISTANT_BYTES
+                            {
+                                protocol_issue = Some("模型输出超过安全上限");
+                                return false;
+                            }
                             assistant_text.push_str(&delta);
                             pending_text.push_str(&delta);
                             if pending_text.len() >= DELTA_FLUSH_BYTES
@@ -587,6 +601,12 @@ fn execute_run(input: RunWorker) {
                             arguments_delta,
                         } => {
                             flush_text(&input, &mut pending_text);
+                            if !tool_calls.contains_key(&index)
+                                && tool_calls.len() >= MAX_TOOL_CALLS_PER_ROUND
+                            {
+                                protocol_issue = Some("单轮工具调用数量超过安全上限");
+                                return false;
+                            }
                             let call = tool_calls.entry(index).or_insert_with(|| {
                                 let ui_index = next_ui_index;
                                 next_ui_index = next_ui_index.saturating_add(1);
@@ -598,10 +618,27 @@ fn execute_run(input: RunWorker) {
                                 }
                             });
                             if let Some(id) = &id {
+                                if id.len() > MAX_TOOL_CALL_ID_BYTES {
+                                    protocol_issue = Some("工具调用 ID 超过安全上限");
+                                    return false;
+                                }
                                 call.id = id.clone();
                             }
                             if let Some(name) = &name {
+                                if name.len() > MAX_TOOL_NAME_BYTES {
+                                    protocol_issue = Some("工具名称超过安全上限");
+                                    return false;
+                                }
                                 call.name = name.clone();
+                            }
+                            if call
+                                .arguments_json
+                                .len()
+                                .saturating_add(arguments_delta.len())
+                                > MAX_TOOL_ARGUMENT_BYTES
+                            {
+                                protocol_issue = Some("工具参数超过安全上限");
+                                return false;
                             }
                             call.arguments_json.push_str(&arguments_delta);
                             input.emitter.emit(AppEvent::ToolCallDelta {
@@ -620,6 +657,14 @@ fn execute_run(input: RunWorker) {
                 });
         flush_text(&input, &mut pending_text);
         merge_usage(&mut aggregate_usage, round_usage);
+
+        if let Some(message) = protocol_issue {
+            fail_run(
+                &input,
+                ProviderError::new(ProviderErrorKind::Protocol, message),
+            );
+            return;
+        }
 
         if input.cancellation.load(Ordering::Acquire)
             || result
@@ -1210,5 +1255,78 @@ mod tests {
             } if reason == "stop"
         ));
         assert_eq!(provider.calls.load(Ordering::Acquire), 2);
+    }
+
+    struct TooManyToolsProvider;
+
+    impl ChatProvider for TooManyToolsProvider {
+        fn stream(
+            &self,
+            _request: ChatRequest,
+            _cancellation: Arc<AtomicBool>,
+            sink: &mut StreamSink<'_>,
+        ) -> Result<(), ProviderError> {
+            for index in 0..=MAX_TOOL_CALLS_PER_ROUND as u32 {
+                if !sink(ProviderStreamEvent::ToolCallDelta {
+                    index,
+                    id: Some(format!("call-{index}")),
+                    name: Some(CURRENT_TIME_TOOL_NAME.to_owned()),
+                    arguments_delta: "{}".to_owned(),
+                }) {
+                    return Ok(());
+                }
+            }
+            panic!("core accepted more tool calls than the per-round limit");
+        }
+    }
+
+    #[test]
+    fn excessive_tool_calls_fail_before_approval_or_execution() {
+        let runtime = CoreRuntime::start_with_provider(Arc::new(TooManyToolsProvider))
+            .expect("core thread");
+        let events = runtime.events();
+        assert!(matches!(
+            events.recv_blocking().expect("ready"),
+            AppEvent::CoreReady { .. }
+        ));
+        runtime
+            .handle()
+            .dispatch(AppCommand::CreateConversation {
+                request_id: RequestId::new(20),
+                title: "tool limit".to_owned(),
+            })
+            .expect("create conversation");
+        let conversation_id = match events.recv_blocking().expect("created") {
+            AppEvent::ConversationCreated {
+                conversation_id, ..
+            } => conversation_id,
+            event => panic!("unexpected event: {event:?}"),
+        };
+        runtime
+            .handle()
+            .dispatch(AppCommand::SubmitDraft {
+                request_id: RequestId::new(21),
+                conversation_id,
+                model: "fixture".to_owned(),
+                text: "call tools".to_owned(),
+                tools: builtin_tool_definitions(),
+                temperature: None,
+            })
+            .expect("submit draft");
+        assert!(matches!(
+            events.recv_blocking().expect("accepted"),
+            AppEvent::DraftAccepted { .. }
+        ));
+        for _ in 0..MAX_TOOL_CALLS_PER_ROUND {
+            assert!(matches!(
+                events.recv_blocking().expect("bounded tool delta"),
+                AppEvent::ToolCallDelta { .. }
+            ));
+        }
+        assert!(matches!(
+            events.recv_blocking().expect("protocol failure"),
+            AppEvent::RunFailed { kind, message, .. }
+                if kind == "protocol" && message.contains("数量超过安全上限")
+        ));
     }
 }
