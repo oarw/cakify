@@ -1387,6 +1387,10 @@ impl CakifyApp {
         if let Some(output) = &call.output {
             view = view.child(
                 div()
+                    .id((
+                        gpui::ElementId::from(("tool-output", call.run_id.value())),
+                        call.index.to_string(),
+                    ))
                     .max_h(px(140.0))
                     .overflow_y_scroll()
                     .border_t_1()
@@ -1694,6 +1698,7 @@ impl CakifyApp {
                             };
                             view.child(
                                 div()
+                                    .id(("mcp-connection-error", index))
                                     .mt_1()
                                     .max_h(px(54.0))
                                     .overflow_y_scroll()
