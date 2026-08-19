@@ -765,6 +765,7 @@ dependencies = [
  "cakify-platform-windows",
  "cakify-provider",
  "cakify-storage",
+ "embed-resource",
  "gpui",
  "gpui_platform",
  "pulldown-cmark",

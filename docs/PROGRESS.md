@@ -36,6 +36,8 @@
 - 2026-08-19 工具闭环已验证：正常聊天请求携带受限工具定义；Core 在审批期间保持 run 存活，批准后执行、回填标准 assistant tool-call/tool-result 消息并继续模型流，UI 显示审批/执行/结果；安全上限覆盖参数、输出与最多四轮工具调用。
 - MCP server 已接 SQLite actor、`rmcp 3.1.0` async actor 和 desktop 生命周期：支持 stdio/Streamable HTTP、工具发现/稳定命名/执行路由、连接 generation、并发门、超时/取消与 Windows Job Object 兜底；配置、路由和生命周期 contracts 已在 Actions 通过。
 - Provider 真实 loopback HTTP 契约、请求/流式读取上限、多索引 tool delta、usage/finish、异常 EOF 和错误脱敏均已通过；已知残余是 blocking reqwest 在 DNS/connect/无数据读取期间只能受请求超时约束，后续应迁移 async transport 才能即时取消。
+- 当前 UI/UX 改造源码已完成但尚未经过 Actions：聊天壳改为工作台式双层侧栏、模型状态头部、引导式空状态、消息身份层级与带工具入口的 composer；Provider/MCP 保留原有真实交互并统一视觉令牌。
+- 新 Cakify 标记已提供 SVG 源稿、GPUI 原生绘制和 Windows 多尺寸 ICO 构建资源；本机只做 XML、diff、依赖锁静态检查，未编译或运行窗口。
 
 ## 2.1 当前聊天垂直切片（首个预览已验证）
 
@@ -121,6 +123,7 @@
 - [x] Windows runtime smoke `32154636851` 三轮打开真实聊天窗口，完整可见、空闲 Working Set `36.164-38.863 MiB`、默认子进程 0、正常退出且无残留；截图已独立核对。
 - [x] 新增 tag/手动触发的统一 Release workflow、Inno Setup 当前用户安装器与安装/运行/卸载 smoke；源码提交 `25e4b5e`，tag 检查修复提交 `52d122a`。
 - [x] 发布 `v0.1.0-pre.1`：Release `32249902570` 全绿并自动创建 prerelease；三项分发资产已独立下载并与 `SHA256SUMS.txt` 全部匹配，安装/三轮启动/退出/卸载证据与截图已核对。
+- [x] 完成聊天工作台 UI/UX 与应用图标源码；Product validate、Windows runtime smoke、截图和 EXE 图标仍待本轮 Actions 验证。
 
 ## 6. 尚未完成
 
@@ -136,10 +139,10 @@
 
 下一位执行者不要重做选型，直接把已验证预览推进到日常可用：
 
-1. 优先接消息持久化与会话 CRUD，让发送、流式增量、工具结果、失败/取消和重启恢复真正落入现有 storage actor。
-2. 增加微软拼音/日文 IME、候选窗、高 DPI 拖选、剪贴板和超过三行 composer 的 Windows 物理机门；同时实现长消息虚拟列表。
-3. 为 Provider 改造可即时取消的 async transport；为 MCP 增加协议取消、状态快照/重同步、工具列表变更通知、远程认证与真实 stdio 进程树 smoke。
-4. 以已发布的 `v0.1.0-pre.1` 作为可下载测试基线；后续版本继续复用统一 Release 流水线，不手工创建 tag 或上传资产。
+1. 先完成当前 UI/UX 与图标源码的 Product validate、Windows runtime smoke、截图和 EXE 图标核对；未取得实际证据前不得写成通过。
+2. 优先接消息持久化与会话 CRUD，让发送、流式增量、工具结果、失败/取消和重启恢复真正落入现有 storage actor。
+3. 增加微软拼音/日文 IME、候选窗、高 DPI 拖选、剪贴板和超过三行 composer 的 Windows 物理机门；同时实现长消息虚拟列表。
+4. 为 Provider 改造可即时取消的 async transport；为 MCP 增加协议取消、状态快照/重同步、工具列表变更通知、远程认证与真实 stdio 进程树 smoke。
 
 ## 8. 性能与质量门
 
@@ -169,6 +172,7 @@
 - `IME_ACCESSIBILITY_GAP`：真实微软拼音、日文 IME、DPI、多显示器、UI Automation 尚未验证。
 - `M0_METRICS_SCOPE`：最终 M0 指标只覆盖窗口壳层，不冒充真实 composer、长消息列表或 Provider 启动性能；M2/M3 必须重测。
 - `SIGNING_PENDING`：当前 EXE/安装器未签名；签名证书、MSIX 与更新通道未决定，安排在 M7。
+- `UI_REFRESH_UNVERIFIED`：工作台 UI 与 Windows 图标目前只有源码和本地静态证据；必须以本轮 Actions 编译结果、runtime screenshot 和 EXE 资源核对为准。
 
 ## 10. Actions 事实记录
 
@@ -217,6 +221,13 @@
 - 结论：安全审计未发现阻止最终 runtime 临时公开的问题；运行、产物核对和恢复 PRIVATE 已闭环，详见 `docs/PUBLIC-ACTIONS-AUDIT.md`。
 
 ## 11. 进度日志
+
+### 2026-08-19：聊天工作台 UI/UX 与应用图标源码
+
+- 参考用户提供的桌面聊天与设置界面，将原单层侧栏重构为图标 rail + 会话/快捷入口列表；主区新增模型连接状态、引导式空状态、建议入口、消息身份层级和工具型 composer。
+- 保留 Provider、MCP、流式消息、停止/重试、工具审批和编辑器的现有逻辑，只调整 GPUI 视图层与交互入口；没有伪造尚未实现的会话持久化或设置功能。
+- 设计三条圆角会话线组成的抽象 `C` 标记，提供 `assets/cakify-mark.svg`，并由 build script 生成 16–256 px 多尺寸 ICO 嵌入 Windows EXE；GPUI 侧用原生 primitive 复现相同几何，避免运行时图片加载。
+- 本机完成 `git diff --check`、SVG XML 解析、Cargo.lock 直接依赖静态核对；本机无 rustfmt/Cargo，未编译、测试、构建或运行 GUI，等待受控 Actions 验证。
 
 ### 2026-08-19：首个可下载预览版发布
 

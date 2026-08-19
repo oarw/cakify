@@ -198,12 +198,12 @@ Cakify 要做一个 Windows-first 的原生 AI Chat 客户端：启动快、常�
 - Remote：`https://github.com/oarw/cakify.git`
 - Visibility：`PRIVATE`
 - 当前 milestone：M2/M3 聊天垂直切片；M0 与 M1 SecretStore 已闭合
-- 当前正在做：从已验证的聊天/工具/MCP 垂直切片推进到消息持久化、会话 CRUD、物理 IME 与长列表
+- 当前正在做：聊天工作台 UI/UX 与 Cakify 应用图标源码已完成，等待 Product validate、Windows runtime screenshot 与 EXE 图标资源核对
 - 最近成功 Actions：Release `32249902570`
 - 本轮 Actions：全量验证、安装器构建、安装后三轮原生窗口 smoke、卸载、打包和自动发布均通过；artifact/截图/哈希已核对，仓库已恢复 PRIVATE
-- 精确下一动作：先接消息持久化与会话 CRUD，再补物理 IME/长列表和 Provider/MCP 取消硬化；后续预览复用已验证 Release 流水线
+- 精确下一动作：先闭合当前 UI/UX 与图标的 Product validate/runtime smoke；通过后再接消息持久化与会话 CRUD，然后补物理 IME/长列表和 Provider/MCP 取消硬化
 - 需要用户决定：项目许可证；M7 签名/发行渠道。8 月受控 visibility 闭环已有持续授权，不再逐次询问
-- 已知风险：blocking Provider 在无网络数据期间不能即时取消；MCP 尚缺协议取消/状态重同步/工具变化通知/远程认证和真实第三方互操作；未使用真实用户 Key 做在线 smoke；消息持久化/物理 IME 未闭合；EXE 与安装器未签名
+- 已知风险：当前 UI refresh 与新 EXE 图标尚未通过 Actions/runtime screenshot；blocking Provider 在无网络数据期间不能即时取消；MCP 尚缺协议取消/状态重同步/工具变化通知/远程认证和真实第三方互操作；未使用真实用户 Key 做在线 smoke；消息持久化/物理 IME 未闭合；EXE 与安装器未签名
 - 安全状态：仓库 `PRIVATE`，无 queued/in_progress Actions；`v0.1.0-pre.1` prerelease 已发布且资产可由授权账号下载
 - 禁止误操作：不要重跑四候选；不要恢复归档 workflow；不要引入当前 `gpui-component`；不要复制 Zed GPL Agent UI；不要开始 RAG/远控
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Cakify app mark</title>
+  <desc id="desc">Three rounded conversation lines forming an abstract letter C.</desc>
+  <rect width="256" height="256" rx="64" fill="#E8EBF4"/>
+  <rect x="54" y="58" width="148" height="34" rx="17" fill="#2F394D"/>
+  <rect x="54" y="111" width="98" height="34" rx="17" fill="#5368A5"/>
+  <rect x="54" y="164" width="148" height="34" rx="17" fill="#2F394D"/>
+</svg>

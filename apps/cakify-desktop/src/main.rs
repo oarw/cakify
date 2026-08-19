@@ -257,7 +257,8 @@ impl CakifyApp {
             .as_ref()
             .and_then(|profile| profile.default_model.clone())
             .unwrap_or_else(|| "gpt-5-mini".to_owned());
-        let composer = cx.new(|cx| TextEditor::new("", "输入消息", false, true, window, cx));
+        let composer =
+            cx.new(|cx| TextEditor::new("", "输入消息，与 AI 对话", false, true, window, cx));
         let endpoint_editor = cx.new(|cx| {
             TextEditor::new(
                 endpoint,
@@ -779,6 +780,19 @@ impl CakifyApp {
         self.send_current(cx);
     }
 
+    fn use_suggestion(
+        &mut self,
+        prompt: String,
+        _: &MouseUpEvent,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.composer
+            .update(cx, |composer, cx| composer.set_text(prompt, cx));
+        self.status = "已填入消息，可直接发送".into();
+        cx.notify();
+    }
+
     fn cancel_run(&mut self, run_id: RunId, cx: &mut Context<Self>) {
         match self
             .core
@@ -1047,25 +1061,105 @@ impl CakifyApp {
     }
 
     fn render_sidebar(&self, cx: &mut Context<Self>) -> Div {
-        let surface = rgb(0xf7f8f7);
-        let border = rgb(0xdde1df);
-        let text = rgb(0x1c2522);
-        let muted = rgb(0x68736f);
-        let selected = rgb(0xe7eeeb);
-        div()
-            .w(px(208.0))
+        let rail_surface = rgb(0xf1f3f8);
+        let list_surface = rgb(0xf8f9fc);
+        let border = rgb(0xe1e4ec);
+        let text = rgb(0x262a34);
+        let muted = rgb(0x7b8190);
+        let selected = rgb(0xe7ebf6);
+        let accent = rgb(0x5368a5);
+        let rail = div()
+            .w(px(56.0))
             .h_full()
             .flex()
             .flex_col()
-            .bg(surface)
+            .items_center()
+            .bg(rail_surface)
+            .border_r_1()
+            .border_color(border)
+            .py_3()
+            .child(brand_mark(30.0))
+            .child(div().h(px(18.0)))
+            .child(
+                div()
+                    .id("new-conversation-rail")
+                    .w(px(36.0))
+                    .h(px(36.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(10.0))
+                    .bg(accent)
+                    .text_color(rgb(0xffffff))
+                    .text_lg()
+                    .cursor_pointer()
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::new_conversation))
+                    .child("+"),
+            )
+            .child(div().h(px(10.0)))
+            .child(
+                div()
+                    .id("provider-rail")
+                    .w(px(36.0))
+                    .h(px(36.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(10.0))
+                    .text_size(px(17.0))
+                    .text_color(if self.panel == Panel::Provider {
+                        accent
+                    } else {
+                        muted
+                    })
+                    .cursor_pointer()
+                    .hover(|style| style.bg(selected))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
+                    .child("◈"),
+            )
+            .child(
+                div()
+                    .id("mcp-rail")
+                    .w(px(36.0))
+                    .h(px(36.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(10.0))
+                    .text_size(px(18.0))
+                    .text_color(if self.panel == Panel::Mcp { accent } else { muted })
+                    .cursor_pointer()
+                    .hover(|style| style.bg(selected))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
+                    .child("⌁"),
+            )
+            .child(div().flex_1())
+            .child(
+                div()
+                    .w(px(36.0))
+                    .h(px(36.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(10.0))
+                    .text_color(muted)
+                    .text_size(px(16.0))
+                    .child("⋯"),
+            );
+        let list = div()
+            .w(px(214.0))
+            .h_full()
+            .flex()
+            .flex_col()
+            .bg(list_surface)
             .border_r_1()
             .border_color(border)
             .px_3()
-            .py_4()
+            .py_3()
             .text_color(text)
             .child(
                 div()
-                    .h(px(36.0))
+                    .h(px(34.0))
                     .flex()
                     .items_center()
                     .justify_between()
@@ -1077,121 +1171,232 @@ impl CakifyApp {
                     )
                     .child(
                         div()
-                            .id("new-conversation")
-                            .w(px(30.0))
-                            .h(px(30.0))
+                            .text_xs()
+                            .text_color(muted)
+                            .child("工作台"),
+                    ),
+            )
+            .child(
+                div()
+                    .mt_4()
+                    .h(px(34.0))
+                    .rounded(px(9.0))
+                    .bg(rgb(0xeff1f5))
+                    .px_3()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .text_sm()
+                    .text_color(muted)
+                    .child("⌕")
+                    .child("搜索会话"),
+            )
+            .child(
+                div()
+                    .mt_5()
+                    .mb_2()
+                    .px_1()
+                    .text_xs()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(muted)
+                    .child("会话"),
+            )
+            .child(
+                div()
+                    .id("new-conversation")
+                    .h(px(48.0))
+                    .rounded(px(10.0))
+                    .bg(selected)
+                    .px_2()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .cursor_pointer()
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::new_conversation))
+                    .child(conversation_glyph(accent, "✦"))
+                    .child(
+                        div()
                             .flex()
-                            .items_center()
-                            .justify_center()
-                            .rounded(px(5.0))
-                            .text_lg()
-                            .cursor_pointer()
-                            .hover(|style| style.bg(selected))
-                            .on_mouse_up(MouseButton::Left, cx.listener(Self::new_conversation))
-                            .child("+"),
+                            .flex_col()
+                            .gap_1()
+                            .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).child("新会话"))
+                            .child(div().text_xs().text_color(muted).child(self.status.clone())),
                     ),
             )
             .child(
                 div()
                     .mt_5()
                     .mb_2()
+                    .px_1()
                     .text_xs()
+                    .font_weight(FontWeight::SEMIBOLD)
                     .text_color(muted)
-                    .child("会话"),
+                    .child("快捷入口"),
             )
             .child(
                 div()
-                    .rounded(px(5.0))
-                    .bg(selected)
-                    .px_3()
-                    .py_2()
+                    .id("provider-sidebar-link")
+                    .h(px(38.0))
+                    .rounded(px(9.0))
+                    .px_2()
+                    .flex()
+                    .items_center()
+                    .gap_2()
                     .text_sm()
-                    .child("新会话"),
+                    .text_color(if self.panel == Panel::Provider { accent } else { muted })
+                    .cursor_pointer()
+                    .when(self.panel == Panel::Provider, |view| view.bg(selected))
+                    .hover(|style| style.bg(selected))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
+                    .child(conversation_glyph(accent, "◈"))
+                    .child("Provider 设置"),
+            )
+            .child(
+                div()
+                    .id("mcp-sidebar-link")
+                    .h(px(38.0))
+                    .rounded(px(9.0))
+                    .px_2()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .text_sm()
+                    .text_color(if self.panel == Panel::Mcp { accent } else { muted })
+                    .cursor_pointer()
+                    .when(self.panel == Panel::Mcp, |view| view.bg(selected))
+                    .hover(|style| style.bg(selected))
+                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
+                    .child(conversation_glyph(accent, "⌁"))
+                    .child("MCP 工具"),
             )
             .child(div().flex_1())
             .child(
                 div()
-                    .id("open-mcp")
-                    .rounded(px(5.0))
-                    .px_3()
-                    .py_2()
-                    .text_sm()
-                    .cursor_pointer()
-                    .hover(|style| style.bg(selected))
-                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
-                    .child(format!("MCP  ·  {}", self.mcp_servers.len())),
-            )
-            .child(
-                div()
-                    .mt_2()
-                    .px_3()
+                    .border_t_1()
+                    .border_color(border)
+                    .pt_3()
                     .text_xs()
                     .text_color(muted)
                     .child(format!("Core r{}", self.revision)),
-            )
+            );
+        div().h_full().flex().child(rail).child(list)
     }
 
     fn render_header(&self, cx: &mut Context<Self>) -> Div {
-        let surface = rgb(0xfcfdfc);
-        let border = rgb(0xdde1df);
-        let text = rgb(0x1c2522);
-        let muted = rgb(0x68736f);
-        let hover = rgb(0xf0f3f1);
+        let surface = rgb(0xfbfbfd);
+        let border = rgb(0xe4e6ed);
+        let text = rgb(0x262a34);
+        let muted = rgb(0x7b8190);
+        let hover = rgb(0xf0f2f7);
         let model = self.model_editor.read(cx).text(cx);
         div()
-            .h(px(58.0))
+            .h(px(64.0))
             .flex()
             .items_center()
             .justify_between()
-            .px_5()
+            .px_6()
             .bg(surface)
             .border_b_1()
             .border_color(border)
             .child(
                 div()
                     .flex()
-                    .flex_col()
+                    .items_center()
+                    .gap_3()
                     .child(
                         div()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(text)
-                            .child("新会话"),
+                            .w(px(30.0))
+                            .h(px(30.0))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .text_size(px(20.0))
+                            .text_color(muted)
+                            .child("☰"),
                     )
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(muted)
-                            .child(if model.is_empty() {
-                                "未选择模型".to_owned()
-                            } else {
-                                model
-                            }),
-                    ),
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .text_color(text)
+                            .child(div().text_lg().font_weight(FontWeight::SEMIBOLD).child("新会话"))
+                            .child(
+                                div()
+                                    .px_2()
+                                    .py_1()
+                                    .rounded(px(6.0))
+                                    .bg(rgb(0xeff1f7))
+                                    .text_xs()
+                                    .text_color(muted)
+                                    .child("当前"),
+                            ),
+                    )
             )
             .child(
                 div()
-                    .id("open-provider")
-                    .rounded(px(5.0))
-                    .border_1()
-                    .border_color(border)
-                    .px_3()
-                    .py_2()
-                    .text_sm()
-                    .cursor_pointer()
-                    .hover(|style| style.bg(hover))
-                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
-                    .child(if self.provider_router.is_configured() {
-                        "Provider"
-                    } else {
-                        "配置 Provider"
-                    }),
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .w(px(7.0))
+                            .h(px(7.0))
+                            .rounded(px(99.0))
+                            .bg(if self.provider_router.is_configured() {
+                                rgb(0x1b986b)
+                            } else {
+                                rgb(0xd7a13e)
+                            }),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .items_end()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(text)
+                                    .child(if model.is_empty() {
+                                        "未选择模型".to_owned()
+                                    } else {
+                                        model
+                                    }),
+                            )
+                            .child(div().text_xs().text_color(muted).child(if self.provider_router.is_configured() {
+                                "Provider 已连接"
+                            } else {
+                                "需要配置 Provider"
+                            })),
+                    )
+                    .child(
+                        div()
+                            .id("open-provider")
+                            .w(px(30.0))
+                            .h(px(30.0))
+                            .ml_2()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(8.0))
+                            .text_color(muted)
+                            .text_size(px(16.0))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(hover))
+                            .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
+                            .child("⚙"),
+                    ),
             )
     }
 
     fn render_messages(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let background = rgb(0xfcfdfc);
-        let muted = rgb(0x68736f);
+        let background = rgb(0xfbfbfd);
+        let muted = rgb(0x7b8190);
+        let text = rgb(0x262a34);
+        let soft = rgb(0xeff1f8);
         if self.messages.is_empty() {
             return div()
                 .id("messages-scroll")
@@ -1202,23 +1407,75 @@ impl CakifyApp {
                 .bg(background)
                 .child(
                     div()
+                        .w_full()
+                        .max_w(px(620.0))
                         .flex()
                         .flex_col()
                         .items_center()
-                        .gap_2()
+                        .gap_3()
+                        .px_6()
+                        .child(brand_mark(52.0))
                         .child(
                             div()
-                                .text_lg()
+                                .mt_2()
+                                .text_size(px(26.0))
                                 .font_weight(FontWeight::SEMIBOLD)
-                                .child("开始一段对话"),
+                                .text_color(text)
+                                .child("从一个问题开始"),
                         )
-                        .child(div().text_sm().text_color(muted).child(
-                            if self.provider_router.is_configured() {
-                                self.model_editor.read(cx).text(cx)
-                            } else {
-                                "尚未配置 Provider".to_owned()
-                            },
-                        )),
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(muted)
+                                .child(if self.provider_router.is_configured() {
+                                    "流式输出、工具审批和结果都会显示在这里"
+                                } else {
+                                    "先配置一个 Provider，再开始你的第一段对话"
+                                }),
+                        )
+                        .child(
+                            div()
+                                .mt_4()
+                                .w_full()
+                                .flex()
+                                .gap_2()
+                                .children([
+                                    ("总结这段内容", "把重点整理成清晰的要点"),
+                                    ("解释一个概念", "用简单的方式拆解复杂问题"),
+                                    ("帮我写一段代码", "从需求到可运行的实现"),
+                                ]
+                                .into_iter()
+                                .map(|(title, detail)| {
+                                    let prompt = title.to_owned();
+                                    div()
+                                        .id(("suggestion", title))
+                                        .flex_1()
+                                        .rounded(px(10.0))
+                                        .border_1()
+                                        .border_color(rgb(0xe1e4ec))
+                                        .bg(rgb(0xffffff))
+                                        .p_3()
+                                        .flex()
+                                        .flex_col()
+                                        .gap_1()
+                                        .cursor_pointer()
+                                        .hover(|style| style.bg(soft))
+                                        .on_mouse_up(
+                                            MouseButton::Left,
+                                            cx.listener(move |app, event, window, cx| {
+                                                app.use_suggestion(prompt.clone(), event, window, cx);
+                                            }),
+                                        )
+                                        .child(
+                                            div()
+                                                .text_sm()
+                                                .font_weight(FontWeight::SEMIBOLD)
+                                                .text_color(text)
+                                                .child(title),
+                                        )
+                                        .child(div().text_xs().text_color(muted).child(detail))
+                                }),
+                        )
                 );
         }
 
@@ -1246,21 +1503,29 @@ impl CakifyApp {
     }
 
     fn render_message(&self, message: &UiMessage, cx: &mut Context<Self>) -> Div {
-        let text = rgb(0x1c2522);
-        let muted = rgb(0x68736f);
-        let user_surface = rgb(0xe8eeeb);
-        let error = rgb(0xa13d32);
+        let text = rgb(0x262a34);
+        let muted = rgb(0x7b8190);
+        let user_surface = rgb(0xe8ecf8);
+        let accent = rgb(0x5368a5);
+        let error = rgb(0xc65460);
         match message.role {
-            MessageRole::User => div().w_full().flex().justify_end().child(
-                div()
-                    .max_w(px(560.0))
-                    .rounded(px(7.0))
-                    .bg(user_surface)
-                    .px_4()
-                    .py_3()
-                    .text_color(text)
-                    .child(message.content.clone()),
-            ),
+            MessageRole::User => div()
+                .w_full()
+                .flex()
+                .justify_end()
+                .gap_2()
+                .child(
+                    div()
+                        .max_w(px(560.0))
+                        .rounded(px(12.0))
+                        .bg(user_surface)
+                        .px_4()
+                        .py_3()
+                        .text_color(text)
+                        .line_height(px(22.0))
+                        .child(message.content.clone()),
+                )
+                .child(conversation_glyph(accent, "我")),
             MessageRole::Assistant => {
                 let run_tools = message.run_id.map_or_else(Vec::new, |run_id| {
                     self.tool_calls
@@ -1272,30 +1537,41 @@ impl CakifyApp {
                 let mut body = div()
                     .w_full()
                     .flex()
-                    .flex_col()
+                    .items_start()
                     .gap_3()
                     .text_color(text)
                     .child(
-                        div()
-                            .text_xs()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(muted)
-                            .child("Cakify"),
+                        conversation_glyph(accent, "C")
                     );
+                let mut content = div().flex_1().flex().flex_col().gap_3();
+                content = content.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(div().text_sm().font_weight(FontWeight::SEMIBOLD).text_color(text).child("Cakify"))
+                        .child(div().text_xs().text_color(muted).child(match message.state {
+                            MessageState::Sending => "准备中",
+                            MessageState::Streaming => "正在生成",
+                            MessageState::Complete => "已完成",
+                            MessageState::Cancelled => "已停止",
+                            MessageState::Error => "需要处理",
+                        })),
+                );
                 if !message.content.is_empty() {
-                    body = body.child(render_markdown(&message.content));
+                    content = content.child(render_markdown(&message.content));
                 } else if message.state == MessageState::Sending
                     || message.state == MessageState::Streaming
                 {
-                    body = body.child(div().text_sm().text_color(muted).child("正在生成…"));
+                    content = content.child(div().text_sm().text_color(muted).child("正在生成…"));
                 }
-                body = body.children(
+                content = content.children(
                     run_tools
                         .into_iter()
                         .map(|call| self.render_tool_call(call, cx)),
                 );
                 if let Some(error_message) = &message.error {
-                    body = body.child(
+                    content = content.child(
                         div()
                             .flex()
                             .items_center()
@@ -1314,23 +1590,24 @@ impl CakifyApp {
                     );
                 }
                 if message.state == MessageState::Cancelled {
-                    body = body.child(div().text_xs().text_color(muted).child("已停止"));
+                    content = content.child(div().text_xs().text_color(muted).child("已停止"));
                 }
                 if let Some(usage) = &message.usage {
-                    body = body.child(div().text_xs().text_color(muted).child(format_usage(usage)));
+                    content = content.child(div().text_xs().text_color(muted).child(format_usage(usage)));
                 }
+                body = body.child(content);
                 body
             }
         }
     }
 
     fn render_tool_call(&self, call: UiToolCall, cx: &mut Context<Self>) -> Div {
-        let surface = rgb(0xf3f5f4);
-        let border = rgb(0xd8dedb);
-        let text = rgb(0x26312d);
-        let muted = rgb(0x68736f);
-        let accent = rgb(0x126b50);
-        let danger = rgb(0xa13d32);
+        let surface = rgb(0xf3f4f8);
+        let border = rgb(0xdfe2ea);
+        let text = rgb(0x2f3440);
+        let muted = rgb(0x7b8190);
+        let accent = rgb(0x5368a5);
+        let danger = rgb(0xc65460);
         let state = match call.state {
             ToolApprovalState::Streaming => "接收参数",
             ToolApprovalState::AwaitingApproval => "等待审批",
@@ -1461,14 +1738,14 @@ impl CakifyApp {
     }
 
     fn render_composer(&self, cx: &mut Context<Self>) -> Div {
-        let surface = rgb(0xfcfdfc);
+        let surface = rgb(0xfbfbfd);
         let field = rgb(0xffffff);
-        let border = rgb(0xd6ddda);
-        let accent = rgb(0x126b50);
-        let muted = rgb(0x68736f);
+        let border = rgb(0xdfe2ea);
+        let accent = rgb(0x5368a5);
+        let muted = rgb(0x7b8190);
         let focus_handle = self.composer.read(cx).focus_handle.clone();
         let send_label = if self.active_run.is_some() {
-            "停止"
+            "■"
         } else {
             "↑"
         };
@@ -1476,55 +1753,89 @@ impl CakifyApp {
             .bg(surface)
             .border_t_1()
             .border_color(border)
-            .px_5()
-            .pt_3()
+            .px_6()
+            .pt_4()
             .pb_3()
             .child(
                 div()
-                    .max_w(px(760.0))
+                    .max_w(px(780.0))
                     .mx_auto()
-                    .rounded(px(7.0))
+                    .rounded(px(12.0))
                     .border_1()
                     .border_color(border)
                     .bg(field)
-                    .p_2()
+                    .p_3()
                     .flex()
-                    .items_end()
+                    .flex_col()
                     .gap_2()
                     .child(
                         div()
-                            .id("chat-composer")
-                            .key_context("TextInput")
-                            .track_focus(&focus_handle)
-                            .cursor(CursorStyle::IBeam)
-                            .map(editor_actions(self.composer.clone()))
-                            .flex_1()
-                            .h(px(72.0))
-                            .overflow_hidden()
-                            .p_1()
-                            .line_height(px(21.0))
-                            .text_size(px(14.0))
-                            .child(self.composer.clone()),
+                            .flex()
+                            .items_end()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .id("chat-composer")
+                                    .key_context("TextInput")
+                                    .track_focus(&focus_handle)
+                                    .cursor(CursorStyle::IBeam)
+                                    .map(editor_actions(self.composer.clone()))
+                                    .flex_1()
+                                    .h(px(58.0))
+                                    .overflow_hidden()
+                                    .p_1()
+                                    .line_height(px(22.0))
+                                    .text_size(px(14.0))
+                                    .child(self.composer.clone()),
+                            )
+                            .child(
+                                div()
+                                    .id("send-message")
+                                    .w(px(38.0))
+                                    .h(px(38.0))
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .rounded(px(10.0))
+                                    .bg(if self.active_run.is_some() {
+                                        rgb(0xc65460)
+                                    } else {
+                                        accent
+                                    })
+                                    .text_color(rgb(0xffffff))
+                                    .text_size(px(18.0))
+                                    .cursor_pointer()
+                                    .on_mouse_up(MouseButton::Left, cx.listener(Self::send_click))
+                                    .child(send_label),
+                            ),
                     )
                     .child(
                         div()
-                            .id("send-message")
-                            .w(px(34.0))
-                            .h(px(34.0))
+                            .h(px(24.0))
                             .flex()
                             .items_center()
-                            .justify_center()
-                            .rounded(px(5.0))
-                            .bg(accent)
-                            .text_color(rgb(0xffffff))
-                            .cursor_pointer()
-                            .on_mouse_up(MouseButton::Left, cx.listener(Self::send_click))
-                            .child(send_label),
+                            .gap_3()
+                            .text_xs()
+                            .text_color(muted)
+                            .child(
+                                div()
+                                    .id("open-mcp-from-composer")
+                                    .flex()
+                                    .items_center()
+                                    .gap_1()
+                                    .cursor_pointer()
+                                    .hover(|style| style.text_color(accent))
+                                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
+                                    .child("⌁")
+                                    .child("工具"),
+                            )
+                            .child(div().text_color(rgb(0xa7acb7)).child("·"))
+                            .child("支持 Markdown 与多行输入"),
                     ),
             )
             .child(
                 div()
-                    .max_w(px(760.0))
+                    .max_w(px(780.0))
                     .mx_auto()
                     .mt_2()
                     .flex()
@@ -1537,14 +1848,14 @@ impl CakifyApp {
     }
 
     fn render_provider_panel(&self, cx: &mut Context<Self>) -> Div {
-        let surface = rgb(0xf8faf9);
+        let surface = rgb(0xf8f9fc);
         let field = rgb(0xffffff);
-        let border = rgb(0xd6ddda);
-        let text = rgb(0x1c2522);
-        let muted = rgb(0x68736f);
-        let accent = rgb(0x126b50);
+        let border = rgb(0xdfe2ea);
+        let text = rgb(0x262a34);
+        let muted = rgb(0x7b8190);
+        let accent = rgb(0x5368a5);
         div()
-            .w(px(310.0))
+            .w(px(326.0))
             .h_full()
             .flex()
             .flex_col()
@@ -1562,15 +1873,35 @@ impl CakifyApp {
                         div()
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(text)
-                            .child("Provider"),
+                            .child("Provider 设置"),
                     )
-                    .child(div().text_xs().text_color(muted).child(
-                        if self.provider_router.is_configured() {
-                            "已配置"
-                        } else {
-                            "未配置"
-                        },
-                    )),
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(div().text_xs().text_color(muted).child(
+                                if self.provider_router.is_configured() {
+                                    "已配置"
+                                } else {
+                                    "未配置"
+                                },
+                            ))
+                            .child(
+                                div()
+                                    .id("close-provider")
+                                    .w(px(28.0))
+                                    .h(px(28.0))
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .rounded(px(8.0))
+                                    .cursor_pointer()
+                                    .hover(|style| style.bg(rgb(0xe9ecf3)))
+                                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_provider))
+                                    .child("×"),
+                            ),
+                    ),
             )
             .child(labeled_input(
                 "Endpoint",
@@ -1619,15 +1950,15 @@ impl CakifyApp {
     }
 
     fn render_mcp_panel(&self, cx: &mut Context<Self>) -> Div {
-        let surface = rgb(0xf8faf9);
+        let surface = rgb(0xf8f9fc);
         let field = rgb(0xffffff);
-        let border = rgb(0xd6ddda);
-        let text = rgb(0x1c2522);
-        let muted = rgb(0x68736f);
-        let accent = rgb(0x126b50);
-        let selected = rgb(0xe5eeea);
+        let border = rgb(0xdfe2ea);
+        let text = rgb(0x262a34);
+        let muted = rgb(0x7b8190);
+        let accent = rgb(0x5368a5);
+        let selected = rgb(0xe7ebf6);
         div()
-            .w(px(310.0))
+            .w(px(326.0))
             .h_full()
             .flex()
             .flex_col()
@@ -1649,9 +1980,29 @@ impl CakifyApp {
                     )
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(muted)
-                            .child(self.mcp_servers.len().to_string()),
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(muted)
+                                    .child(format!("{} 个", self.mcp_servers.len())),
+                            )
+                            .child(
+                                div()
+                                    .id("close-mcp")
+                                    .w(px(28.0))
+                                    .h(px(28.0))
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .rounded(px(8.0))
+                                    .cursor_pointer()
+                                    .hover(|style| style.bg(rgb(0xe9ecf3)))
+                                    .on_mouse_up(MouseButton::Left, cx.listener(Self::toggle_mcp))
+                                    .child("×"),
+                            ),
                     ),
             )
             .children(self.mcp_servers.iter().enumerate().map(|(index, server)| {
@@ -1834,8 +2185,8 @@ impl Render for CakifyApp {
         div()
             .size_full()
             .flex()
-            .bg(rgb(0xfcfdfc))
-            .text_color(rgb(0x1c2522))
+            .bg(rgb(0xfbfbfd))
+            .text_color(rgb(0x262a34))
             .on_action(cx.listener(Self::submit_from_keyboard))
             .child(self.render_sidebar(cx))
             .child(
@@ -1863,6 +2214,66 @@ impl Drop for CakifyApp {
     }
 }
 
+fn brand_mark(size: f32) -> Div {
+    let accent = rgb(0x5368a5);
+    let ink = rgb(0x2f394d);
+    div()
+        .w(px(size))
+        .h(px(size))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(size * 0.28))
+        .bg(rgb(0xe8ebf4))
+        .text_size(px(size * 0.53))
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_color(accent)
+        .child(
+            div()
+                .w(px(size * 0.58))
+                .flex()
+                .flex_col()
+                .items_start()
+                .gap_1()
+                .child(
+                    div()
+                        .w_full()
+                        .h(px(size * 0.14))
+                        .rounded(px(size * 0.08))
+                        .bg(ink),
+                )
+                .child(
+                    div()
+                        .w(px(size * 0.38))
+                        .h(px(size * 0.14))
+                        .rounded(px(size * 0.08))
+                        .bg(accent),
+                )
+                .child(
+                    div()
+                        .w_full()
+                        .h(px(size * 0.14))
+                        .rounded(px(size * 0.08))
+                        .bg(ink),
+                ),
+        )
+}
+
+fn conversation_glyph(color: gpui::Rgba, label: &'static str) -> Div {
+    div()
+        .w(px(28.0))
+        .h(px(28.0))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(px(9.0))
+        .bg(rgb(0xe8ebf4))
+        .text_size(px(12.0))
+        .font_weight(FontWeight::SEMIBOLD)
+        .text_color(color)
+        .child(label)
+}
+
 fn labeled_input(
     label: &'static str,
     id: &'static str,
@@ -1876,7 +2287,7 @@ fn labeled_input(
         .flex()
         .flex_col()
         .gap_2()
-        .child(div().text_xs().text_color(rgb(0x68736f)).child(label))
+        .child(div().text_xs().text_color(rgb(0x7b8190)).child(label))
         .child(
             div()
                 .id(id)
@@ -1900,10 +2311,10 @@ fn labeled_input(
 }
 
 fn render_markdown(source: &str) -> Div {
-    let text = rgb(0x1c2522);
-    let muted = rgb(0x68736f);
-    let code_surface = rgb(0xf0f3f1);
-    let border = rgb(0xd8dedb);
+    let text = rgb(0x262a34);
+    let muted = rgb(0x7b8190);
+    let code_surface = rgb(0xf2f3f7);
+    let border = rgb(0xdfe2ea);
     div().w_full().flex().flex_col().gap_3().children(
         parse_markdown(source)
             .into_iter()
@@ -1962,7 +2373,7 @@ fn render_markdown(source: &str) -> Div {
                 MarkdownBlock::Quote(value) => div()
                     .w_full()
                     .border_l_2()
-                    .border_color(rgb(0x8aa69b))
+                    .border_color(rgb(0x8290bd))
                     .pl_3()
                     .text_color(muted)
                     .child(value),
