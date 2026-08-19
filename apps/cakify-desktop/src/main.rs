@@ -21,12 +21,12 @@ use cakify_storage::{
     StorageError, StorageHandle,
 };
 use composer::{bind_input_keys, editor_actions, Submit, TextEditor};
-use icons::{icon, IconName};
 use gpui::{
     div, prelude::*, px, rgb, size, App, Bounds, Context, CursorStyle, Div, Entity, FontWeight,
     MouseButton, MouseUpEvent, SharedString, TitlebarOptions, Window, WindowBounds, WindowOptions,
 };
 use gpui_platform::application;
+use icons::{icon, IconName};
 use markdown::{parse_markdown, MarkdownBlock};
 
 const WINDOW_WIDTH: f32 = 960.0;
@@ -307,12 +307,12 @@ impl CakifyApp {
             )
         });
 
-        let (workspace, settings_section) =
-            match std::env::var("CAKIFY_SMOKE_VIEW").ok().as_deref() {
-                Some("settings-provider") => (Workspace::Settings, SettingsSection::Provider),
-                Some("settings-mcp") => (Workspace::Settings, SettingsSection::Mcp),
-                _ => (Workspace::Chat, SettingsSection::Provider),
-            };
+        let (workspace, settings_section) = match std::env::var("CAKIFY_SMOKE_VIEW").ok().as_deref()
+        {
+            Some("settings-provider") => (Workspace::Settings, SettingsSection::Provider),
+            Some("settings-mcp") => (Workspace::Settings, SettingsSection::Mcp),
+            _ => (Workspace::Chat, SettingsSection::Provider),
+        };
 
         Self {
             core: services.core,
@@ -1338,17 +1338,13 @@ impl CakifyApp {
                     .child(icon(IconName::ArrowLeft, 18.0, accent)),
             )
             .child(div().flex_1())
-            .child(
-                div()
-                    .w(px(8.0))
-                    .h(px(8.0))
-                    .rounded(px(99.0))
-                    .bg(if self.provider_router.is_configured() {
-                        rgb(0x1b986b)
-                    } else {
-                        rgb(0xd7a13e)
-                    }),
-            );
+            .child(div().w(px(8.0)).h(px(8.0)).rounded(px(99.0)).bg(
+                if self.provider_router.is_configured() {
+                    rgb(0x1b986b)
+                } else {
+                    rgb(0xd7a13e)
+                },
+            ));
         let navigation = div()
             .w(px(224.0))
             .h_full()
@@ -2103,12 +2099,7 @@ impl CakifyApp {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child("模型服务"),
                             )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(muted)
-                                    .child("OpenAI Compatible"),
-                            ),
+                            .child(div().text_xs().text_color(muted).child("OpenAI Compatible")),
                     )
                     .child(
                         div()
@@ -2117,7 +2108,13 @@ impl CakifyApp {
                             .gap_2()
                             .text_sm()
                             .text_color(status_color)
-                            .child(div().w(px(7.0)).h(px(7.0)).rounded(px(99.0)).bg(status_color))
+                            .child(
+                                div()
+                                    .w(px(7.0))
+                                    .h(px(7.0))
+                                    .rounded(px(99.0))
+                                    .bg(status_color),
+                            )
                             .child(if self.provider_router.is_configured() {
                                 "已配置"
                             } else {
@@ -2160,12 +2157,9 @@ impl CakifyApp {
                                                     .font_weight(FontWeight::SEMIBOLD)
                                                     .child("默认聊天模型"),
                                             )
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .text_color(muted)
-                                                    .child("用于新对话、重试和工具回填后的继续生成"),
-                                            ),
+                                            .child(div().text_sm().text_color(muted).child(
+                                                "用于新对话、重试和工具回填后的继续生成",
+                                            )),
                                     )
                                     .child(
                                         div()
@@ -2672,12 +2666,11 @@ impl Render for CakifyApp {
                 )
             })
             .when(self.workspace == Workspace::Settings, |view| {
-                view.child(self.render_settings_sidebar(cx)).child(
-                    match self.settings_section {
+                view.child(self.render_settings_sidebar(cx))
+                    .child(match self.settings_section {
                         SettingsSection::Provider => self.render_provider_settings(cx),
                         SettingsSection::Mcp => self.render_mcp_settings(cx),
-                    },
-                )
+                    })
             })
     }
 }
